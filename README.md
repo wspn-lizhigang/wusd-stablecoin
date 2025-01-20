@@ -23,10 +23,7 @@ anchor build
 ```bash
 anchor deploy
 ```
-
-pubkey: 28jEaTYe2yDD1vpMxX2XnAnqsk1Rm4YN8N8BC6bi3kgM
-
-3. Update the program ID in lib.rs with the deployed program ID.
+1. Update the program ID in lib.rs with the deployed program ID.
 
 ## Usage
 
