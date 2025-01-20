@@ -36,4 +36,4 @@ The program exposes three main instructions:
 2. Deposit: Deposit collateral and receive WUSD
 3. Swap: Swap between tokens and WUSD
 
-Each instruction requires specific accounts to be provided as defined in the program's account structures.
+Each instruction requires specific accounts to be provided as defined in the program's account structures. 

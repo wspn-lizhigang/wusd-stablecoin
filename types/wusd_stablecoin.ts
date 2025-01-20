@@ -8,9 +8,9 @@ export type WusdStablecoin = {
   "address": "B7EV2BY6dWzjcPYnHL5UympTZzGtMZGRJ3KyGhv5AfJ4",
   "metadata": {
     "name": "wusdStablecoin",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "spec": "0.1.0",
-    "description": "Created with Anchor"
+    "description": "Created with WSPN"
   },
   "instructions": [
     {
@@ -84,69 +84,6 @@ export type WusdStablecoin = {
         }
       ],
       "args": []
-    },
-    {
-      "name": "deposit",
-      "discriminator": [
-        242,
-        35,
-        198,
-        137,
-        82,
-        225,
-        242,
-        182
-      ],
-      "accounts": [
-        {
-          "name": "user",
-          "signer": true
-        },
-        {
-          "name": "userUsdc",
-          "writable": true
-        },
-        {
-          "name": "userWusd",
-          "writable": true
-        },
-        {
-          "name": "wusdMint",
-          "writable": true
-        },
-        {
-          "name": "treasury",
-          "writable": true
-        },
-        {
-          "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "amount",
-          "type": "u64"
-        }
-      ]
     },
     {
       "name": "initialize",
@@ -467,23 +404,38 @@ export type WusdStablecoin = {
       "accounts": [
         {
           "name": "user",
+          "writable": true,
           "signer": true
-        },
-        {
-          "name": "userUsdc",
-          "writable": true
         },
         {
           "name": "userWusd",
           "writable": true
         },
         {
-          "name": "wusdMint",
+          "name": "stakeVault",
           "writable": true
         },
         {
-          "name": "treasury",
-          "writable": true
+          "name": "stakeAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  107,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
         },
         {
           "name": "state",
@@ -556,19 +508,6 @@ export type WusdStablecoin = {
         140,
         212,
         219
-      ]
-    },
-    {
-      "name": "depositEvent",
-      "discriminator": [
-        120,
-        248,
-        61,
-        83,
-        31,
-        142,
-        107,
-        144
       ]
     },
     {
@@ -672,22 +611,6 @@ export type WusdStablecoin = {
   "types": [
     {
       "name": "claimEvent",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "user",
-            "type": "pubkey"
-          },
-          {
-            "name": "amount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "depositEvent",
       "type": {
         "kind": "struct",
         "fields": [
