@@ -1,0 +1,14 @@
+[workspace]
+members = ["programs/*"]
+types = "types/"
+features = []
+
+[programs.devnet]
+wusd_stablecoin = "B7EV2BY6dWzjcPYnHL5UympTZzGtMZGRJ3KyGhv5AfJ4"
+
+[registry]
+url = "https://anchor.projectserum.com"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
