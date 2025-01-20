@@ -65,16 +65,35 @@ pub struct Claim<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
+pub enum StakingStatus {
+    Active,
+    Terminated,
+    Claimed,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
+pub enum ClaimType {
+    Normal,
+    Emergency,
+    Matured,
+}
+
 #[account]
 pub struct StakeAccount {
     pub owner: Pubkey,
     pub amount: u64,
     pub rewards_earned: u64,
     pub last_update_time: i64,
+    pub lock_end_time: i64,
+    pub status: StakingStatus,
+    pub claim_type: ClaimType,
+    pub apy_tier: u8,
+    pub emergency_cooldown: i64,
 }
 
 impl StakeAccount {
-    pub const LEN: usize = 32 + 8 + 8 + 8;
+    pub const LEN: usize = 32 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 8;
 }
 
 #[event]
@@ -92,6 +111,7 @@ pub struct ClaimEvent {
 pub fn stake(
     ctx: Context<Stake>,
     amount: u64,
+    lock_duration: i64,
 ) -> Result<()> {
     require!(amount > 0, WUSDError::InvalidAmount);
 
@@ -106,10 +126,23 @@ pub fn stake(
     );
     token::transfer(transfer_ctx, amount)?;
 
+    // 验证锁定期
+    require!(lock_duration >= ctx.accounts.state.min_lock_duration, WUSDError::InvalidLockDuration);
+    require!(lock_duration <= ctx.accounts.state.max_lock_duration, WUSDError::InvalidLockDuration);
+
     // 更新质押账户
     let stake_account = &mut ctx.accounts.stake_account;
     let now = Clock::get()?.unix_timestamp;
     
+    // 设置APY等级
+    stake_account.apy_tier = if lock_duration >= ctx.accounts.state.high_apy_threshold {
+        2 // 高收益等级
+    } else if lock_duration >= ctx.accounts.state.medium_apy_threshold {
+        1 // 中等收益等级
+    } else {
+        0 // 基础收益等级
+    };
+
     if stake_account.amount > 0 {
         // 如果已经有质押，先计算并更新之前的奖励
         let time_passed = now - stake_account.last_update_time;
@@ -121,6 +154,9 @@ pub fn stake(
 
     stake_account.amount += amount;
     stake_account.last_update_time = now;
+    stake_account.lock_end_time = now + lock_duration;
+    stake_account.status = StakingStatus::Active;
+    stake_account.claim_type = ClaimType::Normal;
     
     if stake_account.owner == Pubkey::default() {
         stake_account.owner = ctx.accounts.user.key();

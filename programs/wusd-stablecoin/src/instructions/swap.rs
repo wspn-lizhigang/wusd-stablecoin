@@ -25,7 +25,9 @@ pub struct Swap<'info> {
         mut,
         seeds = [b"state"],
         bump,
-        constraint = state.paused == false
+        constraint = state.paused == false,
+        constraint = state.is_token_whitelisted(user_token_in.mint) @ WUSDError::TokenNotWhitelisted,
+        constraint = state.is_token_whitelisted(user_token_out.mint) @ WUSDError::TokenNotWhitelisted
     )]
     pub state: Account<'info, StateAccount>,
     
@@ -65,8 +67,13 @@ pub fn swap(
         )
     };
 
-    // Calculate amount out based on 1:1 ratio
-    let amount_out = amount_in;
+    // Calculate amount out based on exchange rate and decimals
+    let amount_out = calculate_output_amount(
+        amount_in,
+        ctx.accounts.user_token_in.mint,
+        ctx.accounts.user_token_out.mint,
+        &ctx.accounts.state,
+    )?;
     require!(amount_out >= min_amount_out, WUSDError::SlippageExceeded);
 
     // Transfer tokens from user
@@ -106,4 +113,30 @@ pub fn swap(
     });
 
     Ok(())
+}
+
+// Helper function to calculate output amount considering exchange rate and decimals
+fn calculate_output_amount(
+    amount_in: u64,
+    token_in_mint: Pubkey,
+    token_out_mint: Pubkey,
+    state: &StateAccount,
+) -> Result<u64> {
+    // Get token decimals and exchange rate from state
+    let (in_decimals, out_decimals) = if token_in_mint == state.usdc_mint {
+        (state.usdc_decimals, state.wusd_decimals)
+    } else {
+        (state.wusd_decimals, state.usdc_decimals)
+    };
+
+    // Adjust amount based on decimals
+    let decimal_factor = 10u64.pow((out_decimals as u32).saturating_sub(in_decimals as u32));
+    let amount_out = amount_in.checked_mul(decimal_factor).ok_or(WUSDError::MathOverflow)?;
+
+    // Apply exchange rate if needed
+    let exchange_rate = state.get_exchange_rate(token_in_mint, token_out_mint);
+    let final_amount = amount_out.checked_mul(exchange_rate).ok_or(WUSDError::MathOverflow)?
+        .checked_div(1_000_000_000).ok_or(WUSDError::MathOverflow)?;
+
+    Ok(final_amount)
 }

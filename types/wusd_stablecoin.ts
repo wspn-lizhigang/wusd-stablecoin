@@ -606,6 +606,36 @@ export type WusdStablecoin = {
       "code": 6005,
       "name": "noRewardsToClaim",
       "msg": "No rewards to claim"
+    },
+    {
+      "code": 6006,
+      "name": "invalidLockDuration",
+      "msg": "Invalid lock duration"
+    },
+    {
+      "code": 6007,
+      "name": "invalidStakingStatus",
+      "msg": "Invalid staking status"
+    },
+    {
+      "code": 6008,
+      "name": "emergencyWithdrawCooldown",
+      "msg": "Emergency withdraw cooldown"
+    },
+    {
+      "code": 6009,
+      "name": "stakeLocked",
+      "msg": "Stake is locked"
+    },
+    {
+      "code": 6010,
+      "name": "tokenNotWhitelisted",
+      "msg": "Token not whitelisted"
+    },
+    {
+      "code": 6011,
+      "name": "mathOverflow",
+      "msg": "Math overflow"
     }
   ],
   "types": [
@@ -621,6 +651,23 @@ export type WusdStablecoin = {
           {
             "name": "amount",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "claimType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "normal"
+          },
+          {
+            "name": "emergency"
+          },
+          {
+            "name": "matured"
           }
         ]
       }
@@ -652,6 +699,34 @@ export type WusdStablecoin = {
           {
             "name": "lastUpdateTime",
             "type": "i64"
+          },
+          {
+            "name": "lockEndTime",
+            "type": "i64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "stakingStatus"
+              }
+            }
+          },
+          {
+            "name": "claimType",
+            "type": {
+              "defined": {
+                "name": "claimType"
+              }
+            }
+          },
+          {
+            "name": "apyTier",
+            "type": "u8"
+          },
+          {
+            "name": "emergencyCooldown",
+            "type": "i64"
           }
         ]
       }
@@ -668,6 +743,23 @@ export type WusdStablecoin = {
           {
             "name": "amount",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "stakingStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "active"
+          },
+          {
+            "name": "terminated"
+          },
+          {
+            "name": "claimed"
           }
         ]
       }
@@ -716,6 +808,38 @@ export type WusdStablecoin = {
           {
             "name": "lastUpdateTime",
             "type": "i64"
+          },
+          {
+            "name": "minLockDuration",
+            "type": "i64"
+          },
+          {
+            "name": "maxLockDuration",
+            "type": "i64"
+          },
+          {
+            "name": "emergencyWithdrawPenalty",
+            "type": "u64"
+          },
+          {
+            "name": "emergencyCooldownDuration",
+            "type": "i64"
+          },
+          {
+            "name": "highApyThreshold",
+            "type": "i64"
+          },
+          {
+            "name": "mediumApyThreshold",
+            "type": "i64"
+          },
+          {
+            "name": "usdcDecimals",
+            "type": "u8"
+          },
+          {
+            "name": "wusdDecimals",
+            "type": "u8"
           }
         ]
       }

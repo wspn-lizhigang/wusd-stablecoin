@@ -9,6 +9,7 @@ mod error;
 use crate::instructions::*;
 use state::*;
 use error::*;
+use crate::instructions::stake::{StakingStatus, ClaimType};
 
 declare_id!("B7EV2BY6dWzjcPYnHL5UympTZzGtMZGRJ3KyGhv5AfJ4");
 
@@ -32,7 +33,7 @@ pub mod wusd_stablecoin {
     }
 
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
-        instructions::withdraw::withdraw(ctx, amount)
+        instructions::withdraw::withdraw(ctx, amount, false)
     }
 
     pub fn swap(
@@ -45,7 +46,7 @@ pub mod wusd_stablecoin {
     }
 
     pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
-        instructions::stake::stake(ctx, amount)
+        instructions::stake::stake(ctx, amount, 0) // 默认锁定期为0
     }
 
     pub fn claim(ctx: Context<Claim>) -> Result<()> {

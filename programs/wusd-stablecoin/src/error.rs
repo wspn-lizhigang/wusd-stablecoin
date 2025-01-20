@@ -14,4 +14,16 @@ pub enum WUSDError {
     SlippageExceeded,
     #[msg("No rewards to claim")]
     NoRewardsToClaim,
+    #[msg("Invalid lock duration")]
+    InvalidLockDuration,
+    #[msg("Invalid staking status")]
+    InvalidStakingStatus,
+    #[msg("Emergency withdraw cooldown")]
+    EmergencyWithdrawCooldown,
+    #[msg("Stake is locked")]
+    StakeLocked,
+    #[msg("Token not whitelisted")]
+    TokenNotWhitelisted,
+    #[msg("Math overflow")]
+    MathOverflow,
 }
