@@ -221,5 +221,7 @@ pub fn soft_claim(ctx: Context<SoftClaim>) -> Result<()> {
 pub fn calculate_rewards(amount: u64, apy: u64, duration: i64) -> u64 {
     let seconds_per_year: u128 = 365 * 24 * 60 * 60;
     let scale: u128 = 1_000_000;
-    ((amount as u128) * (apy as u128) * (duration as u128) / (seconds_per_year * scale)) as u64
+    amount.checked_mul(apy).unwrap_or(0)
+        .checked_mul(duration as u64).unwrap_or(0)
+        .checked_div((seconds_per_year * scale) as u64).unwrap_or(0)
 }
