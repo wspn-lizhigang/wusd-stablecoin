@@ -24,7 +24,7 @@ pub mod wusd_stablecoin {
         let state = &mut ctx.accounts.state;
         state.authority = ctx.accounts.authority.key();
         state.wusd_mint = ctx.accounts.wusd_mint.key();
-        state.usdc_mint = ctx.accounts.usdc_mint.key();
+        state.collateral_mint = ctx.accounts.collateral_mint.key();
         state.treasury = ctx.accounts.treasury.key();
         state.total_supply = 0;
         state.decimals = decimals;
@@ -40,9 +40,8 @@ pub mod wusd_stablecoin {
         ctx: Context<Swap>,
         amount_in: u64,
         min_amount_out: u64,
-        is_usdc_to_wusd: bool,
     ) -> Result<()> {
-        instructions::swap::swap(ctx, amount_in, min_amount_out, is_usdc_to_wusd)
+        instructions::swap::swap(ctx, amount_in, min_amount_out)
     }
 
     pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
@@ -89,7 +88,7 @@ pub struct Initialize<'info> {
     pub state: Account<'info, StateAccount>,
     
     pub wusd_mint: Account<'info, Mint>,
-    pub usdc_mint: Account<'info, Mint>,
+    pub collateral_mint: Account<'info, Mint>,
     pub treasury: Account<'info, TokenAccount>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,

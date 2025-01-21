@@ -11,15 +11,17 @@ describe("wusd-stablecoin", () => {
   const program = anchor.workspace.WusdStablecoin as Program<WusdStablecoin>;
   const authority = provider.wallet;
   let wusdMint: PublicKey;
-  let usdcMint: PublicKey;
+  let collateralMint: PublicKey;
   let treasury: PublicKey;
   let state: PublicKey;
   let userWusd: PublicKey;
-  let userUsdc: PublicKey;
+  let userCollateral: PublicKey;
+  let softStakeAccount: PublicKey;
+  let stakeVault: PublicKey;
   let stakeAccount: PublicKey;
 
   before(async () => {
-    // Create WUSD and USDC mints
+    // Create WUSD and collateral mints
     wusdMint = await createMint(
       provider.connection,
       provider.wallet.publicKey,
@@ -28,7 +30,7 @@ describe("wusd-stablecoin", () => {
       8
     );
 
-    usdcMint = await createMint(
+    collateralMint = await createMint(
       provider.connection,
       provider.wallet.publicKey,
       authority.publicKey,
@@ -44,10 +46,10 @@ describe("wusd-stablecoin", () => {
       authority.publicKey
     );
 
-    userUsdc = await createAccount(
+    userCollateral = await createAccount(
       provider.connection,
       provider.wallet.publicKey,
-      usdcMint,
+      collateralMint,
       authority.publicKey
     );
 
@@ -55,7 +57,7 @@ describe("wusd-stablecoin", () => {
     treasury = await createAccount(
       provider.connection,
       provider.wallet.publicKey,
-      usdcMint,
+      collateralMint,
       authority.publicKey
     );
 
@@ -65,10 +67,18 @@ describe("wusd-stablecoin", () => {
       program.programId
     );
 
-    // Derive PDA for stake account
-    [stakeAccount] = await PublicKey.findProgramAddress(
-      [Buffer.from("stake"), authority.publicKey.toBuffer()],
+    // Derive PDA for soft stake account
+    [softStakeAccount] = await PublicKey.findProgramAddress(
+      [Buffer.from("softstake"), authority.publicKey.toBuffer()],
       program.programId
+    );
+
+    // Create stake vault
+    stakeVault = await createAccount(
+      provider.connection,
+      provider.wallet.publicKey,
+      wusdMint,
+      authority.publicKey
     );
   });
 
@@ -79,7 +89,98 @@ describe("wusd-stablecoin", () => {
         authority: authority.publicKey,
         state,
         wusdMint,
-        usdcMint,
+        collateralMint,
+        treasury,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .rpc();
+    console.log("Initialize transaction:", tx);
+  });
+
+  it("Swaps collateral to WUSD", async () => {
+    const amount = new anchor.BN(500000); // 0.5 collateral tokens
+    const minAmountOut = new anchor.BN(450000); // 允许5%的滑点
+    await mintTo(
+      provider.connection,
+      authority.publicKey,
+      collateralMint,
+      userCollateral,
+      authority.publicKey,
+      amount.toNumber()
+    );
+
+    const tx = await program.methods
+      .swap(amount, minAmountOut, true) // true表示collateral到WUSD的兑换
+      .accounts({
+        user: authority.publicKey,
+        userTokenIn: userCollateral,
+        userTokenOut: userWusd,
+        vaultTokenIn: treasury,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        state,
+        wusdMint,
+        collateralMint,
+        treasury
+      })
+      .rpc();
+    console.log("Swap transaction:", tx);
+  });
+
+  it("Soft stakes WUSD", async () => {
+    const amount = new anchor.BN(1000000); // 1 WUSD
+    const staking_pool_id = new anchor.BN(1);
+    const access_key = Buffer.alloc(32);
+    crypto.randomFillSync(access_key);
+
+    await mintTo(
+      provider.connection,
+      authority.publicKey,
+      wusdMint,
+      userWusd,
+      authority.publicKey,
+      amount.toNumber()
+    );
+
+    const tx = await program.methods
+      .softStake(amount, staking_pool_id, access_key)
+      .accounts({
+        user: authority.publicKey,
+        userWusd,
+        stakeAccount: softStakeAccount,
+        stakeVault,
+        state,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .rpc();
+    console.log("Soft stake transaction:", tx);
+  });
+
+  it("Claims soft stake rewards", async () => {
+    const tx = await program.methods
+      .softClaim()
+      .accounts({
+        user: authority.publicKey,
+        stakeAccount: softStakeAccount,
+        userWusd,
+        wusdMint,
+        state,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .rpc();
+    console.log("Soft claim transaction:", tx);
+  });
+
+  it("Initializes the protocol", async () => {
+    const tx = await program.methods
+      .initialize(8)
+      .accounts({
+        authority: authority.publicKey,
+        state,
+        wusdMint,
+        collateralMint,
         treasury,
         systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
@@ -128,29 +229,29 @@ describe("wusd-stablecoin", () => {
     console.log("Claim transaction:", tx);
   });
 
-  it("Swaps USDC to WUSD", async () => {
-    const amount = new anchor.BN(500000); // 0.5 USDC
+  it("Swaps collateral to WUSD again", async () => {
+    const amount = new anchor.BN(500000); // 0.5 collateral tokens
     const minAmountOut = new anchor.BN(450000); // 允许5%的滑点
     await mintTo(
       provider.connection,
       authority.publicKey,
-      usdcMint,
-      userUsdc,
+      collateralMint,
+      userCollateral,
       authority.publicKey,
       amount.toNumber()
     );
 
     const tx = await program.methods
-      .swap(amount, minAmountOut, true) // true表示USDC到WUSD的兑换
+      .swap(amount, minAmountOut, true) // true表示collateral到WUSD的兑换
       .accounts({
         user: authority.publicKey,
-        userTokenIn: userUsdc,
+        userTokenIn: userCollateral,
         userTokenOut: userWusd,
         vaultTokenIn: treasury,
         tokenProgram: TOKEN_PROGRAM_ID,
         state,
         wusdMint,
-        usdcMint,
+        collateralMint,
         treasury
       })
       .rpc();

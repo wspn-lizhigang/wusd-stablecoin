@@ -1,11 +1,11 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+use anchor_spl::token::{self, Mint, Token, TokenAccount};
 use crate::state::{StateAccount, PoolStatus};
 use crate::error::WUSDError;
 
 #[derive(Accounts)]
 #[instruction(bump: u8)]
-pub struct Stake<'info> {
+pub struct SoftStake<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     
@@ -15,11 +15,11 @@ pub struct Stake<'info> {
     #[account(
         init_if_needed,
         payer = user,
-        space = 8 + StakeAccount::LEN,
-        seeds = [b"stake", user.key().as_ref()],
+        space = 8 + SoftStakeAccount::LEN,
+        seeds = [b"softstake", user.key().as_ref()],
         bump
     )]
-    pub stake_account: Account<'info, StakeAccount>,
+    pub stake_account: Account<'info, SoftStakeAccount>,
     
     #[account(mut)]
     pub stake_vault: Account<'info, TokenAccount>,
@@ -37,16 +37,16 @@ pub struct Stake<'info> {
 }
 
 #[derive(Accounts)]
-pub struct Claim<'info> {
+pub struct SoftClaim<'info> {
     pub user: Signer<'info>,
     
     #[account(
         mut,
-        seeds = [b"stake", user.key().as_ref()],
+        seeds = [b"softstake", user.key().as_ref()],
         bump,
         constraint = stake_account.owner == user.key()
     )]
-    pub stake_account: Account<'info, StakeAccount>,
+    pub stake_account: Account<'info, SoftStakeAccount>,
     
     #[account(mut)]
     pub user_wusd: Account<'info, TokenAccount>,
@@ -66,21 +66,14 @@ pub struct Claim<'info> {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
-pub enum StakingStatus {
+pub enum SoftStakingStatus {
     Active,
     Claimable,
     Claimed,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
-pub enum ClaimType {
-    Unclaimed,
-    Prematured,
-    Matured,
-}
-
 #[account]
-pub struct StakeAccount {
+pub struct SoftStakeAccount {
     pub owner: Pubkey,
     pub staking_pool_id: u64,
     pub amount: u64,
@@ -89,56 +82,52 @@ pub struct StakeAccount {
     pub end_time: i64,
     pub claimable_timestamp: i64,
     pub rewards_earned: u64,
-    pub status: StakingStatus,
-    pub claim_type: ClaimType,
-    pub apy_tier: u8,
-    pub emergency_cooldown: i64,
+    pub status: SoftStakingStatus,
+    pub access_key: [u8; 32],
     pub last_update_time: i64,
 }
 
-impl StakeAccount {
-    pub const LEN: usize = 32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 8;
+impl SoftStakeAccount {
+    pub const LEN: usize = 32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 32 + 8;
 }
 
 #[event]
-pub struct StakeEvent {
+pub struct SoftStakeEvent {
     pub user: Pubkey,
-    pub staking_plan_id: u64,
     pub staking_pool_id: u64,
     pub amount: u64,
     pub apy: u64,
     pub start_time: i64,
     pub end_time: i64,
-    pub staked_at: i64,
+    pub access_key: [u8; 32],
 }
 
 #[event]
-pub struct ClaimEvent {
+pub struct SoftClaimEvent {
     pub user: Pubkey,
     pub amount: u64,
+    pub access_key: [u8; 32],
 }
 
-pub fn stake(
-    ctx: Context<Stake>,
+pub fn soft_stake(
+    ctx: Context<SoftStake>,
     amount: u64,
     staking_pool_id: u64,
+    access_key: [u8; 32],
 ) -> Result<()> {
     require!(amount > 0, WUSDError::InvalidAmount);
     require!(staking_pool_id > 0, WUSDError::InvalidPoolId);
 
-    // 获取所有需要的状态值
     let staking_pool = ctx.accounts.state.get_staking_pool(staking_pool_id)?;
     require!(staking_pool.status == PoolStatus::Active, WUSDError::InvalidPoolStatus);
     require!(amount >= staking_pool.min_stake_amount, WUSDError::StakingAmountTooLow);
     
     let pool_apy = staking_pool.apy;
     let pool_duration = staking_pool.duration;
-    let total_staking_plans = ctx.accounts.state.total_staking_plans;
 
-    // 转移 WUSD 到质押保险库
     let transfer_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
-        Transfer {
+        token::Transfer {
             from: ctx.accounts.user_wusd.to_account_info(),
             to: ctx.accounts.stake_vault.to_account_info(),
             authority: ctx.accounts.user.to_account_info(),
@@ -149,7 +138,6 @@ pub fn stake(
     let now = Clock::get()?.unix_timestamp;
     let stake_account = &mut ctx.accounts.stake_account;
     
-    // 如果已经有质押，先计算并更新之前的奖励
     if stake_account.amount > 0 {
         let time_passed = now - stake_account.start_time;
         let rewards = calculate_rewards(
@@ -160,49 +148,39 @@ pub fn stake(
         stake_account.rewards_earned += rewards;
     }
 
-    // 更新质押账户
     stake_account.staking_pool_id = staking_pool_id;
     stake_account.amount = amount;
     stake_account.apy = pool_apy;
     stake_account.start_time = now;
     stake_account.end_time = now + pool_duration;
-    stake_account.status = StakingStatus::Active;
-    stake_account.claim_type = ClaimType::Unclaimed;
+    stake_account.status = SoftStakingStatus::Active;
+    stake_account.access_key = access_key;
     
     if stake_account.owner == Pubkey::default() {
         stake_account.owner = ctx.accounts.user.key();
     }
 
-    // 更新全局状态
     let state = &mut ctx.accounts.state;
     state.total_staked += amount;
     state.last_update_time = now;
 
-    emit!(StakeEvent {
+    emit!(SoftStakeEvent {
         user: ctx.accounts.user.key(),
-        staking_plan_id: total_staking_plans + 1,
         staking_pool_id,
         amount,
         apy: pool_apy,
         start_time: now,
         end_time: now + pool_duration,
-        staked_at: now,
+        access_key,
     });
 
     Ok(())
 }
 
-pub fn calculate_rewards(amount: u64, apy: u64, duration: i64) -> u64 {
-    let seconds_per_year: u128 = 365 * 24 * 60 * 60;
-    let scale: u128 = 1_000_000;
-    ((amount as u128) * (apy as u128) * (duration as u128) / (seconds_per_year * scale)) as u64
-}
-
-pub fn claim(ctx: Context<Claim>) -> Result<()> {
+pub fn soft_claim(ctx: Context<SoftClaim>) -> Result<()> {
     let stake_account = &mut ctx.accounts.stake_account;
     let now = Clock::get()?.unix_timestamp;
     
-    // 计算新的奖励
     let time_passed = now - stake_account.last_update_time;
     let new_rewards = stake_account.amount.checked_mul(ctx.accounts.state.reward_rate).unwrap_or(0)
         .checked_mul(time_passed as u64).unwrap_or(0)
@@ -211,7 +189,6 @@ pub fn claim(ctx: Context<Claim>) -> Result<()> {
     
     require!(total_rewards > 0, WUSDError::NoRewardsToClaim);
 
-    // 铸造奖励代币
     let seeds = &[
         b"state".as_ref(),
         &[ctx.bumps.state],
@@ -229,13 +206,20 @@ pub fn claim(ctx: Context<Claim>) -> Result<()> {
     );
     token::mint_to(mint_ctx, total_rewards)?;
 
-    // 更新状态
     stake_account.rewards_earned = 0;
     stake_account.last_update_time = now;
+    stake_account.status = SoftStakingStatus::Claimed;
 
-    emit!(ClaimEvent {
+    emit!(SoftClaimEvent {
         user: ctx.accounts.user.key(),
         amount: total_rewards,
+        access_key: stake_account.access_key,
     }); 
     Ok(())
+}
+
+pub fn calculate_rewards(amount: u64, apy: u64, duration: i64) -> u64 {
+    let seconds_per_year: u128 = 365 * 24 * 60 * 60;
+    let scale: u128 = 1_000_000;
+    ((amount as u128) * (apy as u128) * (duration as u128) / (seconds_per_year * scale)) as u64
 }

@@ -26,4 +26,10 @@ pub enum WUSDError {
     TokenNotWhitelisted,
     #[msg("Math overflow")]
     MathOverflow,
+    #[msg("Invalid pool ID")]
+    InvalidPoolId,
+    #[msg("Invalid pool status")]
+    InvalidPoolStatus,
+    #[msg("Staking amount too low")]
+    StakingAmountTooLow,
 }

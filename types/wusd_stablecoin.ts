@@ -125,7 +125,7 @@ export type WusdStablecoin = {
           "name": "wusdMint"
         },
         {
-          "name": "usdcMint"
+          "name": "collateralMint"
         },
         {
           "name": "treasury"
@@ -296,14 +296,6 @@ export type WusdStablecoin = {
           "writable": true
         },
         {
-          "name": "vaultTokenIn",
-          "writable": true
-        },
-        {
-          "name": "vaultTokenOut",
-          "writable": true
-        },
-        {
           "name": "tokenProgram",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
@@ -344,10 +336,6 @@ export type WusdStablecoin = {
         {
           "name": "minAmountOut",
           "type": "u64"
-        },
-        {
-          "name": "isUsdcToWusd",
-          "type": "bool"
         }
       ]
     },
@@ -480,19 +468,6 @@ export type WusdStablecoin = {
         189,
         192,
         255
-      ]
-    },
-    {
-      "name": "stateAccount",
-      "discriminator": [
-        142,
-        247,
-        54,
-        95,
-        85,
-        133,
-        249,
-        103
       ]
     }
   ],
@@ -636,6 +611,21 @@ export type WusdStablecoin = {
       "code": 6011,
       "name": "mathOverflow",
       "msg": "Math overflow"
+    },
+    {
+      "code": 6012,
+      "name": "invalidPoolId",
+      "msg": "Invalid pool ID"
+    },
+    {
+      "code": 6013,
+      "name": "invalidPoolStatus",
+      "msg": "Invalid pool status"
+    },
+    {
+      "code": 6014,
+      "name": "stakingAmountTooLow",
+      "msg": "Staking amount too low"
     }
   ],
   "types": [
@@ -661,10 +651,10 @@ export type WusdStablecoin = {
         "kind": "enum",
         "variants": [
           {
-            "name": "normal"
+            "name": "unclaimed"
           },
           {
-            "name": "emergency"
+            "name": "prematured"
           },
           {
             "name": "matured"
@@ -689,20 +679,32 @@ export type WusdStablecoin = {
             "type": "pubkey"
           },
           {
+            "name": "stakingPoolId",
+            "type": "u64"
+          },
+          {
             "name": "amount",
             "type": "u64"
           },
           {
-            "name": "rewardsEarned",
+            "name": "apy",
             "type": "u64"
           },
           {
-            "name": "lastUpdateTime",
+            "name": "startTime",
             "type": "i64"
           },
           {
-            "name": "lockEndTime",
+            "name": "endTime",
             "type": "i64"
+          },
+          {
+            "name": "claimableTimestamp",
+            "type": "i64"
+          },
+          {
+            "name": "rewardsEarned",
+            "type": "u64"
           },
           {
             "name": "status",
@@ -727,6 +729,10 @@ export type WusdStablecoin = {
           {
             "name": "emergencyCooldown",
             "type": "i64"
+          },
+          {
+            "name": "lastUpdateTime",
+            "type": "i64"
           }
         ]
       }
@@ -741,8 +747,32 @@ export type WusdStablecoin = {
             "type": "pubkey"
           },
           {
+            "name": "stakingPlanId",
+            "type": "u64"
+          },
+          {
+            "name": "stakingPoolId",
+            "type": "u64"
+          },
+          {
             "name": "amount",
             "type": "u64"
+          },
+          {
+            "name": "apy",
+            "type": "u64"
+          },
+          {
+            "name": "startTime",
+            "type": "i64"
+          },
+          {
+            "name": "endTime",
+            "type": "i64"
+          },
+          {
+            "name": "stakedAt",
+            "type": "i64"
           }
         ]
       }
@@ -756,90 +786,10 @@ export type WusdStablecoin = {
             "name": "active"
           },
           {
-            "name": "terminated"
+            "name": "claimable"
           },
           {
             "name": "claimed"
-          }
-        ]
-      }
-    },
-    {
-      "name": "stateAccount",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "authority",
-            "type": "pubkey"
-          },
-          {
-            "name": "wusdMint",
-            "type": "pubkey"
-          },
-          {
-            "name": "usdcMint",
-            "type": "pubkey"
-          },
-          {
-            "name": "treasury",
-            "type": "pubkey"
-          },
-          {
-            "name": "totalSupply",
-            "type": "u64"
-          },
-          {
-            "name": "decimals",
-            "type": "u8"
-          },
-          {
-            "name": "paused",
-            "type": "bool"
-          },
-          {
-            "name": "totalStaked",
-            "type": "u64"
-          },
-          {
-            "name": "rewardRate",
-            "type": "u64"
-          },
-          {
-            "name": "lastUpdateTime",
-            "type": "i64"
-          },
-          {
-            "name": "minLockDuration",
-            "type": "i64"
-          },
-          {
-            "name": "maxLockDuration",
-            "type": "i64"
-          },
-          {
-            "name": "emergencyWithdrawPenalty",
-            "type": "u64"
-          },
-          {
-            "name": "emergencyCooldownDuration",
-            "type": "i64"
-          },
-          {
-            "name": "highApyThreshold",
-            "type": "i64"
-          },
-          {
-            "name": "mediumApyThreshold",
-            "type": "i64"
-          },
-          {
-            "name": "usdcDecimals",
-            "type": "u8"
-          },
-          {
-            "name": "wusdDecimals",
-            "type": "u8"
           }
         ]
       }
@@ -854,6 +804,14 @@ export type WusdStablecoin = {
             "type": "pubkey"
           },
           {
+            "name": "tokenIn",
+            "type": "pubkey"
+          },
+          {
+            "name": "tokenOut",
+            "type": "pubkey"
+          },
+          {
             "name": "amountIn",
             "type": "u64"
           },
@@ -862,8 +820,12 @@ export type WusdStablecoin = {
             "type": "u64"
           },
           {
-            "name": "isUsdcToWusd",
-            "type": "bool"
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
           }
         ]
       }
@@ -887,6 +849,18 @@ export type WusdStablecoin = {
           {
             "name": "amount",
             "type": "u64"
+          },
+          {
+            "name": "penalty",
+            "type": "u64"
+          },
+          {
+            "name": "isEmergency",
+            "type": "bool"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
           }
         ]
       }

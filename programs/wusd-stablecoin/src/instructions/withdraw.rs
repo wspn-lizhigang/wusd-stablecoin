@@ -41,6 +41,9 @@ pub struct Withdraw<'info> {
 pub struct WithdrawEvent {
     pub user: Pubkey,
     pub amount: u64,
+    pub penalty: u64,
+    pub is_emergency: bool,
+    pub timestamp: i64,
 }
 
 pub fn withdraw(ctx: Context<Withdraw>, amount: u64, is_emergency: bool) -> Result<()> {
@@ -59,19 +62,20 @@ pub fn withdraw(ctx: Context<Withdraw>, amount: u64, is_emergency: bool) -> Resu
 
     // 检查锁定期和提现类型
     let mut final_amount = amount;
+    let mut penalty = 0;
     if is_emergency {
         // 紧急提现检查冷却期
         require!(now >= stake_account.emergency_cooldown, WUSDError::EmergencyWithdrawCooldown);
         
         // 应用紧急提现惩罚
-        let penalty = amount.checked_mul(ctx.accounts.state.emergency_withdraw_penalty).unwrap_or(0)
+        penalty = amount.checked_mul(ctx.accounts.state.emergency_withdraw_penalty).unwrap_or(0)
             .checked_div(1_000_000_000).unwrap_or(0);
         final_amount = amount.checked_sub(penalty).unwrap_or(0);
-        stake_account.claim_type = ClaimType::Emergency;
+        stake_account.claim_type = ClaimType::Prematured;
     } else {
         // 普通提现检查锁定期
-        require!(now >= stake_account.lock_end_time, WUSDError::StakeLocked);
-        stake_account.claim_type = ClaimType::Normal;
+        require!(now >= stake_account.end_time, WUSDError::StakeLocked);
+        stake_account.claim_type = ClaimType::Matured;
     }
 
     // 从质押保险库转出代币
@@ -107,6 +111,9 @@ pub fn withdraw(ctx: Context<Withdraw>, amount: u64, is_emergency: bool) -> Resu
     emit!(WithdrawEvent {
         user: ctx.accounts.user.key(),
         amount: final_amount,
+        penalty,
+        is_emergency,
+        timestamp: now,
     });
 
     Ok(())
