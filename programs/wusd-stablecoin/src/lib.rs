@@ -1,11 +1,14 @@
 #![allow(clippy::result_large_err)]
+/// 引入必要的依赖
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
+/// 模块导入
 mod instructions;
 mod state;
 mod error;
 
+/// 使用内部模块
 use crate::instructions::*;
 use state::*;
 use error::*;
@@ -13,10 +16,14 @@ use crate::instructions::stake::{StakingStatus, ClaimType};
 
 declare_id!("B7EV2BY6dWzjcPYnHL5UympTZzGtMZGRJ3KyGhv5AfJ4");
 
+/// WUSD稳定币程序入口
 #[program]
 pub mod wusd_stablecoin {
     use super::*;
 
+    /// 初始化WUSD稳定币系统
+    /// * `ctx` - 初始化上下文
+    /// * `decimals` - 代币精度
     pub fn initialize(
         ctx: Context<Initialize>,
         decimals: u8,
@@ -32,10 +39,17 @@ pub mod wusd_stablecoin {
         Ok(())
     }
 
+    /// 提取质押的代币
+    /// * `ctx` - 提取上下文
+    /// * `amount` - 提取金额
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         instructions::withdraw::withdraw(ctx, amount, false)
     }
 
+    /// 代币兑换功能
+    /// * `ctx` - 兑换上下文
+    /// * `amount_in` - 输入金额
+    /// * `min_amount_out` - 最小输出金额（滑点保护）
     pub fn swap(
         ctx: Context<Swap>,
         amount_in: u64,
@@ -44,6 +58,9 @@ pub mod wusd_stablecoin {
         instructions::swap::swap(ctx, amount_in, min_amount_out)
     }
 
+    /// 质押WUSD代币
+    /// * `ctx` - 质押上下文
+    /// * `amount` - 质押金额
     pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
         instructions::stake::stake(ctx, amount, 0) // 默认锁定期为0
     }
@@ -73,6 +90,7 @@ pub mod wusd_stablecoin {
     }
 }
 
+/// 初始化指令的账户参数
 #[derive(Accounts)]
 pub struct Initialize<'info> {
     #[account(mut)]
@@ -95,6 +113,7 @@ pub struct Initialize<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
+/// 仅管理员可执行的指令账户参数
 #[derive(Accounts)]
 pub struct AdminOnly<'info> {
     pub authority: Signer<'info>,
@@ -107,8 +126,10 @@ pub struct AdminOnly<'info> {
     pub state: Account<'info, StateAccount>,
 }
 
+/// 合约暂停事件
 #[event]
 pub struct PauseEvent {}
 
+/// 合约恢复事件
 #[event]
 pub struct UnpauseEvent {}

@@ -3,6 +3,7 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount};
 use crate::state::{StateAccount, PoolStatus};
 use crate::error::WUSDError;
 
+/// 软质押指令的账户参数
 #[derive(Accounts)]
 #[instruction(bump: u8)]
 pub struct SoftStake<'info> {
@@ -36,6 +37,7 @@ pub struct SoftStake<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+/// 软质押奖励领取指令的账户参数
 #[derive(Accounts)]
 pub struct SoftClaim<'info> {
     pub user: Signer<'info>,
@@ -65,6 +67,7 @@ pub struct SoftClaim<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+/// 软质押状态枚举
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
 pub enum SoftStakingStatus {
     Active,
@@ -72,6 +75,7 @@ pub enum SoftStakingStatus {
     Claimed,
 }
 
+/// 软质押账户结构体，存储用户的软质押信息
 #[account]
 pub struct SoftStakeAccount {
     pub owner: Pubkey,
@@ -91,6 +95,7 @@ impl SoftStakeAccount {
     pub const LEN: usize = 32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 32 + 8;
 }
 
+/// 软质押事件，记录软质押操作的详细信息
 #[event]
 pub struct SoftStakeEvent {
     pub user: Pubkey,
@@ -102,6 +107,7 @@ pub struct SoftStakeEvent {
     pub access_key: [u8; 32],
 }
 
+/// 软质押奖励领取事件，记录领取操作的详细信息
 #[event]
 pub struct SoftClaimEvent {
     pub user: Pubkey,
@@ -109,6 +115,11 @@ pub struct SoftClaimEvent {
     pub access_key: [u8; 32],
 }
 
+/// 执行软质押操作
+/// * `ctx` - 软质押上下文
+/// * `amount` - 质押金额
+/// * `staking_pool_id` - 质押池ID
+/// * `access_key` - 访问密钥
 pub fn soft_stake(
     ctx: Context<SoftStake>,
     amount: u64,
@@ -177,6 +188,8 @@ pub fn soft_stake(
     Ok(())
 }
 
+/// 领取软质押奖励
+/// * `ctx` - 领取奖励的上下文
 pub fn soft_claim(ctx: Context<SoftClaim>) -> Result<()> {
     let stake_account = &mut ctx.accounts.stake_account;
     let now = Clock::get()?.unix_timestamp;
@@ -218,6 +231,10 @@ pub fn soft_claim(ctx: Context<SoftClaim>) -> Result<()> {
     Ok(())
 }
 
+/// 计算软质押奖励
+/// * `amount` - 质押金额
+/// * `apy` - 年化收益率
+/// * `duration` - 质押时长（秒）
 pub fn calculate_rewards(amount: u64, apy: u64, duration: i64) -> u64 {
     let seconds_per_year: u128 = 365 * 24 * 60 * 60;
     let scale: u128 = 1_000_000;

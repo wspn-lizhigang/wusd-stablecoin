@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use crate::error::WUSDError;
 use crate::instructions::swap::Rate;
 
+/// 质押池状态枚举
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
 pub enum PoolStatus {
     Active,
@@ -9,6 +10,7 @@ pub enum PoolStatus {
     Closed
 }
 
+/// 质押池配置结构体
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
 pub struct StakingPool {
     pub id: u64,
@@ -18,6 +20,7 @@ pub struct StakingPool {
     pub status: PoolStatus,
 }
 
+/// 全局状态账户，存储系统的核心配置和状态
 #[account]
 pub struct StateAccount {
     pub authority: Pubkey,
@@ -43,6 +46,7 @@ pub struct StateAccount {
     pub total_staking_plans: u64,
 }
 
+/// 代币兑换汇率结构体
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
 pub struct ExchangeRate {
     pub input: u64,
@@ -52,6 +56,9 @@ pub struct ExchangeRate {
 impl StateAccount {
     pub const LEN: usize = 32 + 32 + 32 + 32 + 8 + 1 + 1 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 256 + 512 + 8; // 增加质押池计数器
 
+    /// 根据池ID获取质押池信息
+    /// * `pool_id` - 质押池ID
+    /// * 返回质押池配置信息
     pub fn get_staking_pool(&self, pool_id: u64) -> Result<StakingPool> {
         // 这里简化实现，实际应该从存储中获取质押池信息
         Ok(StakingPool {
@@ -63,6 +70,9 @@ impl StateAccount {
         })
     }
 
+    /// 检查代币是否在白名单中
+    /// * `mint` - 代币铸币权地址
+    /// * 返回代币是否被允许使用
     pub fn is_token_whitelisted(&self, mint: Pubkey) -> bool {
         if let Some((_token, status)) = self.token_whitelist.iter().find(|(token, _)| *token == mint) {
             *status
@@ -71,6 +81,9 @@ impl StateAccount {
         }
     }
 
+    /// 获取代币精度
+    /// * `mint` - 代币铸币权地址
+    /// * 返回代币精度
     pub fn get_token_decimals(&self, mint: Pubkey) -> Result<u8> {
         if !self.is_token_whitelisted(mint) {
             return err!(WUSDError::TokenNotWhitelisted);
@@ -85,6 +98,10 @@ impl StateAccount {
         }
     }
 
+    /// 获取两个代币之间的兑换汇率
+    /// * `token_in_mint` - 输入代币的铸币权地址
+    /// * `token_out_mint` - 输出代币的铸币权地址
+    /// * 返回兑换汇率
     pub fn get_exchange_rate(&self, token_in_mint: Pubkey, token_out_mint: Pubkey) -> Result<ExchangeRate> {
         if !self.is_token_whitelisted(token_in_mint) || !self.is_token_whitelisted(token_out_mint) {
             return err!(WUSDError::TokenNotWhitelisted);

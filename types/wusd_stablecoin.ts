@@ -12,6 +12,9 @@ export type WusdStablecoin = {
     "spec": "0.1.0",
     "description": "Created with WSPN"
   },
+  "docs": [
+    "WUSD稳定币程序入口"
+  ],
   "instructions": [
     {
       "name": "claim",
@@ -87,6 +90,11 @@ export type WusdStablecoin = {
     },
     {
       "name": "initialize",
+      "docs": [
+        "初始化WUSD稳定币系统",
+        "* `ctx` - 初始化上下文",
+        "* `decimals` - 代币精度"
+      ],
       "discriminator": [
         175,
         175,
@@ -190,6 +198,11 @@ export type WusdStablecoin = {
     },
     {
       "name": "stake",
+      "docs": [
+        "质押WUSD代币",
+        "* `ctx` - 质押上下文",
+        "* `amount` - 质押金额"
+      ],
       "discriminator": [
         206,
         176,
@@ -272,6 +285,12 @@ export type WusdStablecoin = {
     },
     {
       "name": "swap",
+      "docs": [
+        "代币兑换功能",
+        "* `ctx` - 兑换上下文",
+        "* `amount_in` - 输入金额",
+        "* `min_amount_out` - 最小输出金额（滑点保护）"
+      ],
       "discriminator": [
         248,
         198,
@@ -379,6 +398,11 @@ export type WusdStablecoin = {
     },
     {
       "name": "withdraw",
+      "docs": [
+        "提取质押的代币",
+        "* `ctx` - 提取上下文",
+        "* `amount` - 提取金额"
+      ],
       "discriminator": [
         183,
         18,
@@ -631,6 +655,9 @@ export type WusdStablecoin = {
   "types": [
     {
       "name": "claimEvent",
+      "docs": [
+        "领取奖励事件，记录领取操作的详细信息"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -647,6 +674,9 @@ export type WusdStablecoin = {
     },
     {
       "name": "claimType",
+      "docs": [
+        "领取类型枚举"
+      ],
       "type": {
         "kind": "enum",
         "variants": [
@@ -664,6 +694,9 @@ export type WusdStablecoin = {
     },
     {
       "name": "pauseEvent",
+      "docs": [
+        "合约暂停事件"
+      ],
       "type": {
         "kind": "struct",
         "fields": []
@@ -671,6 +704,9 @@ export type WusdStablecoin = {
     },
     {
       "name": "stakeAccount",
+      "docs": [
+        "质押账户结构体，存储用户的质押信息"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -739,6 +775,9 @@ export type WusdStablecoin = {
     },
     {
       "name": "stakeEvent",
+      "docs": [
+        "质押事件，记录质押操作的详细信息"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -779,6 +818,9 @@ export type WusdStablecoin = {
     },
     {
       "name": "stakingStatus",
+      "docs": [
+        "质押状态枚举"
+      ],
       "type": {
         "kind": "enum",
         "variants": [
@@ -796,6 +838,9 @@ export type WusdStablecoin = {
     },
     {
       "name": "swapEvent",
+      "docs": [
+        "代币兑换事件，记录兑换的详细信息"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
@@ -832,6 +877,9 @@ export type WusdStablecoin = {
     },
     {
       "name": "unpauseEvent",
+      "docs": [
+        "合约恢复事件"
+      ],
       "type": {
         "kind": "struct",
         "fields": []
@@ -839,6 +887,9 @@ export type WusdStablecoin = {
     },
     {
       "name": "withdrawEvent",
+      "docs": [
+        "提现事件，记录提现操作的详细信息"
+      ],
       "type": {
         "kind": "struct",
         "fields": [

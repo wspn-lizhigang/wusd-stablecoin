@@ -3,6 +3,7 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 use crate::state::{StateAccount, PoolStatus};
 use crate::error::WUSDError;
 
+/// 质押指令的账户参数
 #[derive(Accounts)]
 #[instruction(bump: u8)]
 pub struct Stake<'info> {
@@ -36,6 +37,7 @@ pub struct Stake<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+/// 领取奖励指令的账户参数
 #[derive(Accounts)]
 pub struct Claim<'info> {
     pub user: Signer<'info>,
@@ -65,6 +67,7 @@ pub struct Claim<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+/// 质押状态枚举
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
 pub enum StakingStatus {
     Active,
@@ -72,6 +75,7 @@ pub enum StakingStatus {
     Claimed,
 }
 
+/// 领取类型枚举
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
 pub enum ClaimType {
     Unclaimed,
@@ -79,6 +83,7 @@ pub enum ClaimType {
     Matured,
 }
 
+/// 质押账户结构体，存储用户的质押信息
 #[account]
 pub struct StakeAccount {
     pub owner: Pubkey,
@@ -100,6 +105,7 @@ impl StakeAccount {
     pub const LEN: usize = 32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 8;
 }
 
+/// 质押事件，记录质押操作的详细信息
 #[event]
 pub struct StakeEvent {
     pub user: Pubkey,
@@ -112,12 +118,17 @@ pub struct StakeEvent {
     pub staked_at: i64,
 }
 
+/// 领取奖励事件，记录领取操作的详细信息
 #[event]
 pub struct ClaimEvent {
     pub user: Pubkey,
     pub amount: u64,
 }
 
+/// 执行质押操作
+/// * `ctx` - 质押上下文
+/// * `amount` - 质押金额
+/// * `staking_pool_id` - 质押池ID
 pub fn stake(
     ctx: Context<Stake>,
     amount: u64,
@@ -192,12 +203,18 @@ pub fn stake(
     Ok(())
 }
 
+/// 计算质押奖励
+/// * `amount` - 质押金额
+/// * `apy` - 年化收益率
+/// * `duration` - 质押时长（秒）
 pub fn calculate_rewards(amount: u64, apy: u64, duration: i64) -> u64 {
     let seconds_per_year: u128 = 365 * 24 * 60 * 60;
     let scale: u128 = 1_000_000;
     ((amount as u128) * (apy as u128) * (duration as u128) / (seconds_per_year * scale)) as u64
 }
 
+/// 领取质押奖励
+/// * `ctx` - 领取奖励的上下文
 pub fn claim(ctx: Context<Claim>) -> Result<()> {
     let stake_account = &mut ctx.accounts.stake_account;
     let now = Clock::get()?.unix_timestamp;

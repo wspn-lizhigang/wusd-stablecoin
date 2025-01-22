@@ -7,6 +7,7 @@ use crate::instructions::stake::StakeAccount;
 use crate::StakingStatus;
 use crate::ClaimType;
 
+/// 提现指令的账户参数
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
     #[account(mut)]
@@ -37,6 +38,7 @@ pub struct Withdraw<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+/// 提现事件，记录提现操作的详细信息
 #[event]
 pub struct WithdrawEvent {
     pub user: Pubkey,
@@ -46,6 +48,10 @@ pub struct WithdrawEvent {
     pub timestamp: i64,
 }
 
+/// 执行提现操作
+/// * `ctx` - 提现上下文
+/// * `amount` - 提现金额
+/// * `is_emergency` - 是否为紧急提现
 pub fn withdraw(ctx: Context<Withdraw>, amount: u64, is_emergency: bool) -> Result<()> {
     let stake_account = &mut ctx.accounts.stake_account;
     require!(amount > 0 && amount <= stake_account.amount, WUSDError::InvalidAmount);
@@ -53,30 +59,37 @@ pub fn withdraw(ctx: Context<Withdraw>, amount: u64, is_emergency: bool) -> Resu
 
     let now = Clock::get()?.unix_timestamp;
     
-    // 计算并更新奖励
-    let time_passed = now - stake_account.last_update_time;
-    let rewards = stake_account.amount.checked_mul(ctx.accounts.state.reward_rate).unwrap_or(0)
-        .checked_mul(time_passed as u64).unwrap_or(0)
-        .checked_div(1_000_000_000).unwrap_or(0);
-    stake_account.rewards_earned += rewards;
-
-    // 检查锁定期和提现类型
+    // 计算质押时长和奖励
+    let _time_passed = now - stake_account.last_update_time;
+    let staking_period = now - stake_account.start_time;
+    
+    let apy = ctx.accounts.state.reward_rate;
     let mut final_amount = amount;
-    let mut penalty = 0;
+    let mut penalty = 0u64;
+    
     if is_emergency {
         // 紧急提现检查冷却期
         require!(now >= stake_account.emergency_cooldown, WUSDError::EmergencyWithdrawCooldown);
         
-        // 应用紧急提现惩罚
-        penalty = amount.checked_mul(ctx.accounts.state.emergency_withdraw_penalty).unwrap_or(0)
-            .checked_div(1_000_000_000).unwrap_or(0);
-        final_amount = amount.checked_sub(penalty).unwrap_or(0);
+        // 提前终止使用当前奖励率，并收取惩罚
+        penalty = amount.checked_mul(ctx.accounts.state.emergency_withdraw_penalty)
+            .ok_or(WUSDError::MathOverflow)?
+            .checked_div(1_000_000_000)
+            .ok_or(WUSDError::MathOverflow)?;
+        final_amount = amount.checked_sub(penalty).ok_or(WUSDError::MathOverflow)?;
         stake_account.claim_type = ClaimType::Prematured;
     } else {
         // 普通提现检查锁定期
         require!(now >= stake_account.end_time, WUSDError::StakeLocked);
         stake_account.claim_type = ClaimType::Matured;
     }
+    
+    // 计算奖励
+    let rewards = stake_account.amount
+        .checked_mul(apy).unwrap_or(0)
+        .checked_mul(staking_period as u64).unwrap_or(0)
+        .checked_div(365 * 24 * 60 * 60 * 1_000_000_000).unwrap_or(0);
+    stake_account.rewards_earned += rewards;
 
     // 从质押保险库转出代币
     let seeds = &[
