@@ -17,7 +17,7 @@ pub struct Stake<'info> {
         init_if_needed,
         payer = user,
         space = 8 + StakeAccount::LEN,
-        seeds = [b"stake", user.key().as_ref()],
+        seeds = [b"stake_account", user.key().as_ref()],
         bump
     )]
     pub stake_account: Account<'info, StakeAccount>,
@@ -44,7 +44,7 @@ pub struct Claim<'info> {
     
     #[account(
         mut,
-        seeds = [b"stake", user.key().as_ref()],
+        seeds = [b"stake_account", user.key().as_ref()],
         bump,
         constraint = stake_account.owner == user.key()
     )]

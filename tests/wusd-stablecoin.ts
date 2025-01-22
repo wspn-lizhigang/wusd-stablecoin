@@ -2,14 +2,25 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { WusdStablecoin } from "../target/types/wusd_stablecoin";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, createMint, createAccount, mintTo } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID, createMint, createAccount, mintTo, getAssociatedTokenAddress, ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
+import * as fs from 'fs';
+import * as crypto from 'crypto';
+import { assert } from 'chai';
+import { config } from './config';
 
 describe("wusd-stablecoin", () => {
-  const provider = anchor.AnchorProvider.env();
+  const provider = new anchor.AnchorProvider(
+    new anchor.web3.Connection(config.rpcUrl),
+    new anchor.Wallet(anchor.web3.Keypair.fromSecretKey(
+      Uint8Array.from(JSON.parse(fs.readFileSync(config.deployKeyPath, 'utf-8')))
+    )),
+    {}
+  );
   anchor.setProvider(provider);
 
   const program = anchor.workspace.WusdStablecoin as Program<WusdStablecoin>;
   const authority = provider.wallet;
+  const mintAuthority = anchor.web3.Keypair.generate();
   let wusdMint: PublicKey;
   let collateralMint: PublicKey;
   let treasury: PublicKey;
@@ -24,73 +35,119 @@ describe("wusd-stablecoin", () => {
     // Create WUSD and collateral mints
     wusdMint = await createMint(
       provider.connection,
-      provider.wallet.publicKey,
-      authority.publicKey,
-      null,
-      8
+      provider.wallet.payer,
+      mintAuthority.publicKey,
+      mintAuthority.publicKey,
+      config.wusdDecimals
     );
 
     collateralMint = await createMint(
       provider.connection,
-      provider.wallet.publicKey,
-      authority.publicKey,
-      null,
-      6
+      provider.wallet.payer,
+      mintAuthority.publicKey,
+      mintAuthority.publicKey,
+      config.collateralDecimals
     );
 
-    // Create user token accounts
-    userWusd = await createAccount(
-      provider.connection,
-      provider.wallet.publicKey,
+    // Get user token accounts
+    userWusd = await getAssociatedTokenAddress(
       wusdMint,
-      authority.publicKey
+      provider.wallet.publicKey
     );
 
-    userCollateral = await createAccount(
-      provider.connection,
-      provider.wallet.publicKey,
+    userCollateral = await getAssociatedTokenAddress(
       collateralMint,
-      authority.publicKey
+      provider.wallet.publicKey
     );
 
-    // Create treasury account
-    treasury = await createAccount(
-      provider.connection,
-      provider.wallet.publicKey,
-      collateralMint,
-      authority.publicKey
-    );
+    // Create user token accounts if they don't exist
+    const createUserAccountsIx = [
+      createAssociatedTokenAccountInstruction(
+        provider.wallet.publicKey,
+        userWusd,
+        provider.wallet.publicKey,
+        wusdMint
+      ),
+      createAssociatedTokenAccountInstruction(
+        provider.wallet.publicKey,
+        userCollateral,
+        provider.wallet.publicKey,
+        collateralMint
+      )
+    ];
 
-    // Derive PDA for state
-    [state] = await PublicKey.findProgramAddress(
-      [Buffer.from("state")],
+    // Send transaction to create user token accounts
+    const setupTx = new anchor.web3.Transaction().add(...createUserAccountsIx);
+    await provider.sendAndConfirm(setupTx);
+
+    // Create stake vault PDA and treasury PDA
+    const [vaultPda] = await PublicKey.findProgramAddress(
+      [Buffer.from(config.seeds.stakeVault)],
       program.programId
     );
 
-    // Derive PDA for stake account
-    [stakeAccount] = await PublicKey.findProgramAddress(
-      [Buffer.from("stake"), authority.publicKey.toBuffer()],
+    const [treasuryPda] = await PublicKey.findProgramAddress(
+      [Buffer.from(config.seeds.treasury)],
       program.programId
     );
-
-    // Derive PDA for soft stake account
-    [softStakeAccount] = await PublicKey.findProgramAddress(
-      [Buffer.from("softstake"), authority.publicKey.toBuffer()],
-      program.programId
-    );
-
-    // Create stake vault
-    stakeVault = await createAccount(
-      provider.connection,
-      provider.wallet.publicKey,
+    
+    // Get associated token addresses for PDAs
+    stakeVault = await getAssociatedTokenAddress(
       wusdMint,
-      authority.publicKey
+      vaultPda,
+      true
     );
+
+    treasury = await getAssociatedTokenAddress(
+      collateralMint,
+      treasuryPda,
+      true
+    );
+
+    // Create PDA token accounts
+    const createPdaAccountsIx = [
+      createAssociatedTokenAccountInstruction(
+        provider.wallet.publicKey,
+        stakeVault,
+        vaultPda,
+        wusdMint
+      ),
+      createAssociatedTokenAccountInstruction(
+        provider.wallet.publicKey,
+        treasury,
+        treasuryPda,
+        collateralMint
+      )
+    ];
+
+    const pdaAccountsTx = new anchor.web3.Transaction().add(...createPdaAccountsIx);
+    await provider.sendAndConfirm(pdaAccountsTx);
+
+    // Initialize state PDA
+    const [statePda] = await PublicKey.findProgramAddress(
+      [Buffer.from(config.seeds.state)],
+      program.programId
+    );
+    state = statePda;
+
+    // Create stake account PDA
+    const [stakeAccountPda] = await PublicKey.findProgramAddress(
+      [Buffer.from(config.seeds.stakeAccount), provider.wallet.publicKey.toBuffer()],
+      program.programId
+    );
+    stakeAccount = stakeAccountPda;
+
+    // Create soft stake account PDA
+    const [softStakeAccountPda] = await PublicKey.findProgramAddress(
+      [Buffer.from(config.seeds.softStakeAccount), provider.wallet.publicKey.toBuffer()],
+      program.programId
+    );
+    softStakeAccount = softStakeAccountPda;
   });
 
   it("Initializes the protocol", async () => {
     const tx = await program.methods
-      .initialize(8)
+      .initialize(config.wusdDecimals)
       .accounts({
         authority: authority.publicKey,
         state,
@@ -106,16 +163,17 @@ describe("wusd-stablecoin", () => {
   });
 
   it("Swaps tokens with slippage protection", async () => {
-    const amount = new anchor.BN(500000); // 0.5 tokens
-    const minAmountOut = new anchor.BN(450000); // 5% slippage tolerance
+    const amount = new anchor.BN(config.swapAmount);
+    const minAmountOut = new anchor.BN(config.swapMinAmountOut);
     
     await mintTo(
       provider.connection,
-      authority.publicKey,
+      provider.wallet.payer,
       collateralMint,
       userCollateral,
-      authority.publicKey,
-      amount.toNumber()
+      mintAuthority.publicKey,
+      amount.toNumber(),
+      [mintAuthority]
     );
 
     const tx = await program.methods
@@ -135,16 +193,17 @@ describe("wusd-stablecoin", () => {
   });
 
   it("Stakes WUSD tokens", async () => {
-    const amount = new anchor.BN(1000000); // 1 WUSD
-    const staking_pool_id = new anchor.BN(1);
+    const amount = new anchor.BN(config.stakeAmount);
+    const staking_pool_id = new anchor.BN(config.stakingPoolId);
     
     await mintTo(
       provider.connection,
-      authority.publicKey,
+      provider.wallet.payer,
       wusdMint,
       userWusd,
-      authority.publicKey,
-      amount.toNumber()
+      mintAuthority.publicKey,
+      amount.toNumber(),
+      [mintAuthority]
     );
 
     const tx = await program.methods
@@ -178,18 +237,19 @@ describe("wusd-stablecoin", () => {
   });
 
   it("Soft stakes WUSD tokens", async () => {
-    const amount = new anchor.BN(1000000); // 1 WUSD
-    const staking_pool_id = new anchor.BN(1);
+    const amount = new anchor.BN(config.stakeAmount);
+    const staking_pool_id = new anchor.BN(config.stakingPoolId);
     const access_key = Buffer.alloc(32);
     crypto.randomFillSync(access_key);
 
     await mintTo(
       provider.connection,
-      authority.publicKey,
+      provider.wallet.payer,
       wusdMint,
       userWusd,
-      authority.publicKey,
-      amount.toNumber()
+      mintAuthority.publicKey,
+      amount.toNumber(),
+      [mintAuthority]
     );
 
     const tx = await program.methods
@@ -223,7 +283,7 @@ describe("wusd-stablecoin", () => {
   });
 
   it("Withdraws staked tokens", async () => {
-    const amount = new anchor.BN(500000); // 0.5 WUSD
+    const amount = new anchor.BN(config.withdrawAmount);
     const is_emergency = false;
 
     const tx = await program.methods
@@ -282,8 +342,8 @@ describe("wusd-stablecoin", () => {
 
   it("Fails when staking amount is too low", async () => {
     try {
-      const amount = new anchor.BN(1); // Very small amount
-      const staking_pool_id = new anchor.BN(1);
+      const amount = new anchor.BN(config.minStakingAmount - 1); // 使用比最小质押金额更小的值
+      const staking_pool_id = new anchor.BN(config.stakingPoolId);
       
       await program.methods
         .stake(amount, staking_pool_id)

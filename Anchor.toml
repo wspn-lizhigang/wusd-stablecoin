@@ -27,6 +27,8 @@ shutdown_wait = 2000
 upgradeable = false
 
 [test.validator]
-bind_address = "0.0.0.0"
 ledger = ".anchor/test-ledger"
-rpc_port = 8899
+rpc_port = 9900
+faucet_port = 9901
+url = "https://api.mainnet-beta.solana.com"
+clone = [{ address = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" }]

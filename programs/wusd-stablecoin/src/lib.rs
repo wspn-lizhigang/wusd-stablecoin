@@ -37,6 +37,22 @@ pub mod wusd_stablecoin {
         state.total_supply = 0;
         state.decimals = decimals;
         state.paused = false;
+        state.total_staked = 0;
+        state.reward_rate = 100_000; // 0.0001 WUSD per second
+        state.last_update_time = Clock::get()?.unix_timestamp;
+        state.emergency_withdraw_penalty = 500_000; // 0.5%
+        state.emergency_cooldown_duration = 24 * 60 * 60; // 24 hours
+        state.collateral_decimals = 6; // USDC decimals
+        state.wusd_decimals = decimals;
+        state.total_staking_plans = 0;
+        
+        // 将WUSD和抵押品代币添加到白名单
+        state.token_whitelist[0] = (ctx.accounts.wusd_mint.key(), true);
+        state.token_whitelist[1] = (ctx.accounts.collateral_mint.key(), true);
+        state.token_whitelist[2] = (Pubkey::default(), false);
+
+        // 初始化汇率
+        state.exchange_rates[0] = (ctx.accounts.wusd_mint.key(), ctx.accounts.collateral_mint.key(), Rate { input: 1_000_000, output: 1_000_000 });
         Ok(())
     }
 

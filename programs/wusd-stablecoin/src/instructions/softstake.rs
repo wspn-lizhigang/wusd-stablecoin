@@ -17,7 +17,7 @@ pub struct SoftStake<'info> {
         init_if_needed,
         payer = user,
         space = 8 + SoftStakeAccount::LEN,
-        seeds = [b"softstake", user.key().as_ref()],
+        seeds = [b"soft_stake_account", user.key().as_ref()],
         bump
     )]
     pub stake_account: Account<'info, SoftStakeAccount>,
@@ -44,7 +44,7 @@ pub struct SoftClaim<'info> {
     
     #[account(
         mut,
-        seeds = [b"softstake", user.key().as_ref()],
+        seeds = [b"soft_stake_account", user.key().as_ref()],
         bump,
         constraint = stake_account.owner == user.key()
     )]
