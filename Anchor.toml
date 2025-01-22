@@ -1,10 +1,11 @@
-[workspace]
-members = ["programs/*"]
-types = "types/"
-features = []
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
 
 [programs.devnet]
-wusd_stablecoin = "B7EV2BY6dWzjcPYnHL5UmpTZzGtMZGRJ3KyGhv5AfJ4"
+wusd_stablecoin = "Hqdm6x74og9EjPXSnTYkoXss9JeF3ZkL67Ziq2CMFYZr"
 
 [registry]
 url = "https://anchor.projectserum.com"
@@ -12,3 +13,7 @@ url = "https://anchor.projectserum.com"
 [provider]
 cluster = "devnet"
 wallet = "~/.config/solana/id.json"
+
+[workspace]
+members = ["programs/*"]
+types = "types/"

@@ -41,8 +41,8 @@ pub struct StateAccount {
     pub medium_apy_threshold: i64,
     pub collateral_decimals: u8,  // 改为通用的抵押代币精度
     pub wusd_decimals: u8,
-    pub token_whitelist: Vec<(Pubkey, bool)>,
-    pub exchange_rates: Vec<(Pubkey, Pubkey, Rate)>,
+    pub token_whitelist: [(Pubkey, bool); 5], // 减少数组大小以优化栈使用
+    pub exchange_rates: [(Pubkey, Pubkey, Rate); 5], // 减少数组大小以优化栈使用
     pub total_staking_plans: u64,
 }
 
@@ -72,14 +72,17 @@ impl StateAccount {
         8 + // medium_apy_threshold
         1 + // collateral_decimals
         1 + // wusd_decimals
-        8192 + // token_whitelist (预留空间约250个代币)
-        16384 + // exchange_rates (预留空间约250对交易对)
+        8 + // padding for alignment
+        4 + // token_whitelist length prefix
+        (32 + 1) * 5 + // 减少数组大小以优化栈使用
+        4 + // exchange_rates length prefix
+        (32 + 32 + 16) * 5 + // 减少数组大小以优化栈使用
         8; // total_staking_plans
 
     /// 根据池ID获取质押池信息
     /// * `pool_id` - 质押池ID
     /// * 返回质押池配置信息
-    pub fn get_staking_pool(&self, pool_id: u64) -> Result<StakingPool> {
+    pub fn get_staking_pool(pool_id: u64) -> Result<StakingPool> {
         // 这里简化实现，实际应该从存储中获取质押池信息
         Ok(StakingPool {
             id: pool_id,
@@ -93,8 +96,8 @@ impl StateAccount {
     /// 检查代币是否在白名单中
     /// * `mint` - 代币铸币权地址
     /// * 返回代币是否被允许使用
-    pub fn is_token_whitelisted(&self, mint: Pubkey) -> bool {
-        if let Some((_token, status)) = self.token_whitelist.iter().find(|(token, _)| *token == mint) {
+    pub fn is_token_whitelisted(mint: Pubkey, token_whitelist: &[(Pubkey, bool)]) -> bool {
+        if let Some((_token, status)) = token_whitelist.iter().find(|(token, _)| *token == mint) {
             *status
         } else {
             false
@@ -104,15 +107,15 @@ impl StateAccount {
     /// 获取代币精度
     /// * `mint` - 代币铸币权地址
     /// * 返回代币精度
-    pub fn get_token_decimals(&self, mint: Pubkey) -> Result<u8> {
-        if !self.is_token_whitelisted(mint) {
+    pub fn get_token_decimals(mint: Pubkey, state: &StateAccount) -> Result<u8> {
+        if !Self::is_token_whitelisted(mint, &state.token_whitelist) {
             return err!(WUSDError::TokenNotWhitelisted);
         }
 
-        if mint == self.wusd_mint {
-            Ok(self.wusd_decimals)
-        } else if mint == self.collateral_mint {
-            Ok(self.collateral_decimals)
+        if mint == state.wusd_mint {
+            Ok(state.wusd_decimals)
+        } else if mint == state.collateral_mint {
+            Ok(state.collateral_decimals)
         } else {
             err!(WUSDError::TokenNotWhitelisted)
         }
@@ -122,12 +125,12 @@ impl StateAccount {
     /// * `token_in_mint` - 输入代币的铸币权地址
     /// * `token_out_mint` - 输出代币的铸币权地址
     /// * 返回兑换汇率
-    pub fn get_exchange_rate(&self, token_in_mint: Pubkey, token_out_mint: Pubkey) -> Result<ExchangeRate> {
-        if !self.is_token_whitelisted(token_in_mint) || !self.is_token_whitelisted(token_out_mint) {
+    pub fn get_exchange_rate(token_in_mint: Pubkey, token_out_mint: Pubkey, state: &StateAccount) -> Result<ExchangeRate> {
+        if !Self::is_token_whitelisted(token_in_mint, &state.token_whitelist) || !Self::is_token_whitelisted(token_out_mint, &state.token_whitelist) {
             return err!(WUSDError::TokenNotWhitelisted);
         }
 
-        if let Some((_, _, rate)) = self.exchange_rates.iter()
+        if let Some((_, _, rate)) = state.exchange_rates.iter()
             .find(|(in_token, out_token, _)| *in_token == token_in_mint && *out_token == token_out_mint) {
             Ok(ExchangeRate {
                 input: rate.input,

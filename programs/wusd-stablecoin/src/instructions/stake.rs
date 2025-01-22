@@ -138,7 +138,7 @@ pub fn stake(
     require!(staking_pool_id > 0, WUSDError::InvalidPoolId);
 
     // 获取所有需要的状态值
-    let staking_pool = ctx.accounts.state.get_staking_pool(staking_pool_id)?;
+    let staking_pool = StateAccount::get_staking_pool(staking_pool_id)?;
     require!(staking_pool.status == PoolStatus::Active, WUSDError::InvalidPoolStatus);
     require!(amount >= staking_pool.min_stake_amount, WUSDError::StakingAmountTooLow);
     

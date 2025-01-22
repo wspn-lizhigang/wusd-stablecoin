@@ -129,7 +129,7 @@ pub fn soft_stake(
     require!(amount > 0, WUSDError::InvalidAmount);
     require!(staking_pool_id > 0, WUSDError::InvalidPoolId);
 
-    let staking_pool = ctx.accounts.state.get_staking_pool(staking_pool_id)?;
+    let staking_pool = StateAccount::get_staking_pool(staking_pool_id)?;
     require!(staking_pool.status == PoolStatus::Active, WUSDError::InvalidPoolStatus);
     require!(amount >= staking_pool.min_stake_amount, WUSDError::StakingAmountTooLow);
     

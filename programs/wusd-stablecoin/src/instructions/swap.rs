@@ -35,8 +35,8 @@ pub struct Swap<'info> {
         seeds = [b"state"],
         bump,
         constraint = !state.paused @ WUSDError::ContractPaused,
-        constraint = state.is_token_whitelisted(user_token_in.mint) @ WUSDError::TokenNotWhitelisted,
-        constraint = state.is_token_whitelisted(user_token_out.mint) @ WUSDError::TokenNotWhitelisted
+        constraint = StateAccount::is_token_whitelisted(user_token_in.mint, &state.token_whitelist) @ WUSDError::TokenNotWhitelisted,
+        constraint = StateAccount::is_token_whitelisted(user_token_out.mint, &state.token_whitelist) @ WUSDError::TokenNotWhitelisted
     )]
     pub state: Account<'info, StateAccount>,
     
@@ -140,8 +140,8 @@ fn calculate_output_amount(
     state: &StateAccount,
 ) -> Result<u64> {
     let (in_decimals, out_decimals) = (
-        state.get_token_decimals(token_in_mint)?,
-        state.get_token_decimals(token_out_mint)?
+        StateAccount::get_token_decimals(token_in_mint, &state)?,
+        StateAccount::get_token_decimals(token_out_mint, &state)?
     );
 
     // 将金额标准化为最大精度
@@ -149,7 +149,7 @@ fn calculate_output_amount(
     let normalized_amount = amount_in.checked_mul(in_factor).ok_or(WUSDError::MathOverflow)?;
 
     // 应用汇率
-    let rate = state.get_exchange_rate(token_in_mint, token_out_mint)?;
+    let rate = StateAccount::get_exchange_rate(token_in_mint, token_out_mint, &state)?;
     let amount_with_rate = normalized_amount
         .checked_mul(rate.output).ok_or(WUSDError::MathOverflow)?
         .checked_div(rate.input).ok_or(WUSDError::MathOverflow)?;
