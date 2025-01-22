@@ -15,7 +15,7 @@ use error::*;
 use crate::instructions::stake::{StakingStatus, ClaimType};
 use crate::instructions::softstake::{SoftStake, SoftClaim};
 
-declare_id!("B7EV2BY6dWzjcPYnHL5UmpTZzGtMZGRJ3KyGhv5AfJ4");
+declare_id!("BvQtnSVDq4E9w35V7oooMYw59AiW6T52sfJUJ53mBnxh");
 
 /// WUSD稳定币程序入口
 #[program]
@@ -134,7 +134,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + StateAccount::LEN,
+        space = 8 + StateAccount::LEN + 2097152, // 调整额外的空间到更合理的值
         seeds = [b"state"],
         bump
     )]

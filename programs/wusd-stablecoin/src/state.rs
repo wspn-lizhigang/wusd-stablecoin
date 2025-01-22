@@ -54,7 +54,27 @@ pub struct ExchangeRate {
 }
 
 impl StateAccount {
-    pub const LEN: usize = 32 + 32 + 32 + 32 + 8 + 1 + 1 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 256 + 512 + 8; // 增加质押池计数器
+    pub const LEN: usize = 32 + // authority
+        32 + // wusd_mint
+        32 + // collateral_mint
+        32 + // treasury
+        8 + // total_supply
+        1 + // decimals
+        1 + // paused
+        8 + // total_staked
+        8 + // reward_rate
+        8 + // last_update_time
+        8 + // min_lock_duration
+        8 + // max_lock_duration
+        8 + // emergency_withdraw_penalty
+        8 + // emergency_cooldown_duration
+        8 + // high_apy_threshold
+        8 + // medium_apy_threshold
+        1 + // collateral_decimals
+        1 + // wusd_decimals
+        8192 + // token_whitelist (预留空间约250个代币)
+        16384 + // exchange_rates (预留空间约250对交易对)
+        8; // total_staking_plans
 
     /// 根据池ID获取质押池信息
     /// * `pool_id` - 质押池ID

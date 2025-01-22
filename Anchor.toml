@@ -4,7 +4,7 @@ types = "types/"
 features = []
 
 [programs.devnet]
-wusd_stablecoin = "8Y9qUfRNDJop7d169SSCPNnjw5eNvQPdSafL8BRCVWbN"
+wusd_stablecoin = "B7EV2BY6dWzjcPYnHL5UmpTZzGtMZGRJ3KyGhv5AfJ4"
 
 [registry]
 url = "https://anchor.projectserum.com"

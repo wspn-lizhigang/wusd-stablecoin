@@ -92,7 +92,7 @@ pub struct SoftStakeAccount {
 }
 
 impl SoftStakeAccount {
-    pub const LEN: usize = 32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 32 + 8;
+    pub const LEN: usize = 32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 32 + 8 + 32; // 增加额外的空间
 }
 
 /// 软质押事件，记录软质押操作的详细信息

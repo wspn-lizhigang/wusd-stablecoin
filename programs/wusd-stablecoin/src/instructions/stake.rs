@@ -102,7 +102,7 @@ pub struct StakeAccount {
 }
 
 impl StakeAccount {
-    pub const LEN: usize = 32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 8;
+    pub const LEN: usize = 32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 8 + 8 + 32; // 增加额外的空间
 }
 
 /// 质押事件，记录质押操作的详细信息
