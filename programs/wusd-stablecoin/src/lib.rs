@@ -15,7 +15,7 @@ use error::*;
 use crate::instructions::stake::{StakingStatus, ClaimType};
 use crate::instructions::softstake::{SoftStake, SoftClaim};
 
-declare_id!("Hqdm6x74og9EjPXSnTYkoXss9JeF3ZkL67Ziq2CMFYZr");
+declare_id!("H1s7yxsaodXdnwX82YuHT2874naKCXKeZ4U2iAAmciyZ");
 
 /// WUSD稳定币程序入口
 #[program]

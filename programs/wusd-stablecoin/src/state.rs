@@ -25,24 +25,20 @@ pub struct StakingPool {
 pub struct StateAccount {
     pub authority: Pubkey,
     pub wusd_mint: Pubkey,
-    pub collateral_mint: Pubkey,  // 改为通用的抵押代币
+    pub collateral_mint: Pubkey,
     pub treasury: Pubkey,
     pub total_supply: u64,
     pub decimals: u8,
-    pub paused: bool, 
+    pub paused: bool,
     pub total_staked: u64,
     pub reward_rate: u64,
     pub last_update_time: i64,
-    pub min_lock_duration: i64,
-    pub max_lock_duration: i64,
     pub emergency_withdraw_penalty: u64,
     pub emergency_cooldown_duration: i64,
-    pub high_apy_threshold: i64,
-    pub medium_apy_threshold: i64,
-    pub collateral_decimals: u8,  // 改为通用的抵押代币精度
+    pub collateral_decimals: u8,
     pub wusd_decimals: u8,
-    pub token_whitelist: [(Pubkey, bool); 5], // 减少数组大小以优化栈使用
-    pub exchange_rates: [(Pubkey, Pubkey, Rate); 5], // 减少数组大小以优化栈使用
+    pub token_whitelist: [(Pubkey, bool); 3],
+    pub exchange_rates: [(Pubkey, Pubkey, Rate); 3],
     pub total_staking_plans: u64,
 }
 
