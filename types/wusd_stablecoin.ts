@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/wusd_stablecoin.json`.
  */
 export type WusdStablecoin = {
-  "address": "B7EV2BY6dWzjcPYnHL5UympTZzGtMZGRJ3KyGhv5AfJ4",
+  "address": "B7EV2BY6dWzjcPYnHL5UmpTZzGtMZGRJ3KyGhv5AfJ4",
   "metadata": {
     "name": "wusdStablecoin",
     "version": "1.0.0",
@@ -18,6 +18,10 @@ export type WusdStablecoin = {
   "instructions": [
     {
       "name": "claim",
+      "docs": [
+        "领取质押奖励",
+        "* `ctx` - 领取奖励的上下文"
+      ],
       "discriminator": [
         62,
         198,
@@ -160,6 +164,9 @@ export type WusdStablecoin = {
     },
     {
       "name": "pause",
+      "docs": [
+        "暂停合约"
+      ],
       "discriminator": [
         211,
         22,
@@ -197,11 +204,198 @@ export type WusdStablecoin = {
       "args": []
     },
     {
+      "name": "softClaim",
+      "docs": [
+        "领取软质押奖励",
+        "* `ctx` - 领取奖励的上下文"
+      ],
+      "discriminator": [
+        32,
+        153,
+        36,
+        86,
+        240,
+        221,
+        130,
+        125
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "signer": true
+        },
+        {
+          "name": "stakeAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  111,
+                  102,
+                  116,
+                  115,
+                  116,
+                  97,
+                  107,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "userWusd",
+          "writable": true
+        },
+        {
+          "name": "wusdMint",
+          "writable": true
+        },
+        {
+          "name": "state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "softStake",
+      "docs": [
+        "软质押WUSD代币",
+        "* `ctx` - 软质押上下文",
+        "* `amount` - 质押金额",
+        "* `staking_pool_id` - 质押池ID",
+        "* `access_key` - 访问密钥"
+      ],
+      "discriminator": [
+        182,
+        175,
+        208,
+        41,
+        24,
+        31,
+        208,
+        32
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "userWusd",
+          "writable": true
+        },
+        {
+          "name": "stakeAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  111,
+                  102,
+                  116,
+                  115,
+                  116,
+                  97,
+                  107,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stakeVault",
+          "writable": true
+        },
+        {
+          "name": "state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "stakingPoolId",
+          "type": "u64"
+        },
+        {
+          "name": "accessKey",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "stake",
       "docs": [
         "质押WUSD代币",
         "* `ctx` - 质押上下文",
-        "* `amount` - 质押金额"
+        "* `amount` - 质押金额",
+        "* `staking_pool_id` - 质押池ID"
       ],
       "discriminator": [
         206,
@@ -279,6 +473,10 @@ export type WusdStablecoin = {
       "args": [
         {
           "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "stakingPoolId",
           "type": "u64"
         }
       ]
@@ -360,6 +558,9 @@ export type WusdStablecoin = {
     },
     {
       "name": "unpause",
+      "docs": [
+        "恢复合约"
+      ],
       "discriminator": [
         169,
         144,
@@ -401,7 +602,8 @@ export type WusdStablecoin = {
       "docs": [
         "提取质押的代币",
         "* `ctx` - 提取上下文",
-        "* `amount` - 提取金额"
+        "* `amount` - 提取金额",
+        "* `is_emergency` - 是否为紧急提现"
       ],
       "discriminator": [
         183,
@@ -476,11 +678,28 @@ export type WusdStablecoin = {
         {
           "name": "amount",
           "type": "u64"
+        },
+        {
+          "name": "isEmergency",
+          "type": "bool"
         }
       ]
     }
   ],
   "accounts": [
+    {
+      "name": "softStakeAccount",
+      "discriminator": [
+        101,
+        165,
+        7,
+        10,
+        40,
+        166,
+        251,
+        159
+      ]
+    },
     {
       "name": "stakeAccount",
       "discriminator": [
@@ -520,6 +739,32 @@ export type WusdStablecoin = {
         104,
         130,
         43
+      ]
+    },
+    {
+      "name": "softClaimEvent",
+      "discriminator": [
+        56,
+        91,
+        118,
+        177,
+        67,
+        193,
+        100,
+        18
+      ]
+    },
+    {
+      "name": "softStakeEvent",
+      "discriminator": [
+        248,
+        55,
+        34,
+        87,
+        214,
+        222,
+        106,
+        7
       ]
     },
     {
@@ -700,6 +945,162 @@ export type WusdStablecoin = {
       "type": {
         "kind": "struct",
         "fields": []
+      }
+    },
+    {
+      "name": "softClaimEvent",
+      "docs": [
+        "软质押奖励领取事件，记录领取操作的详细信息"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "accessKey",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "softStakeAccount",
+      "docs": [
+        "软质押账户结构体，存储用户的软质押信息"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "stakingPoolId",
+            "type": "u64"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "apy",
+            "type": "u64"
+          },
+          {
+            "name": "startTime",
+            "type": "i64"
+          },
+          {
+            "name": "endTime",
+            "type": "i64"
+          },
+          {
+            "name": "claimableTimestamp",
+            "type": "i64"
+          },
+          {
+            "name": "rewardsEarned",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "softStakingStatus"
+              }
+            }
+          },
+          {
+            "name": "accessKey",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "lastUpdateTime",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "softStakeEvent",
+      "docs": [
+        "软质押事件，记录软质押操作的详细信息"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "stakingPoolId",
+            "type": "u64"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "apy",
+            "type": "u64"
+          },
+          {
+            "name": "startTime",
+            "type": "i64"
+          },
+          {
+            "name": "endTime",
+            "type": "i64"
+          },
+          {
+            "name": "accessKey",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "softStakingStatus",
+      "docs": [
+        "软质押状态枚举"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "active"
+          },
+          {
+            "name": "claimable"
+          },
+          {
+            "name": "claimed"
+          }
+        ]
       }
     },
     {

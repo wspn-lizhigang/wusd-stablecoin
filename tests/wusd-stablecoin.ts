@@ -67,6 +67,12 @@ describe("wusd-stablecoin", () => {
       program.programId
     );
 
+    // Derive PDA for stake account
+    [stakeAccount] = await PublicKey.findProgramAddress(
+      [Buffer.from("stake"), authority.publicKey.toBuffer()],
+      program.programId
+    );
+
     // Derive PDA for soft stake account
     [softStakeAccount] = await PublicKey.findProgramAddress(
       [Buffer.from("softstake"), authority.publicKey.toBuffer()],
@@ -99,9 +105,10 @@ describe("wusd-stablecoin", () => {
     console.log("Initialize transaction:", tx);
   });
 
-  it("Swaps collateral to WUSD", async () => {
-    const amount = new anchor.BN(500000); // 0.5 collateral tokens
-    const minAmountOut = new anchor.BN(450000); // 允许5%的滑点
+  it("Swaps tokens with slippage protection", async () => {
+    const amount = new anchor.BN(500000); // 0.5 tokens
+    const minAmountOut = new anchor.BN(450000); // 5% slippage tolerance
+    
     await mintTo(
       provider.connection,
       authority.publicKey,
@@ -112,23 +119,65 @@ describe("wusd-stablecoin", () => {
     );
 
     const tx = await program.methods
-      .swap(amount, minAmountOut, true) // true表示collateral到WUSD的兑换
+      .swap(amount, minAmountOut)
       .accounts({
         user: authority.publicKey,
         userTokenIn: userCollateral,
         userTokenOut: userWusd,
-        vaultTokenIn: treasury,
         tokenProgram: TOKEN_PROGRAM_ID,
         state,
         wusdMint,
-        collateralMint,
+        usdcMint: collateralMint,
         treasury
       })
       .rpc();
     console.log("Swap transaction:", tx);
   });
 
-  it("Soft stakes WUSD", async () => {
+  it("Stakes WUSD tokens", async () => {
+    const amount = new anchor.BN(1000000); // 1 WUSD
+    const staking_pool_id = new anchor.BN(1);
+    
+    await mintTo(
+      provider.connection,
+      authority.publicKey,
+      wusdMint,
+      userWusd,
+      authority.publicKey,
+      amount.toNumber()
+    );
+
+    const tx = await program.methods
+      .stake(amount, staking_pool_id)
+      .accounts({
+        user: authority.publicKey,
+        userWusd,
+        stakeAccount,
+        stakeVault,
+        state,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .rpc();
+    console.log("Stake transaction:", tx);
+  });
+
+  it("Claims staking rewards", async () => {
+    const tx = await program.methods
+      .claim()
+      .accounts({
+        user: authority.publicKey,
+        stakeAccount,
+        userWusd,
+        wusdMint,
+        state,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .rpc();
+    console.log("Claim transaction:", tx);
+  });
+
+  it("Soft stakes WUSD tokens", async () => {
     const amount = new anchor.BN(1000000); // 1 WUSD
     const staking_pool_id = new anchor.BN(1);
     const access_key = Buffer.alloc(32);
@@ -158,7 +207,7 @@ describe("wusd-stablecoin", () => {
     console.log("Soft stake transaction:", tx);
   });
 
-  it("Claims soft stake rewards", async () => {
+  it("Claims soft staking rewards", async () => {
     const tx = await program.methods
       .softClaim()
       .accounts({
@@ -173,88 +222,84 @@ describe("wusd-stablecoin", () => {
     console.log("Soft claim transaction:", tx);
   });
 
-  it("Initializes the protocol", async () => {
-    const tx = await program.methods
-      .initialize(8)
-      .accounts({
-        authority: authority.publicKey,
-        state,
-        wusdMint,
-        collateralMint,
-        treasury,
-        systemProgram: SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-      })
-      .rpc();
-    console.log("Initialize transaction:", tx);
-  });
-
-  it("Stakes WUSD", async () => {
-    const amount = new anchor.BN(1000000); // 1 WUSD
-    await mintTo(
-      provider.connection,
-      authority.publicKey,
-      wusdMint,
-      userWusd,
-      authority.publicKey,
-      amount.toNumber()
-    );
+  it("Withdraws staked tokens", async () => {
+    const amount = new anchor.BN(500000); // 0.5 WUSD
+    const is_emergency = false;
 
     const tx = await program.methods
-      .stake(amount)
-      .accounts({
-        user: authority.publicKey,
-        userWusd,
-        state,
-        systemProgram: SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .rpc();
-    console.log("Stake transaction:", tx);
-  });
-
-  it("Claims rewards", async () => {
-    const tx = await program.methods
-      .claim()
+      .withdraw(amount, is_emergency)
       .accounts({
         user: authority.publicKey,
         stakeAccount,
         userWusd,
-        wusdMint,
+        stakeVault,
         state,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .rpc();
-    console.log("Claim transaction:", tx);
+    console.log("Withdraw transaction:", tx);
   });
 
-  it("Swaps collateral to WUSD again", async () => {
-    const amount = new anchor.BN(500000); // 0.5 collateral tokens
-    const minAmountOut = new anchor.BN(450000); // 允许5%的滑点
-    await mintTo(
-      provider.connection,
-      authority.publicKey,
-      collateralMint,
-      userCollateral,
-      authority.publicKey,
-      amount.toNumber()
-    );
-
-    const tx = await program.methods
-      .swap(amount, minAmountOut, true) // true表示collateral到WUSD的兑换
+  it("Pauses and unpauses the contract", async () => {
+    // Pause contract
+    let tx = await program.methods
+      .pause()
       .accounts({
-        user: authority.publicKey,
-        userTokenIn: userCollateral,
-        userTokenOut: userWusd,
-        vaultTokenIn: treasury,
-        tokenProgram: TOKEN_PROGRAM_ID,
+        authority: authority.publicKey,
         state,
-        wusdMint,
-        collateralMint,
-        treasury
       })
       .rpc();
-    console.log("Swap transaction:", tx);
+    console.log("Pause transaction:", tx);
+
+    // Unpause contract
+    tx = await program.methods
+      .unpause()
+      .accounts({
+        authority: authority.publicKey,
+        state,
+      })
+      .rpc();
+    console.log("Unpause transaction:", tx);
+  });
+
+  // Error cases
+  it("Fails when unauthorized user tries to pause", async () => {
+    try {
+      const unauthorized = anchor.web3.Keypair.generate();
+      await program.methods
+        .pause()
+        .accounts({
+          authority: unauthorized.publicKey,
+          state,
+        })
+        .signers([unauthorized])
+        .rpc();
+      assert.fail("Expected error");
+    } catch (err) {
+      assert.equal(err.error.errorCode.code, "Unauthorized");
+    }
+  });
+
+  it("Fails when staking amount is too low", async () => {
+    try {
+      const amount = new anchor.BN(1); // Very small amount
+      const staking_pool_id = new anchor.BN(1);
+      
+      await program.methods
+        .stake(amount, staking_pool_id)
+        .accounts({
+          user: authority.publicKey,
+          userWusd,
+          stakeAccount,
+          stakeVault,
+          state,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+      assert.fail("Expected error");
+    } catch (err) {
+      assert.equal(err.error.errorCode.code, "StakingAmountTooLow");
+    }
   });
 });

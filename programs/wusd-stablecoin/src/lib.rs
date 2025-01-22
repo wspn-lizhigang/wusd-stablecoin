@@ -13,8 +13,9 @@ use crate::instructions::*;
 use state::*;
 use error::*;
 use crate::instructions::stake::{StakingStatus, ClaimType};
+use crate::instructions::softstake::{SoftStake, SoftClaim};
 
-declare_id!("B7EV2BY6dWzjcPYnHL5UympTZzGtMZGRJ3KyGhv5AfJ4");
+declare_id!("B7EV2BY6dWzjcPYnHL5UmpTZzGtMZGRJ3KyGhv5AfJ4");
 
 /// WUSD稳定币程序入口
 #[program]
@@ -39,11 +40,34 @@ pub mod wusd_stablecoin {
         Ok(())
     }
 
+    /// 质押WUSD代币
+    /// * `ctx` - 质押上下文
+    /// * `amount` - 质押金额
+    /// * `staking_pool_id` - 质押池ID
+    pub fn stake(
+        ctx: Context<Stake>,
+        amount: u64,
+        staking_pool_id: u64,
+    ) -> Result<()> {
+        instructions::stake::stake(ctx, amount, staking_pool_id)
+    }
+
+    /// 领取质押奖励
+    /// * `ctx` - 领取奖励的上下文
+    pub fn claim(ctx: Context<Claim>) -> Result<()> {
+        instructions::stake::claim(ctx)
+    }
+
     /// 提取质押的代币
     /// * `ctx` - 提取上下文
     /// * `amount` - 提取金额
-    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
-        instructions::withdraw::withdraw(ctx, amount, false)
+    /// * `is_emergency` - 是否为紧急提现
+    pub fn withdraw(
+        ctx: Context<Withdraw>,
+        amount: u64,
+        is_emergency: bool,
+    ) -> Result<()> {
+        instructions::withdraw::withdraw(ctx, amount, is_emergency)
     }
 
     /// 代币兑换功能
@@ -58,17 +82,7 @@ pub mod wusd_stablecoin {
         instructions::swap::swap(ctx, amount_in, min_amount_out)
     }
 
-    /// 质押WUSD代币
-    /// * `ctx` - 质押上下文
-    /// * `amount` - 质押金额
-    pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
-        instructions::stake::stake(ctx, amount, 0) // 默认锁定期为0
-    }
-
-    pub fn claim(ctx: Context<Claim>) -> Result<()> {
-        instructions::stake::claim(ctx)
-    }
-
+    /// 暂停合约
     pub fn pause(ctx: Context<AdminOnly>) -> Result<()> {
         require!(
             ctx.accounts.authority.key() == ctx.accounts.state.authority,
@@ -79,6 +93,7 @@ pub mod wusd_stablecoin {
         Ok(())
     }
 
+    /// 恢复合约
     pub fn unpause(ctx: Context<AdminOnly>) -> Result<()> {
         require!(
             ctx.accounts.authority.key() == ctx.accounts.state.authority,
@@ -87,6 +102,26 @@ pub mod wusd_stablecoin {
         ctx.accounts.state.paused = false;
         emit!(UnpauseEvent {});
         Ok(())
+    }
+
+    /// 软质押WUSD代币
+    /// * `ctx` - 软质押上下文
+    /// * `amount` - 质押金额
+    /// * `staking_pool_id` - 质押池ID
+    /// * `access_key` - 访问密钥
+    pub fn soft_stake(
+        ctx: Context<SoftStake>,
+        amount: u64,
+        staking_pool_id: u64,
+        access_key: [u8; 32],
+    ) -> Result<()> {
+        instructions::softstake::soft_stake(ctx, amount, staking_pool_id, access_key)
+    }
+
+    /// 领取软质押奖励
+    /// * `ctx` - 领取奖励的上下文
+    pub fn soft_claim(ctx: Context<SoftClaim>) -> Result<()> {
+        instructions::softstake::soft_claim(ctx)
     }
 }
 
