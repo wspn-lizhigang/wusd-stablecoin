@@ -2,6 +2,17 @@ export const config = {
     // 连接配置
     rpcUrl: "https://api.devnet.solana.com",
     deployKeyPath: "/Users/lizhigang/Downloads/wusd-stablecoin/deploy-keypair.json",
+    connectionConfig: {
+        commitment: 'confirmed',
+        confirmTransactionInitialTimeout: 120000,
+        preflightCommitment: 'confirmed',
+        disableRetryOnRateLimit: false,
+        httpHeaders: {
+            'Cache-Control': 'no-cache',
+        },
+        wsEndpoint: 'wss://api.devnet.solana.com/',
+        useOnlyHttpEndpoint: false
+    },
 
     // 代币配置
     wusdDecimals: 8,
