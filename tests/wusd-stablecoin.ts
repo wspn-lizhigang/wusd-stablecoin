@@ -9,6 +9,36 @@ import { assert } from 'chai';
 import { config } from './config';
 
 describe("wusd-stablecoin", () => {
+  // 最大重试次数
+  const MAX_RETRIES = 3;
+  // 重试延迟（毫秒）
+  const RETRY_DELAY = 1000;
+
+  // 重试函数
+  async function retry<T>(fn: () => Promise<T>, retries = MAX_RETRIES, delay = RETRY_DELAY): Promise<T> {
+    let lastError: any;
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        lastError = error;
+        console.log(`重试尝试 ${i + 1}/${retries} 失败:`, error.message);
+        
+        // 检查是否是不可重试的错误
+        if (error.error?.errorCode?.code === "Unauthorized" ||
+            error.error?.errorCode?.code === "StakingAmountTooLow") {
+          console.log("遇到不可重试的错误，立即终止重试");
+          throw error;
+        }
+        
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+        }
+      }
+    }
+    throw lastError;
+  }
+
   const provider = new anchor.AnchorProvider(
     new anchor.web3.Connection(config.rpcUrl),
     new anchor.Wallet(anchor.web3.Keypair.fromSecretKey(
@@ -86,7 +116,6 @@ describe("wusd-stablecoin", () => {
 
       const setupTx = new anchor.web3.Transaction().add(...createUserAccountsIx);
       await provider.sendAndConfirm(setupTx, [], { commitment: 'confirmed' });
-
       // Create stake vault PDA and treasury PDA
       const [vaultPda] = await PublicKey.findProgramAddress(
         [Buffer.from(config.seeds.stakeVault)],
@@ -129,7 +158,6 @@ describe("wusd-stablecoin", () => {
 
       const pdaAccountsTx = new anchor.web3.Transaction().add(...createPdaAccountsIx);
       await provider.sendAndConfirm(pdaAccountsTx, [], { commitment: 'confirmed' });
-
       // Initialize the protocol state after creating token accounts
       let tx = await program.methods
         .initialize(config.wusdDecimals)
@@ -166,59 +194,61 @@ describe("wusd-stablecoin", () => {
       throw e;
     }
   });
+  describe("Protocol Initialization", () => {
+    it("Successfully initializes the protocol", async () => {
+      try {
+        // Initialize the protocol state
+        let tx = await program.methods
+          .initialize(config.wusdDecimals)
+          .accounts({
+            authority: authority.publicKey,
+            state,
+            wusdMint,
+            collateralMint,
+            treasury,
+            systemProgram: SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          })
+          .rpc();
+        
+        await provider.connection.confirmTransaction(tx, 'confirmed');
 
-  it("Initializes the protocol", async () => {
-    try {
-      // Initialize the protocol state
-      let tx = await program.methods
-        .initialize(config.wusdDecimals)
-        .accounts({
-          authority: authority.publicKey,
-          state,
-          wusdMint,
-          collateralMint,
-          treasury,
-          systemProgram: SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        })
-        .rpc();
-      
-      await provider.connection.confirmTransaction(tx, 'confirmed');
+        // Initialize stake account
+        tx = await program.methods
+          .initializeStakeAccount()
+          .accounts({
+            user: authority.publicKey,
+            stakeAccount,
+            state,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
+        
+        await provider.connection.confirmTransaction(tx, 'confirmed');
 
-      // Initialize stake account
-      tx = await program.methods
-        .initializeStakeAccount()
-        .accounts({
-          user: authority.publicKey,
-          stakeAccount,
-          state,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc();
-      
-      await provider.connection.confirmTransaction(tx, 'confirmed');
-
-      // Initialize soft stake account
-      tx = await program.methods
-        .initializeSoftStakeAccount()
-        .accounts({
-          user: authority.publicKey,
-          stakeAccount: softStakeAccount,
-          state,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc();
-      
-      await provider.connection.confirmTransaction(tx, 'confirmed');
-    } catch (e) {
-      console.error("Initialization error:", e);
-      throw e;
-    }
+        // Initialize soft stake account
+        tx = await program.methods
+          .initializeSoftStakeAccount()
+          .accounts({
+            user: authority.publicKey,
+            stakeAccount: softStakeAccount,
+            state,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
+        
+        await provider.connection.confirmTransaction(tx, 'confirmed');
+      } catch (e) {
+        console.error("Initialization error:", e);
+        throw e;
+      }
+    });
   });
 
-  it("Swaps tokens with slippage protection", async () => {
-    try {
+  describe("Token Operations", () => {
+    it("Successfully swaps tokens with slippage protection", async () => {
+      try {
       const amount = new anchor.BN(config.swapAmount);
       const minAmountOut = new anchor.BN(config.swapMinAmountOut);
       
@@ -233,7 +263,6 @@ describe("wusd-stablecoin", () => {
         )
       );
       await provider.sendAndConfirm(mintTx, [mintAuthority], { commitment: 'confirmed' });
-
       const tx = await program.methods
         .swap(amount, minAmountOut)
         .accounts({
@@ -254,9 +283,10 @@ describe("wusd-stablecoin", () => {
       throw e;
     }
   });
-
-  it("Stakes WUSD tokens", async () => {
-    try {
+  });
+  describe("Staking Operations", () => {
+    it("Successfully stakes WUSD tokens", async () => {
+      try {
       const amount = new anchor.BN(config.stakeAmount);
       const staking_pool_id = new anchor.BN(config.stakingPoolId);
       
@@ -271,7 +301,6 @@ describe("wusd-stablecoin", () => {
         )
       );
       await provider.sendAndConfirm(mintTx, [mintAuthority], { commitment: 'confirmed' });
-
       const tx = await program.methods
         .stake(amount, staking_pool_id)
         .accounts({
@@ -291,7 +320,6 @@ describe("wusd-stablecoin", () => {
       throw e;
     }
   });
-
   it("Claims staking rewards", async () => {
     try {
       const tx = await program.methods
@@ -312,7 +340,6 @@ describe("wusd-stablecoin", () => {
       throw e;
     }
   });
-
   it("Soft stakes WUSD tokens", async () => {
     try {
       const amount = new anchor.BN(config.stakeAmount);
@@ -331,7 +358,6 @@ describe("wusd-stablecoin", () => {
         )
       );
       await provider.sendAndConfirm(mintTx, [mintAuthority], { commitment: 'confirmed' });
-
       const tx = await program.methods
         .softStake(amount, staking_pool_id, access_key)
         .accounts({
@@ -351,7 +377,6 @@ describe("wusd-stablecoin", () => {
       throw e;
     }
   });
-
   it("Claims soft staking rewards", async () => {
     try {
       const tx = await program.methods
@@ -372,7 +397,6 @@ describe("wusd-stablecoin", () => {
       throw e;
     }
   });
-
   it("Withdraws staked tokens", async () => {
     try {
       const amount = new anchor.BN(config.withdrawAmount);
@@ -396,7 +420,32 @@ describe("wusd-stablecoin", () => {
       throw e;
     }
   });
+    it("Successfully performs emergency withdrawal", async () => {
+      try {
+        await retry(async () => {
+          const amount = new anchor.BN(config.withdrawAmount);
+          const is_emergency = true;
 
+          const tx = await program.methods
+            .withdraw(amount, is_emergency)
+            .accounts({
+              user: authority.publicKey,
+              stakeAccount,
+              userWusd,
+              stakeVault,
+              state,
+              tokenProgram: TOKEN_PROGRAM_ID,
+            })
+            .rpc();
+          
+          await provider.connection.confirmTransaction(tx, 'confirmed');
+        });
+      } catch (e) {
+        console.error("Emergency withdraw error:", e);
+        throw e;
+      }
+    });
+  });
   it("Pauses and unpauses the contract", async () => {
     try {
       // Pause contract
@@ -425,7 +474,6 @@ describe("wusd-stablecoin", () => {
       throw e;
     }
   });
-
   // Error cases
   it("Fails when unauthorized user tries to pause", async () => {
     try {
@@ -443,7 +491,6 @@ describe("wusd-stablecoin", () => {
       assert.equal(err.error.errorCode.code, "Unauthorized");
     }
   });
-
   it("Fails when staking amount is too low", async () => {
     try {
       const amount = new anchor.BN(config.minStakingAmount - 1);
@@ -465,5 +512,118 @@ describe("wusd-stablecoin", () => {
     } catch (err) {
       assert.equal(err.error.errorCode.code, "StakingAmountTooLow");
     }
+  });
+  describe("Error Handling and Edge Cases", () => {
+    it("Should fail when trying to stake with zero amount", async () => {
+      try {
+        const amount = new anchor.BN(0);
+        const staking_pool_id = new anchor.BN(config.stakingPoolId);
+        
+        await program.methods
+          .stake(amount, staking_pool_id)
+          .accounts({
+            user: authority.publicKey,
+            userWusd,
+            stakeAccount,
+            stakeVault,
+            state,
+            systemProgram: SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .rpc();
+        assert.fail("Expected error for zero amount stake");
+      } catch (err: any) {
+        assert.equal(err.error.errorCode.code, "StakingAmountTooLow");
+      }
+    });
+    it("Should fail when trying to withdraw more than staked amount", async () => {
+      try {
+        const excessAmount = new anchor.BN(config.stakeAmount * 2);
+        await program.methods
+          .withdraw(excessAmount, false)
+          .accounts({
+            user: authority.publicKey,
+            stakeAccount,
+            userWusd,
+            stakeVault,
+            state,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .rpc();
+        assert.fail("Expected error for excessive withdrawal");
+      } catch (err: any) {
+        assert.equal(err.error.errorCode.code, "InsufficientFunds");
+      }
+    });
+    it("Should fail when trying to claim rewards with no stake", async () => {
+      try {
+        // 首先确保没有质押
+        const amount = new anchor.BN(config.stakeAmount);
+        await program.methods
+          .withdraw(amount, false)
+          .accounts({
+            user: authority.publicKey,
+            stakeAccount,
+            userWusd,
+            stakeVault,
+            state,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .rpc();
+
+        // 尝试领取奖励
+        await program.methods
+          .claim()
+          .accounts({
+            user: authority.publicKey,
+            stakeAccount,
+            userWusd,
+            wusdMint,
+            state,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .rpc();
+        assert.fail("Expected error for claiming with no stake");
+      } catch (err: any) {
+        assert.equal(err.error.errorCode.code, "NoStakeFound");
+      }
+    });
+    it("Should handle concurrent stake operations correctly", async () => {
+      const amount = new anchor.BN(config.stakeAmount);
+      const staking_pool_id = new anchor.BN(config.stakingPoolId);
+      
+      // 准备多个质押操作
+      const stakePromises = Array(3).fill(0).map(() => 
+        retry(async () => {
+          const mintTx = new anchor.web3.Transaction().add(
+            await mintTo(
+              provider.connection,
+              provider.wallet.payer,
+              wusdMint,
+              userWusd,
+              mintAuthority.publicKey,
+              amount.toNumber()
+            )
+          );
+          await provider.sendAndConfirm(mintTx, [mintAuthority]);
+
+          return program.methods
+            .stake(amount, staking_pool_id)
+            .accounts({
+              user: authority.publicKey,
+              userWusd,
+              stakeAccount,
+              stakeVault,
+              state,
+              systemProgram: SystemProgram.programId,
+              tokenProgram: TOKEN_PROGRAM_ID,
+            })
+            .rpc();
+        })
+      );
+
+      // 并发执行质押操作
+      await Promise.all(stakePromises);
+    });
   });
 });

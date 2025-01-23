@@ -11,7 +11,7 @@ wusd_stablecoin = "HpYodZmYAPzJ9QgJJDuvRMdCEY3srHPDWuR17VMYx1AL"
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "deploy-keypair.json"
 
 [workspace]
