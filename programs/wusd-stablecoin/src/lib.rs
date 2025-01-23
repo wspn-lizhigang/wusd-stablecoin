@@ -15,7 +15,7 @@ use error::*;
 use crate::instructions::stake::{StakingStatus, ClaimType};
 use crate::instructions::softstake::{SoftStake, SoftClaim};
 
-declare_id!("FzQFfVXCNxFEH9EADpVurFgUZ5WKKtYpYC5okGJHoTzh");
+declare_id!("HpYodZmYAPzJ9QgJJDuvRMdCEY3srHPDWuR17VMYx1AL");
 
 /// WUSD稳定币程序入口
 #[program]
@@ -25,7 +25,7 @@ pub mod wusd_stablecoin {
     /// 初始化WUSD稳定币系统
     /// * `ctx` - 初始化上下文
     /// * `decimals` - 代币精度
-    pub fn initialize_stake_account(ctx: Context<Stake>) -> Result<()> {
+    pub fn initialize_stake_account(ctx: Context<InitializeStakeAccount>) -> Result<()> {
         let stake_account = &mut ctx.accounts.stake_account;
         stake_account.owner = ctx.accounts.user.key();
         stake_account.amount = 0;
@@ -183,7 +183,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + StateAccount::LEN + 2048, // 增加更多缓冲空间
+        space = 8 + StateAccount::LEN,
         seeds = [b"state"],
         bump
     )]
@@ -195,6 +195,32 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
+}
+
+/// 初始化质押账户的账户参数
+#[derive(Accounts)]
+pub struct InitializeStakeAccount<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + StakeAccount::LEN,
+        seeds = [b"stake_account", user.key().as_ref()],
+        bump
+    )]
+    pub stake_account: Account<'info, StakeAccount>,
+    
+    #[account(
+        mut,
+        seeds = [b"state"],
+        bump,
+        constraint = !state.paused @ WUSDError::ContractPaused
+    )]
+    pub state: Account<'info, StateAccount>,
+    
+    pub system_program: Program<'info, System>,
 }
 
 /// 仅管理员可执行的指令账户参数

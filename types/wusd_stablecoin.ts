@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/wusd_stablecoin.json`.
  */
 export type WusdStablecoin = {
-  "address": "CurpLkdZS92j9tcNMvWSXg5otYstnbgMeTyFdLKHi7f6",
+  "address": "HpYodZmYAPzJ9QgJJDuvRMdCEY3srHPDWuR17VMYx1AL",
   "metadata": {
     "name": "wusdStablecoin",
     "version": "1.0.0",
@@ -279,10 +279,6 @@ export type WusdStablecoin = {
           "signer": true
         },
         {
-          "name": "userWusd",
-          "writable": true
-        },
-        {
           "name": "stakeAccount",
           "writable": true,
           "pda": {
@@ -313,10 +309,6 @@ export type WusdStablecoin = {
           }
         },
         {
-          "name": "stakeVault",
-          "writable": true
-        },
-        {
           "name": "state",
           "writable": true,
           "pda": {
@@ -337,10 +329,6 @@ export type WusdStablecoin = {
         {
           "name": "systemProgram",
           "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": []

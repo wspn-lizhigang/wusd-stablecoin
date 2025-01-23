@@ -1,6 +1,6 @@
 export const config = {
     // 连接配置
-    rpcUrl: "https://api.devnet.solana.com",
+    rpcUrl: "https://api.devnet.solana.com?commitment=confirmed",
     deployKeyPath: "/Users/lizhigang/Downloads/wusd-stablecoin/deploy-keypair.json",
 
     // 代币配置
