@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/wusd_stablecoin.json`.
  */
 export type WusdStablecoin = {
-  "address": "H1s7yxsaodXdnwX82YuHT2874naKCXKeZ4U2iAAmciyZ",
+  "address": "CurpLkdZS92j9tcNMvWSXg5otYstnbgMeTyFdLKHi7f6",
   "metadata": {
     "name": "wusdStablecoin",
     "version": "1.0.0",
@@ -102,11 +102,6 @@ export type WusdStablecoin = {
     },
     {
       "name": "initialize",
-      "docs": [
-        "初始化WUSD稳定币系统",
-        "* `ctx` - 初始化上下文",
-        "* `decimals` - 代币精度"
-      ],
       "discriminator": [
         175,
         175,
@@ -169,6 +164,186 @@ export type WusdStablecoin = {
           "type": "u8"
         }
       ]
+    },
+    {
+      "name": "initializeSoftStakeAccount",
+      "discriminator": [
+        136,
+        59,
+        97,
+        160,
+        159,
+        100,
+        88,
+        51
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "userWusd",
+          "writable": true
+        },
+        {
+          "name": "stakeAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  111,
+                  102,
+                  116,
+                  95,
+                  115,
+                  116,
+                  97,
+                  107,
+                  101,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stakeVault",
+          "writable": true
+        },
+        {
+          "name": "state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initializeStakeAccount",
+      "docs": [
+        "初始化WUSD稳定币系统",
+        "* `ctx` - 初始化上下文",
+        "* `decimals` - 代币精度"
+      ],
+      "discriminator": [
+        184,
+        7,
+        155,
+        82,
+        149,
+        217,
+        185,
+        196
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "userWusd",
+          "writable": true
+        },
+        {
+          "name": "stakeAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  107,
+                  101,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stakeVault",
+          "writable": true
+        },
+        {
+          "name": "state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
     },
     {
       "name": "pause",

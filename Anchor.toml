@@ -4,31 +4,16 @@
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-wusd_stablecoin = "H1s7yxsaodXdnwX82YuHT2874naKCXKeZ4U2iAAmciyZ"
+[programs.devnet]
+wusd_stablecoin = "FzQFfVXCNxFEH9EADpVurFgUZ5WKKtYpYC5okGJHoTzh"
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "deploy-keypair.json"
 
 [workspace]
 members = ["programs/*"]
 types = "types/"
-
-[scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
-
-[test]
-startup_wait = 5000
-shutdown_wait = 2000
-upgradeable = false
-
-[test.validator]
-ledger = ".anchor/test-ledger"
-rpc_port = 9900
-faucet_port = 9901
-url = "https://api.mainnet-beta.solana.com"
-clone = [{ address = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" }]

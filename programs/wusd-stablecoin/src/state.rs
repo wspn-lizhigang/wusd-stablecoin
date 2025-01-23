@@ -60,19 +60,12 @@ impl StateAccount {
         8 + // total_staked
         8 + // reward_rate
         8 + // last_update_time
-        8 + // min_lock_duration
-        8 + // max_lock_duration
         8 + // emergency_withdraw_penalty
         8 + // emergency_cooldown_duration
-        8 + // high_apy_threshold
-        8 + // medium_apy_threshold
         1 + // collateral_decimals
         1 + // wusd_decimals
-        8 + // padding for alignment
-        4 + // token_whitelist length prefix
-        (32 + 1) * 5 + // 减少数组大小以优化栈使用
-        4 + // exchange_rates length prefix
-        (32 + 32 + 16) * 5 + // 减少数组大小以优化栈使用
+        (32 + 1) * 3 + // token_whitelist (3 entries)
+        (32 + 32 + 16) * 3 + // exchange_rates (3 entries)
         8; // total_staking_plans
 
     /// 根据池ID获取质押池信息

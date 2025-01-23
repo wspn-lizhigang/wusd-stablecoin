@@ -1,6 +1,6 @@
 export const config = {
     // 连接配置
-    rpcUrl: "http://127.0.0.1:8899",
+    rpcUrl: "https://api.devnet.solana.com",
     deployKeyPath: "/Users/lizhigang/Downloads/wusd-stablecoin/deploy-keypair.json",
 
     // 代币配置
@@ -9,13 +9,13 @@ export const config = {
     
     // 质押池配置
     stakingPoolId: 1,
-    minStakingAmount: 100000, // 0.1 WUSD
+    minStakingAmount: 1000000, // 1 WUSD
     
     // 测试金额配置
-    swapAmount: 500000, // 0.5 tokens
-    swapMinAmountOut: 450000, // 5% slippage tolerance
-    stakeAmount: 1000000, // 1 WUSD
-    withdrawAmount: 500000, // 0.5 WUSD
+    swapAmount: 5000000, // 5 tokens
+    swapMinAmountOut: 4500000, // 5% slippage tolerance
+    stakeAmount: 2000000, // 2 WUSD
+    withdrawAmount: 1000000, // 1 WUSD
     
     // 系统参数
     rewardRate: 100000, // 0.0001 WUSD per second

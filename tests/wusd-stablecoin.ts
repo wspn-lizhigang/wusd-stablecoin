@@ -2,7 +2,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { WusdStablecoin } from "../target/types/wusd_stablecoin";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, createMint, createAccount, mintTo, getAssociatedTokenAddress, ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID, createMint, mintTo, getAssociatedTokenAddress, ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { assert } from 'chai';
@@ -36,16 +36,16 @@ describe("wusd-stablecoin", () => {
     wusdMint = await createMint(
       provider.connection,
       provider.wallet.payer,
-      mintAuthority.publicKey,
-      mintAuthority.publicKey,
+      provider.wallet.publicKey, // Initial mint authority
+      null, // Freeze authority (none)
       config.wusdDecimals
     );
 
     collateralMint = await createMint(
       provider.connection,
       provider.wallet.payer,
-      mintAuthority.publicKey,
-      mintAuthority.publicKey,
+      provider.wallet.publicKey, // Initial mint authority
+      null, // Freeze authority (none)
       config.collateralDecimals
     );
 
@@ -61,24 +61,29 @@ describe("wusd-stablecoin", () => {
     );
 
     // Create user token accounts if they don't exist
-    const createUserAccountsIx = [
-      createAssociatedTokenAccountInstruction(
-        provider.wallet.publicKey,
-        userWusd,
-        provider.wallet.publicKey,
-        wusdMint
-      ),
-      createAssociatedTokenAccountInstruction(
-        provider.wallet.publicKey,
-        userCollateral,
-        provider.wallet.publicKey,
-        collateralMint
-      )
-    ];
+    try {
+      const createUserAccountsIx = [
+        createAssociatedTokenAccountInstruction(
+          provider.wallet.publicKey,
+          userWusd,
+          provider.wallet.publicKey,
+          wusdMint
+        ),
+        createAssociatedTokenAccountInstruction(
+          provider.wallet.publicKey,
+          userCollateral,
+          provider.wallet.publicKey,
+          collateralMint
+        )
+      ];
 
-    // Send transaction to create user token accounts
-    const setupTx = new anchor.web3.Transaction().add(...createUserAccountsIx);
-    await provider.sendAndConfirm(setupTx);
+      // Send transaction to create user token accounts
+      const setupTx = new anchor.web3.Transaction().add(...createUserAccountsIx);
+      await provider.sendAndConfirm(setupTx);
+    } catch (e) {
+      // Ignore error if accounts already exist
+      console.log("User accounts may already exist:", e);
+    }
 
     // Create stake vault PDA and treasury PDA
     const [vaultPda] = await PublicKey.findProgramAddress(
@@ -105,23 +110,28 @@ describe("wusd-stablecoin", () => {
     );
 
     // Create PDA token accounts
-    const createPdaAccountsIx = [
-      createAssociatedTokenAccountInstruction(
-        provider.wallet.publicKey,
-        stakeVault,
-        vaultPda,
-        wusdMint
-      ),
-      createAssociatedTokenAccountInstruction(
-        provider.wallet.publicKey,
-        treasury,
-        treasuryPda,
-        collateralMint
-      )
-    ];
+    try {
+      const createPdaAccountsIx = [
+        createAssociatedTokenAccountInstruction(
+          provider.wallet.publicKey,
+          stakeVault,
+          vaultPda,
+          wusdMint
+        ),
+        createAssociatedTokenAccountInstruction(
+          provider.wallet.publicKey,
+          treasury,
+          treasuryPda,
+          collateralMint
+        )
+      ];
 
-    const pdaAccountsTx = new anchor.web3.Transaction().add(...createPdaAccountsIx);
-    await provider.sendAndConfirm(pdaAccountsTx);
+      const pdaAccountsTx = new anchor.web3.Transaction().add(...createPdaAccountsIx);
+      await provider.sendAndConfirm(pdaAccountsTx);
+    } catch (e) {
+      // Ignore error if PDA token accounts already exist
+      console.log("PDA token accounts may already exist:", e);
+    }
 
     // Initialize state PDA
     const [statePda] = await PublicKey.findProgramAddress(
@@ -143,10 +153,23 @@ describe("wusd-stablecoin", () => {
       program.programId
     );
     softStakeAccount = softStakeAccountPda;
+
+    // Wait for confirmation of all accounts
+    await provider.connection.confirmTransaction(
+      await provider.connection.getLatestBlockhash(),
+      "confirmed"
+    );
   });
 
   it("Initializes the protocol", async () => {
-    const tx = await program.methods
+    // First initialize the protocol state
+    const [statePda] = await PublicKey.findProgramAddress(
+      [Buffer.from(config.seeds.state)],
+      program.programId
+    );
+    state = statePda;
+
+    let tx = await program.methods
       .initialize(config.wusdDecimals)
       .accounts({
         authority: authority.publicKey,
@@ -160,6 +183,33 @@ describe("wusd-stablecoin", () => {
       })
       .rpc();
     console.log("Initialize transaction:", tx);
+
+    // Wait for confirmation
+    await provider.connection.confirmTransaction(tx);
+
+    // Initialize stake account
+    tx = await program.methods
+      .initializeStakeAccount()
+      .accounts({
+        user: authority.publicKey,
+        stakeAccount,
+        state,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+    console.log("Initialize stake account transaction:", tx);
+
+    // Initialize soft stake account
+    tx = await program.methods
+      .initializeSoftStakeAccount()
+      .accounts({
+        user: authority.publicKey,
+        stakeAccount: softStakeAccount,
+        state,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+    console.log("Initialize soft stake account transaction:", tx);
   });
 
   it("Swaps tokens with slippage protection", async () => {
@@ -171,9 +221,9 @@ describe("wusd-stablecoin", () => {
       provider.wallet.payer,
       collateralMint,
       userCollateral,
-      mintAuthority.publicKey,
+      authority.publicKey,
       amount.toNumber(),
-      [mintAuthority]
+      [authority.payer]
     );
 
     const tx = await program.methods
@@ -201,9 +251,9 @@ describe("wusd-stablecoin", () => {
       provider.wallet.payer,
       wusdMint,
       userWusd,
-      mintAuthority.publicKey,
+      authority.publicKey,
       amount.toNumber(),
-      [mintAuthority]
+      [authority.payer]
     );
 
     const tx = await program.methods
@@ -247,9 +297,9 @@ describe("wusd-stablecoin", () => {
       provider.wallet.payer,
       wusdMint,
       userWusd,
-      mintAuthority.publicKey,
+      authority.publicKey,
       amount.toNumber(),
-      [mintAuthority]
+      [authority.payer]
     );
 
     const tx = await program.methods

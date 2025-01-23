@@ -15,7 +15,7 @@ use error::*;
 use crate::instructions::stake::{StakingStatus, ClaimType};
 use crate::instructions::softstake::{SoftStake, SoftClaim};
 
-declare_id!("H1s7yxsaodXdnwX82YuHT2874naKCXKeZ4U2iAAmciyZ");
+declare_id!("FzQFfVXCNxFEH9EADpVurFgUZ5WKKtYpYC5okGJHoTzh");
 
 /// WUSD稳定币程序入口
 #[program]
@@ -25,6 +25,39 @@ pub mod wusd_stablecoin {
     /// 初始化WUSD稳定币系统
     /// * `ctx` - 初始化上下文
     /// * `decimals` - 代币精度
+    pub fn initialize_stake_account(ctx: Context<Stake>) -> Result<()> {
+        let stake_account = &mut ctx.accounts.stake_account;
+        stake_account.owner = ctx.accounts.user.key();
+        stake_account.amount = 0;
+        stake_account.staking_pool_id = 0;
+        stake_account.apy = 0;
+        stake_account.start_time = Clock::get()?.unix_timestamp;
+        stake_account.end_time = 0;
+        stake_account.claimable_timestamp = 0;
+        stake_account.rewards_earned = 0;
+        stake_account.status = StakingStatus::Active;
+        stake_account.claim_type = ClaimType::Unclaimed;
+        stake_account.apy_tier = 0;
+        stake_account.emergency_cooldown = 0;
+        Ok(())
+    }
+
+    pub fn initialize_soft_stake_account(ctx: Context<SoftStake>) -> Result<()> {
+        let stake_account = &mut ctx.accounts.stake_account;
+        stake_account.owner = ctx.accounts.user.key();
+        stake_account.amount = 0;
+        stake_account.staking_pool_id = 0;
+        stake_account.apy = 0;
+        stake_account.start_time = Clock::get()?.unix_timestamp;
+        stake_account.end_time = 0;
+        stake_account.claimable_timestamp = 0;
+        stake_account.rewards_earned = 0;
+        stake_account.status = SoftStakingStatus::Active;
+        stake_account.access_key = [0; 32];
+        stake_account.last_update_time = Clock::get()?.unix_timestamp;
+        Ok(())
+    }
+
     pub fn initialize(
         ctx: Context<Initialize>,
         decimals: u8,
@@ -150,7 +183,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + StateAccount::LEN + 1024, // 增加额外的缓冲空间
+        space = 8 + StateAccount::LEN + 2048, // 增加更多缓冲空间
         seeds = [b"state"],
         bump
     )]
