@@ -375,6 +375,123 @@ export type WusdStablecoin = {
       "args": []
     },
     {
+      "name": "setConfig",
+      "docs": [
+        "设置代币兑换配置",
+        "* `ctx` - 设置配置的上下文",
+        "* `token_mint` - 代币铸币权地址",
+        "* `decimals` - 代币精度"
+      ],
+      "discriminator": [
+        108,
+        158,
+        154,
+        175,
+        212,
+        98,
+        52,
+        66
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "tokenMint",
+          "type": "pubkey"
+        },
+        {
+          "name": "decimals",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "setRate",
+      "docs": [
+        "设置代币兑换汇率",
+        "* `ctx` - 设置汇率的上下文",
+        "* `token_in_mint` - 输入代币的铸币权地址",
+        "* `token_out_mint` - 输出代币的铸币权地址",
+        "* `rate` - 兑换汇率"
+      ],
+      "discriminator": [
+        99,
+        58,
+        170,
+        238,
+        160,
+        120,
+        74,
+        11
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "tokenInMint",
+          "type": "pubkey"
+        },
+        {
+          "name": "tokenOutMint",
+          "type": "pubkey"
+        },
+        {
+          "name": "rate",
+          "type": {
+            "defined": {
+              "name": "rate"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "softClaim",
       "docs": [
         "领取软质押奖励",
@@ -1092,6 +1209,41 @@ export type WusdStablecoin = {
       "code": 6014,
       "name": "stakingAmountTooLow",
       "msg": "Staking amount too low"
+    },
+    {
+      "code": 6015,
+      "name": "sameTokenAddresses",
+      "msg": "Cannot swap same token"
+    },
+    {
+      "code": 6016,
+      "name": "insufficientBalance",
+      "msg": "Insufficient balance"
+    },
+    {
+      "code": 6017,
+      "name": "invalidOwner",
+      "msg": "Invalid owner"
+    },
+    {
+      "code": 6018,
+      "name": "invalidDecimals",
+      "msg": "Invalid decimals"
+    },
+    {
+      "code": 6019,
+      "name": "invalidExchangeRate",
+      "msg": "Invalid exchange rate"
+    },
+    {
+      "code": 6020,
+      "name": "invalidOutputAmount",
+      "msg": "Invalid output amount"
+    },
+    {
+      "code": 6021,
+      "name": "invalidAddress",
+      "msg": "Invalid address"
     }
   ],
   "types": [
@@ -1142,6 +1294,25 @@ export type WusdStablecoin = {
       "type": {
         "kind": "struct",
         "fields": []
+      }
+    },
+    {
+      "name": "rate",
+      "docs": [
+        "汇率结构体，定义代币兑换比率"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "input",
+            "type": "u64"
+          },
+          {
+            "name": "output",
+            "type": "u64"
+          }
+        ]
       }
     },
     {

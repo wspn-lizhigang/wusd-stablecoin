@@ -68,6 +68,15 @@ impl StateAccount {
         (32 + 32 + 16) * 3 + // exchange_rates (3 entries)
         8; // total_staking_plans
 
+    pub fn has_role(_role: &[u8], authority: &Pubkey, state_authority: &Pubkey) -> bool {
+        authority == state_authority
+    }
+
+    pub fn ensure_not_paused(paused: bool) -> Result<()> {
+        require!(!paused, WUSDError::ContractPaused);
+        Ok(())
+    }
+
     /// 根据池ID获取质押池信息
     /// * `pool_id` - 质押池ID
     /// * 返回质押池配置信息

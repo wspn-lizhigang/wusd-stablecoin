@@ -7,6 +7,8 @@ use anchor_spl::token::{Mint, Token, TokenAccount};
 mod instructions;
 mod state;
 mod error;
+mod base;
+pub use base::{Base, roles};
 
 /// 使用内部模块
 use crate::instructions::*;
@@ -14,6 +16,7 @@ use state::*;
 use error::*;
 use crate::instructions::stake::{StakingStatus, ClaimType};
 use crate::instructions::softstake::{SoftStake, SoftClaim};
+use crate::instructions::swap::Rate;
 
 declare_id!("HpYodZmYAPzJ9QgJJDuvRMdCEY3srHPDWuR17VMYx1AL");
 
@@ -151,6 +154,32 @@ pub mod wusd_stablecoin {
         ctx.accounts.state.paused = false;
         emit!(UnpauseEvent {});
         Ok(())
+    }
+
+    /// 设置代币兑换配置
+    /// * `ctx` - 设置配置的上下文
+    /// * `token_mint` - 代币铸币权地址
+    /// * `decimals` - 代币精度
+    pub fn set_config(
+        ctx: Context<SetConfig>,
+        token_mint: Pubkey,
+        decimals: u8,
+    ) -> Result<()> {
+        instructions::swap::set_config(ctx, token_mint, decimals)
+    }
+
+    /// 设置代币兑换汇率
+    /// * `ctx` - 设置汇率的上下文
+    /// * `token_in_mint` - 输入代币的铸币权地址
+    /// * `token_out_mint` - 输出代币的铸币权地址
+    /// * `rate` - 兑换汇率
+    pub fn set_rate(
+        ctx: Context<SetRate>,
+        token_in_mint: Pubkey,
+        token_out_mint: Pubkey,
+        rate: Rate,
+    ) -> Result<()> {
+        instructions::swap::set_rate(ctx, token_in_mint, token_out_mint, rate)
     }
 
     /// 软质押WUSD代币

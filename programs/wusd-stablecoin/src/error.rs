@@ -48,4 +48,25 @@ pub enum WUSDError {
     /// 质押金额低于最小要求
     #[msg("Staking amount too low")]
     StakingAmountTooLow,
+    /// 相同代币地址错误
+    #[msg("Cannot swap same token")]
+    SameTokenAddresses,
+    /// 余额不足
+    #[msg("Insufficient balance")]
+    InsufficientBalance,
+    /// 无效的所有者
+    #[msg("Invalid owner")]
+    InvalidOwner,
+    /// 无效的代币精度
+    #[msg("Invalid decimals")]
+    InvalidDecimals,
+    /// 无效的兑换汇率
+    #[msg("Invalid exchange rate")]
+    InvalidExchangeRate,
+    /// 无效的输出金额
+    #[msg("Invalid output amount")]
+    InvalidOutputAmount,
+    /// 无效的地址
+    #[msg("Invalid address")]
+    InvalidAddress,
 }

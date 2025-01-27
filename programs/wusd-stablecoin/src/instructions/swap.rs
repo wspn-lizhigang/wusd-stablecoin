@@ -2,10 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer, Mint};
 use crate::state::StateAccount;
 use crate::error::WUSDError;
-
-/// 角色定义
-/// pub const CONFIG_SETTER: &[u8] = b"CONFIG_SETTER";
-/// pub const RATE_SETTER: &[u8] = b"RATE_SETTER";
+use crate::base::roles::*;
 
 /// 最大精度
 pub const MAX_DECIMALS: u8 = 18;
@@ -15,6 +12,86 @@ pub const MAX_DECIMALS: u8 = 18;
 pub struct Rate {
     pub input: u64,
     pub output: u64,
+}
+
+/// 设置代币兑换配置的账户参数
+#[derive(Accounts)]
+pub struct SetConfig<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    
+    #[account(
+        mut,
+        seeds = [b"state"],
+        bump,
+        constraint = StateAccount::has_role(CONFIG_SETTER, &authority.key(), &state.authority) @ WUSDError::Unauthorized
+    )]
+    pub state: Account<'info, StateAccount>,
+}
+
+/// 设置代币兑换汇率的账户参数
+#[derive(Accounts)]
+pub struct SetRate<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    
+    #[account(
+        mut,
+        seeds = [b"state"],
+        bump,
+        constraint = StateAccount::has_role(RATE_SETTER, &authority.key(), &state.authority) @ WUSDError::Unauthorized
+    )]
+    pub state: Account<'info, StateAccount>,
+}
+
+/// 设置代币兑换配置
+/// * `ctx` - 设置配置的上下文
+/// * `token_mint` - 代币铸币权地址
+/// * `decimals` - 代币精度
+pub fn set_config(
+    ctx: Context<SetConfig>,
+    token_mint: Pubkey,
+    decimals: u8,
+) -> Result<()> {
+    require!(decimals <= MAX_DECIMALS, WUSDError::InvalidDecimals);
+    
+    // 更新代币白名单
+    let state = &mut ctx.accounts.state;
+    if let Some((mint, status)) = state.token_whitelist.iter_mut()
+        .find(|(mint, _)| *mint == token_mint || *mint == Pubkey::default()) {
+        *mint = token_mint;
+        *status = true;
+    }
+    
+    Ok(())
+}
+
+/// 设置代币兑换汇率
+/// * `ctx` - 设置汇率的上下文
+/// * `token_in_mint` - 输入代币的铸币权地址
+/// * `token_out_mint` - 输出代币的铸币权地址
+/// * `rate` - 兑换汇率
+pub fn set_rate(
+    ctx: Context<SetRate>,
+    token_in_mint: Pubkey,
+    token_out_mint: Pubkey,
+    rate: Rate,
+) -> Result<()> {
+    require!(rate.input > 0 && rate.output > 0, WUSDError::InvalidExchangeRate);
+    
+    // 更新汇率
+    let state = &mut ctx.accounts.state;
+    if let Some((in_token, out_token, existing_rate)) = state.exchange_rates.iter_mut()
+        .find(|(in_token, out_token, _)| 
+            (*in_token == token_in_mint && *out_token == token_out_mint) ||
+            (*in_token == Pubkey::default() && *out_token == Pubkey::default())
+        ) {
+        *in_token = token_in_mint;
+        *out_token = token_out_mint;
+        *existing_rate = rate;
+    }
+    
+    Ok(())
 }
 
 /// 代币兑换指令的账户参数
@@ -36,7 +113,8 @@ pub struct Swap<'info> {
         bump,
         constraint = !state.paused @ WUSDError::ContractPaused,
         constraint = StateAccount::is_token_whitelisted(user_token_in.mint, &state.token_whitelist) @ WUSDError::TokenNotWhitelisted,
-        constraint = StateAccount::is_token_whitelisted(user_token_out.mint, &state.token_whitelist) @ WUSDError::TokenNotWhitelisted
+        constraint = StateAccount::is_token_whitelisted(user_token_out.mint, &state.token_whitelist) @ WUSDError::TokenNotWhitelisted,
+        constraint = user_token_in.mint != user_token_out.mint @ WUSDError::SameTokenAddresses
     )]
     pub state: Account<'info, StateAccount>,
     
@@ -68,9 +146,17 @@ pub fn swap(
     amount_in: u64,
     min_amount_out: u64,
 ) -> Result<()> {
+    // 基本验证
     require!(!ctx.accounts.state.paused, WUSDError::ContractPaused);
     require!(amount_in > 0, WUSDError::InvalidAmount);
     require!(min_amount_out > 0, WUSDError::InvalidAmount);
+    
+    // 验证代币余额
+    require!(ctx.accounts.user_token_in.amount >= amount_in, WUSDError::InsufficientBalance);
+    
+    // 验证代币地址
+    require!(ctx.accounts.user_token_in.owner == ctx.accounts.user.key(), WUSDError::InvalidOwner);
+    require!(ctx.accounts.user_token_out.owner == ctx.accounts.user.key(), WUSDError::InvalidOwner);
 
     let user_account_in = ctx.accounts.user_token_in.to_account_info();
     let user_account_out = ctx.accounts.user_token_out.to_account_info();
@@ -139,17 +225,22 @@ fn calculate_output_amount(
     token_out_mint: Pubkey,
     state: &StateAccount,
 ) -> Result<u64> {
+    // 验证代币精度
     let (in_decimals, out_decimals) = (
         StateAccount::get_token_decimals(token_in_mint, &state)?,
         StateAccount::get_token_decimals(token_out_mint, &state)?
     );
+    require!(in_decimals <= MAX_DECIMALS && out_decimals <= MAX_DECIMALS, WUSDError::InvalidDecimals);
 
     // 将金额标准化为最大精度
     let in_factor = 10u64.pow((MAX_DECIMALS - in_decimals) as u32);
     let normalized_amount = amount_in.checked_mul(in_factor).ok_or(WUSDError::MathOverflow)?;
 
-    // 应用汇率
+    // 获取并验证汇率
     let rate = StateAccount::get_exchange_rate(token_in_mint, token_out_mint, &state)?;
+    require!(rate.input > 0 && rate.output > 0, WUSDError::InvalidExchangeRate);
+
+    // 应用汇率并检查溢出
     let amount_with_rate = normalized_amount
         .checked_mul(rate.output).ok_or(WUSDError::MathOverflow)?
         .checked_div(rate.input).ok_or(WUSDError::MathOverflow)?;
@@ -158,6 +249,9 @@ fn calculate_output_amount(
     let out_factor = 10u64.pow((MAX_DECIMALS - out_decimals) as u32);
     let final_amount = amount_with_rate
         .checked_div(out_factor).ok_or(WUSDError::MathOverflow)?;
+
+    // 验证输出金额
+    require!(final_amount > 0, WUSDError::InvalidOutputAmount);
 
     Ok(final_amount)
 }

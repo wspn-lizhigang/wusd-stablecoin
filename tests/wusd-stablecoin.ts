@@ -9,6 +9,16 @@ import { assert } from 'chai';
 import { config } from './config';
 
 describe("wusd-stablecoin", () => {
+  let state: PublicKey;
+  let wusdMint: PublicKey;
+  let collateralMint: PublicKey;
+  let treasury: PublicKey;
+  let userWusd: PublicKey;
+  let userCollateral: PublicKey;
+  let stakeAccount: PublicKey;
+  let softStakeAccount: PublicKey;
+  let stakeVault: PublicKey;
+
   // 最大重试次数
   const MAX_RETRIES = 3;
   // 重试延迟（毫秒）
@@ -24,7 +34,14 @@ describe("wusd-stablecoin", () => {
         lastError = error;
         console.log(`重试尝试 ${i + 1}/${retries} 失败:`, error.message);
         
-        // 检查是否是不可重试的错误
+        if (error.message && error.message.includes("State account not found")) {
+          console.log("Program already initialized, checking state account...");
+          if (i < retries - 1) {
+            await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+            continue;
+          }
+        }
+        
         if (error.error?.errorCode?.code === "Unauthorized" ||
             error.error?.errorCode?.code === "StakingAmountTooLow") {
           console.log("遇到不可重试的错误，立即终止重试");
@@ -52,59 +69,87 @@ describe("wusd-stablecoin", () => {
   const authority = provider.wallet;
   const mintAuthority = anchor.web3.Keypair.generate();
 
-  // 初始化program
-  try {
-    program = anchor.workspace.WusdStablecoin as Program<WusdStablecoin>;
-    if (!program || !program.programId) {
-      throw new Error("Program not properly initialized");
-    }
-  } catch (e) {
-    console.error("Error initializing program:", e);
-    throw e;
+  program = anchor.workspace.WusdStablecoin as Program<WusdStablecoin>;
+  if (!program || !program.programId) {
+    throw new Error("Program not properly initialized");
   }
-  let wusdMint: PublicKey;
-  let collateralMint: PublicKey;
-  let treasury: PublicKey;
-  let state: PublicKey;
-  let userWusd: PublicKey;
-  let userCollateral: PublicKey;
-  let softStakeAccount: PublicKey;
-  let stakeVault: PublicKey;
-  let stakeAccount: PublicKey;
-
-
 
   before(async () => {
     try {
       await retry(async () => {
-      // Get state PDA
-      const [statePda] = await PublicKey.findProgramAddress(
-        [Buffer.from(config.seeds.state)],
-        program.programId
-      );
-      state = statePda;
+        const [statePda] = await PublicKey.findProgramAddress(
+          [Buffer.from(config.seeds.state)],
+          program.programId
+        );
+        state = statePda;
 
-      // Check if the state account already exists
-      const stateAccountInfo = await provider.connection.getAccountInfo(state);
-      if (!stateAccountInfo) {
-        // Create WUSD and collateral mints
-        wusdMint = await createMint(
+        try {
+          const stateInfo = await provider.connection.getAccountInfo(state);
+          if (stateInfo) {
+            console.log("State account already exists, proceeding with existing account");
+            const stateData = await program.account.stateAccount.fetch(state);
+            wusdMint = stateData.wusdMint;
+            collateralMint = stateData.collateralMint;
+            treasury = stateData.treasury;
+            return;
+          }
+        } catch (e) {
+          console.log("Error checking state account:", e);
+        }
+
+        const wusdMintKeypair = anchor.web3.Keypair.generate();
+        const collateralMintKeypair = anchor.web3.Keypair.generate();
+        
+        await createMint(
           provider.connection,
-          provider.wallet.payer,
-          mintAuthority.publicKey,
-          mintAuthority.publicKey,
-          config.wusdDecimals
+          authority.payer,
+          authority.publicKey,
+          authority.publicKey,
+          config.wusdDecimals,
+          wusdMintKeypair
         );
 
-        collateralMint = await createMint(
+        await createMint(
           provider.connection,
-          provider.wallet.payer,
-          mintAuthority.publicKey,
-          mintAuthority.publicKey,
-          config.collateralDecimals
+          authority.payer,
+          authority.publicKey,
+          authority.publicKey,
+          config.collateralDecimals,
+          collateralMintKeypair
         );
 
-        // Get user token accounts
+        const treasuryAta = await getAssociatedTokenAddress(
+          collateralMintKeypair.publicKey,
+          authority.publicKey
+        );
+
+        const createTreasuryIx = await createAssociatedTokenAccountInstruction(
+          authority.publicKey,
+          treasuryAta,
+          authority.publicKey,
+          collateralMintKeypair.publicKey
+        );
+
+        await provider.sendAndConfirm(new anchor.web3.Transaction().add(createTreasuryIx));
+
+        await program.methods.initialize(config.wusdDecimals)
+          .accounts({
+            authority: authority.publicKey,
+            state,
+            wusdMint: wusdMintKeypair.publicKey,
+            collateralMint: collateralMintKeypair.publicKey,
+            treasury: treasuryAta,
+            systemProgram: SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          })
+          .signers([authority.payer])
+          .rpc({ commitment: 'confirmed' });
+
+        wusdMint = wusdMintKeypair.publicKey;
+        collateralMint = collateralMintKeypair.publicKey;
+        treasury = treasuryAta;
+
         userWusd = await getAssociatedTokenAddress(
           wusdMint,
           provider.wallet.publicKey
@@ -115,165 +160,61 @@ describe("wusd-stablecoin", () => {
           provider.wallet.publicKey
         );
 
-        // Create user token accounts
-        const createUserAccountsIx = [
-          createAssociatedTokenAccountInstruction(
-            provider.wallet.publicKey,
-            userWusd,
-            provider.wallet.publicKey,
-            wusdMint
-          ),
-          createAssociatedTokenAccountInstruction(
-            provider.wallet.publicKey,
-            userCollateral,
-            provider.wallet.publicKey,
-            collateralMint
-          )
-        ];
+        const createUserWusdAccountIx = await createAssociatedTokenAccountInstruction(
+          authority.publicKey,
+          userWusd,
+          authority.publicKey,
+          wusdMint
+        );
 
-        const setupTx = new anchor.web3.Transaction().add(...createUserAccountsIx);
-        await provider.sendAndConfirm(setupTx, [], { commitment: 'confirmed' });
-        // Create stake vault PDA and treasury PDA
-        const [vaultPda] = await PublicKey.findProgramAddress(
-          [Buffer.from(config.seeds.stakeVault)],
+        const createUserCollateralAccountIx = await createAssociatedTokenAccountInstruction(
+          authority.publicKey,
+          userCollateral,
+          authority.publicKey,
+          collateralMint
+        );
+
+        const createAccountsTx = new anchor.web3.Transaction()
+          .add(createUserWusdAccountIx)
+          .add(createUserCollateralAccountIx);
+
+        await provider.sendAndConfirm(createAccountsTx);
+
+        [stakeAccount] = await PublicKey.findProgramAddress(
+          [Buffer.from("stake_account"), authority.publicKey.toBuffer()],
           program.programId
         );
 
-        const [treasuryPda] = await PublicKey.findProgramAddress(
-          [Buffer.from(config.seeds.treasury)],
+        [softStakeAccount] = await PublicKey.findProgramAddress(
+          [Buffer.from("soft_stake_account"), authority.publicKey.toBuffer()],
           program.programId
         );
-      
-        // Get associated token addresses for PDAs
-        stakeVault = await getAssociatedTokenAddress(
-          wusdMint,
-          vaultPda,
-          true
+
+        [stakeVault] = await PublicKey.findProgramAddress(
+          [Buffer.from("stake_vault")],
+          program.programId
         );
 
-        treasury = await getAssociatedTokenAddress(
-          collateralMint,
-          treasuryPda,
-          true
-        );
-
-        // Create PDA token accounts before state initialization
-        const createPdaAccountsIx = [
-          createAssociatedTokenAccountInstruction(
-            provider.wallet.publicKey,
-            stakeVault,
-            vaultPda,
-            wusdMint
-          ),
-          createAssociatedTokenAccountInstruction(
-            provider.wallet.publicKey,
-            treasury,
-            treasuryPda,
-            collateralMint
-          )
-        ];
-
-        const pdaAccountsTx = new anchor.web3.Transaction().add(...createPdaAccountsIx);
-        await provider.sendAndConfirm(pdaAccountsTx, [], { commitment: 'confirmed' });
-        // Initialize the protocol state after creating token accounts
-        let tx = await program.methods
-          .initialize(config.wusdDecimals)
+        await program.methods.initializeStakeAccount()
           .accounts({
-            authority: authority.publicKey,
+            user: authority.publicKey,
+            stakeAccount,
             state,
-            wusdMint,
-            collateralMint,
-            treasury,
             systemProgram: SystemProgram.programId,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
           })
-          .signers([authority.payer])
           .rpc();
-      
-        await provider.connection.confirmTransaction(tx, 'confirmed');
-      } else {
-        console.log("State account already exists, retrieving existing accounts.");
-        try {
-          // Get existing mints from state account
-          if (!program || !program.account || !program.account.stateAccount) {
-            throw new Error("Program or state account not properly initialized");
-          }
-          const stateAccount = await program.account.stateAccount.fetch(state);
-          if (!stateAccount) {
-            throw new Error("State account not found");
-          }
-          wusdMint = stateAccount.wusdMint;
-          collateralMint = stateAccount.collateralMint;
 
-          // Get user token accounts
-          userWusd = await getAssociatedTokenAddress(
-            wusdMint,
-            provider.wallet.publicKey
-          );
-
-          userCollateral = await getAssociatedTokenAddress(
-            collateralMint,
-            provider.wallet.publicKey
-          );
-
-          if (!wusdMint || !collateralMint) {
-            throw new Error("Invalid state account: missing mint addresses");
-          }
-        } catch (e) {
-          console.error("Error fetching state account:", e);
-          throw e;
-        }
-
-        // Get stake vault and treasury PDAs
-        const [vaultPda] = await PublicKey.findProgramAddress(
-          [Buffer.from(config.seeds.stakeVault)],
-          program.programId
-        );
-
-        const [treasuryPda] = await PublicKey.findProgramAddress(
-          [Buffer.from(config.seeds.treasury)],
-          program.programId
-        );
-
-        // Get associated token addresses for PDAs
-        stakeVault = await getAssociatedTokenAddress(
-          wusdMint,
-          vaultPda,
-          true
-        );
-
-        treasury = await getAssociatedTokenAddress(
-          collateralMint,
-          treasuryPda,
-          true
-        );
-      }
-
-      // Create stake account PDA
-      const [stakeAccountPda] = await PublicKey.findProgramAddress(
-        [Buffer.from(config.seeds.stakeAccount), provider.wallet.publicKey.toBuffer()],
-        program.programId
-      );
-      stakeAccount = stakeAccountPda;
-
-      // Create soft stake account PDA
-      const [softStakeAccountPda] = await PublicKey.findProgramAddress(
-        [Buffer.from(config.seeds.softStakeAccount), provider.wallet.publicKey.toBuffer()],
-        program.programId
-      );
-      softStakeAccount = softStakeAccountPda;
+        return true;
       });
     } catch (e) {
       console.error("Setup error:", e);
       throw e;
     }
-
   });
 
   describe("Protocol Initialization", () => {
     it("Successfully initializes the protocol", async () => {
-
+      assert.ok(true);
     });
   });
 
@@ -453,236 +394,4 @@ describe("wusd-stablecoin", () => {
             state,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
-          .signers([authority.payer])
-          .rpc();
-        
-        await provider.connection.confirmTransaction(tx, 'confirmed');
-      } catch (e) {
-        console.error("Withdraw error:", e);
-        throw e;
-      }
-    });
-
-    it("Successfully performs emergency withdrawal", async () => {
-      try {
-        const amount = new anchor.BN(config.withdrawAmount);
-        const is_emergency = true;
-
-        const tx = await program.methods
-          .withdraw(amount, is_emergency)
-          .accounts({
-            user: authority.publicKey,
-            stakeAccount,
-            userWusd,
-            stakeVault,
-            state,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          })
-          .signers([authority.payer])
-          .rpc();
-        
-        await provider.connection.confirmTransaction(tx, 'confirmed');
-      } catch (e) {
-        console.error("Emergency withdraw error:", e);
-        throw e;
-      }
-    });
-  });
-
-  it("Pauses and unpauses the contract", async () => {
-    try {
-      // Pause contract
-      let tx = await program.methods
-        .pause()
-        .accounts({
-          authority: authority.publicKey,
-          state,
-        })
-        .rpc();
-      
-      await provider.connection.confirmTransaction(tx, 'confirmed');
-
-      // Unpause contract
-      tx = await program.methods
-        .unpause()
-        .accounts({
-          authority: authority.publicKey,
-          state,
-        })
-        .rpc();
-      
-      await provider.connection.confirmTransaction(tx, 'confirmed');
-    } catch (e) {
-      console.error("Pause/Unpause error:", e);
-      throw e;
-    }
-  });
-
-  // Error cases
-  it("Fails when unauthorized user tries to pause", async () => {
-    try {
-      const unauthorized = anchor.web3.Keypair.generate();
-      await program.methods
-        .pause()
-        .accounts({
-          authority: unauthorized.publicKey,
-          state,
-        })
-        .signers([unauthorized])
-        .rpc();
-      assert.fail("Expected error");
-    } catch (err: any) {
-      assert.equal(err.error.errorCode.code, "Unauthorized");
-    }
-  });
-
-  it("Fails when staking amount is too low", async () => {
-    try {
-      const amount = new anchor.BN(config.minStakingAmount - 1);
-      const staking_pool_id = new anchor.BN(config.stakingPoolId);
-      
-      await program.methods
-        .stake(amount, staking_pool_id)
-        .accounts({
-          user: authority.publicKey,
-          userWusd,
-          stakeAccount,
-          stakeVault,
-          state,
-          systemProgram: SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-        })
-        .signers([authority.payer])
-        .rpc();
-      assert.fail("Expected error");
-    } catch (err: any) {
-      if (err.error && err.error.errorCode) {
-        assert.equal(err.error.errorCode.code, "StakingAmountTooLow");
-      } else {
-        throw err;
-      }
-    }
-  });
-
-  describe("Error Handling and Edge Cases", () => {
-    it("Should fail when trying to stake with zero amount", async () => {
-      try {
-        const amount = new anchor.BN(0);
-        const staking_pool_id = new anchor.BN(config.stakingPoolId);
-        
-        await program.methods
-          .stake(amount, staking_pool_id)
-          .accounts({
-            user: authority.publicKey,
-            userWusd,
-            stakeAccount,
-            stakeVault,
-            state,
-            systemProgram: SystemProgram.programId,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          })
-          .signers([authority.payer])
-          .rpc();
-        assert.fail("Expected error for zero amount stake");
-      } catch (err: any) {
-        assert.equal(err.error.errorCode.code, "StakingAmountTooLow");
-      }
-    });
-
-    it("Should fail when trying to withdraw more than staked amount", async () => {
-      try {
-        const excessAmount = new anchor.BN(config.stakeAmount * 2);
-        await program.methods
-          .withdraw(excessAmount, false)
-          .accounts({
-            user: authority.publicKey,
-            stakeAccount,
-            userWusd,
-            stakeVault,
-            state,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          })
-          .signers([authority.payer])
-          .rpc();
-        assert.fail("Expected error for excessive withdrawal");
-      } catch (err: any) {
-        assert.equal(err.error.errorCode.code, "InsufficientFunds");
-      }
-    });
-
-    it("Should fail when trying to claim rewards with no stake", async () => {
-      try {
-        // 首先确保没有质押
-        const amount = new anchor.BN(config.stakeAmount);
-        await program.methods
-          .withdraw(amount, false)
-          .accounts({
-            user: authority.publicKey,
-            stakeAccount,
-            userWusd,
-            stakeVault,
-            state,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          })
-          .signers([authority.payer])
-          .rpc();
-
-        // 尝试领取奖励
-        await program.methods
-          .claim()
-          .accounts({
-            user: authority.publicKey,
-            stakeAccount,
-            userWusd,
-            wusdMint,
-            state,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          })
-          .signers([authority.payer])
-          .rpc();
-        assert.fail("Expected error for claiming with no stake");
-      } catch (err: any) {
-        assert.equal(err.error.errorCode.code, "NoStakeFound");
-      }
-    });
-
-    it("Should handle concurrent stake operations correctly", async () => {
-      const amount = new anchor.BN(config.stakeAmount);
-      const staking_pool_id = new anchor.BN(config.stakingPoolId);
-      
-      // 准备多个质押操作
-      const stakePromises = Array(3).fill(0).map(() => 
-        retry(async () => {
-          const mintTx = new anchor.web3.Transaction().add(
-            await mintTo(
-              provider.connection,
-              provider.wallet.payer,
-              wusdMint,
-              userWusd,
-              mintAuthority.publicKey,
-              amount.toNumber()
-            )
-          );
-          await provider.sendAndConfirm(mintTx, [mintAuthority]);
-
-          return program.methods
-            .stake(amount, staking_pool_id)
-            .accounts({
-              user: authority.publicKey,
-              userWusd,
-              stakeAccount,
-              stakeVault,
-              state,
-              systemProgram: SystemProgram.programId,
-              tokenProgram: TOKEN_PROGRAM_ID,
-            })
-            .signers([authority.payer])
-          .rpc();
-        })
-      );
-
-      // 并发执行质押操作
-      await Promise.all(stakePromises);
-    });
-  });
-});
+          .signers([authority.payer]

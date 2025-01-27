@@ -53,6 +53,9 @@ pub struct WithdrawEvent {
 /// * `amount` - 提现金额
 /// * `is_emergency` - 是否为紧急提现
 pub fn withdraw(ctx: Context<Withdraw>, amount: u64, is_emergency: bool) -> Result<()> {
+    // 检查合约是否暂停
+    require!(!ctx.accounts.state.paused, WUSDError::ContractPaused);
+    
     let stake_account = &mut ctx.accounts.stake_account;
     require!(amount > 0 && amount <= stake_account.amount, WUSDError::InvalidAmount);
     require!(stake_account.status == StakingStatus::Active, WUSDError::InvalidStakingStatus);

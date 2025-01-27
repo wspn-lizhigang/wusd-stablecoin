@@ -126,6 +126,9 @@ pub fn soft_stake(
     staking_pool_id: u64,
     access_key: [u8; 32],
 ) -> Result<()> {
+    // 检查合约是否暂停
+    StateAccount::ensure_not_paused(ctx.accounts.state.paused)?;
+    
     require!(amount > 0, WUSDError::InvalidAmount);
     require!(staking_pool_id > 0, WUSDError::InvalidPoolId);
 
@@ -191,6 +194,9 @@ pub fn soft_stake(
 /// 领取软质押奖励
 /// * `ctx` - 领取奖励的上下文
 pub fn soft_claim(ctx: Context<SoftClaim>) -> Result<()> {
+    // 检查合约是否暂停
+    StateAccount::ensure_not_paused(ctx.accounts.state.paused)?;
+    
     let stake_account = &mut ctx.accounts.stake_account;
     let now = Clock::get()?.unix_timestamp;
     
