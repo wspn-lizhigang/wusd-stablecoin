@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/wusd_stablecoin.json`.
  */
 export type WusdStablecoin = {
-  "address": "HpYodZmYAPzJ9QgJJDuvRMdCEY3srHPDWuR17VMYx1AL",
+  "address": "3JmdookeJY96JsRnnN1C68qLiKmqrw6LuEhK9yhdKfWJ",
   "metadata": {
     "name": "wusdStablecoin",
     "version": "1.0.0",

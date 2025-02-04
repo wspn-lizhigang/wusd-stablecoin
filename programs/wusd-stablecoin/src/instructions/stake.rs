@@ -103,7 +103,19 @@ pub struct StakeAccount {
 }
 
 impl StakeAccount {
-    pub const LEN: usize = 32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 8 + 8 + 32; // 增加额外的空间
+    pub const LEN: usize = 32 + // owner
+        8 + // staking_pool_id
+        8 + // amount
+        8 + // apy
+        8 + // start_time
+        8 + // end_time
+        8 + // claimable_timestamp
+        8 + // rewards_earned
+        1 + // status
+        1 + // claim_type
+        1 + // apy_tier
+        8 + // emergency_cooldown
+        8; // last_update_time
 }
 
 /// 质押事件，记录质押操作的详细信息
