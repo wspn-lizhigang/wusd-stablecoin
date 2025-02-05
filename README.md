@@ -19,11 +19,19 @@ yarn install
 2. 构建程序:
 ```bash
 anchor build
+or
+anchor build --program-name wusd_token
+or
+anchor build --program-name wusd_application
 ```
 
 3. 部署程序:
 ```bash
 anchor deploy
+or
+anchor deploy --program-name wusd_token
+or
+anchor deploy --program-name wusd_application
 ```
 
 4. 使用部署后的程序 ID 更新 lib.rs 中的程序 ID。

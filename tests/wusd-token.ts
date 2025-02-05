@@ -5,6 +5,7 @@ import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, createMint, mintTo, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
 import { config } from './config';
 import { newAccountWithLamports } from './util/new-account-with-lamports';
+import { Metaplex } from "@metaplex-foundation/js";
 
 describe("WUSD Token", () => {
   // 配置程序提供者
@@ -113,6 +114,27 @@ describe("WUSD Token", () => {
         .rpc();
 
       await provider.connection.confirmTransaction(tx, 'confirmed');
+
+      // 初始化 Metaplex
+      const metaplex = new Metaplex(provider.connection);
+      metaplex.use(provider.wallet);
+
+      // 设置代币元数据
+      await metaplex.nfts().create({
+        uri: "", // 可选：添加元数据 URI
+        name: "WUSD Stablecoin",
+        symbol: "WUSD",
+        sellerFeeBasisPoints: 0,
+        decimals: 8,
+        creators: null,
+        isMutable: true,
+        maxSupply: null,
+        uses: null,
+        collection: null,
+        mint: mint,
+      });
+
+      console.log('代币元数据设置成功');
     });
 
     it("Successfully burns tokens", async () => {
