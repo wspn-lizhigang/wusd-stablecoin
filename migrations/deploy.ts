@@ -1,3 +1,10 @@
+/*
+ * @Author: 李志刚
+ * @Date: 2025-01-20 19:18:16
+ * @LastEditors: 李志刚
+ * @LastEditTime: 2025-02-05 19:25:36
+ * @Description: 
+ */
 // Migrations are an early feature. Currently, they're nothing more than this
 // single deploy script that's invoked from the CLI, injecting a provider
 // configured from the workspace's Anchor.toml.
@@ -14,7 +21,7 @@ module.exports = async function (provider) {
   const programId = new PublicKey("3JmdookeJY96JsRnnN1C68qLiKmqrw6LuEhK9yhdKfWJ");
 
   // 读取程序二进制文件
-  const programSo = "./target/deploy/wusd_stablecoin.so";
+  const programSo = "./target/deploy/wusd_application.so";
   if (!fs.existsSync(programSo)) {
     throw new Error(`程序二进制文件不存在: ${programSo}`);
   }

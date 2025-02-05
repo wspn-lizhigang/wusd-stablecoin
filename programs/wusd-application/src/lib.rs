@@ -22,7 +22,7 @@ declare_id!("3JmdookeJY96JsRnnN1C68qLiKmqrw6LuEhK9yhdKfWJ");
 
 /// WUSD稳定币程序入口
 #[program]
-pub mod wusd_stablecoin {
+pub mod wusd_application {
     use super::*;
 
     /// 初始化WUSD稳定币系统

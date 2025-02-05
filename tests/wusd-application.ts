@@ -1,13 +1,13 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { WusdStablecoin } from "../target/types/wusd_stablecoin";
+import { WusdApplication } from "../target/types/wusd_application";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, createMint, mintTo, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
 import * as fs from 'fs';
 import { config } from './config';
 import { newAccountWithLamports } from './util/new-account-with-lamports';
 
-describe("WUSD Stablecoin", () => {
+describe("WUSD Application", () => {
   // 最大重试次数
   const MAX_RETRIES = 3;
   // 重试延迟（毫秒）
@@ -46,139 +46,8 @@ describe("WUSD Stablecoin", () => {
   anchor.setProvider(provider);
   const payer = (provider.wallet as anchor.Wallet).payer;
 
-  // 加载和验证程序IDL
-  const loadAndValidateIdl = () => {
-    try {
-      const idl = JSON.parse(fs.readFileSync('./target/idl/wusd_stablecoin.json', 'utf8'));
-      
-      // 确保accounts数组存在
-      if (!idl.accounts) {
-        idl.accounts = [];
-      }
-
-      // 为每个账户设置默认的size属性
-      idl.accounts = idl.accounts.map(account => ({
-        ...account,
-        size: 200,  // 设置一个默认的账户大小
-        type: account.type || { kind: 'struct', fields: [] }
-      }));
-
-      // 定义必要的账户配置
-      const accountConfigs = {
-        'State': {
-          discriminator: [101, 165, 7, 10, 40, 166, 251, 159],
-          size: 200,
-          type: { kind: 'struct', fields: [] }
-        },
-        'StakeAccount': {
-          discriminator: [80, 158, 67, 124, 50, 189, 192, 255],
-          size: 200,
-          type: { kind: 'struct', fields: [] }
-        },
-        'SoftStakeAccount': {
-          discriminator: [101, 165, 7, 10, 40, 166, 251, 159],
-          size: 200,
-          type: { kind: 'struct', fields: [] }
-        }
-      };
-
-      // 更新或添加账户配置
-      idl.accounts = idl.accounts.map(account => {
-        const config = accountConfigs[account.name];
-        if (config) {
-          return {
-            ...account,
-            ...config
-          };
-        }
-        return account;
-      });
-
-      // 添加缺失的账户
-      Object.entries(accountConfigs).forEach(([name, config]) => {
-        if (!idl.accounts.find(a => a.name === name)) {
-          idl.accounts.push({
-            name,
-            ...config
-          });
-        }
-      });
-      
-      // 确保accounts数组存在
-      if (!idl.accounts) {
-        idl.accounts = [];
-      }
-
-      // 为每个账户设置默认的size属性
-      idl.accounts = idl.accounts.map(account => ({
-        ...account,
-        size: 200,  // 设置一个默认的账户大小
-        type: account.type || { kind: 'struct', fields: [] }
-      }));
-      
-      // 确保所有必要的账户都存在并具有正确的配置
-      for (const [name, config] of Object.entries(accountConfigs)) {
-        let account = idl.accounts.find(a => a.name === name);
-        if (!account) {
-          account = {
-            name,
-            discriminator: config.discriminator,
-            type: { kind: 'struct', fields: [] },
-            size: config.size
-          };
-          idl.accounts.push(account);
-        } else {
-          // 更新现有账户的配置
-          account.discriminator = account.discriminator || config.discriminator;
-          account.size = account.size || config.size;
-          account.type = account.type || { kind: 'struct', fields: [] };
-        }
-      }
-      
-      return idl;
-    } catch (error) {
-      console.error('加载或验证IDL时出错:', error);
-      throw new Error('IDL加载失败');
-    }
-  };
-
   // 初始化程序
-  const initializeProgram = () => {
-    try {
-      // 直接从文件加载IDL
-      const rawIdl = JSON.parse(fs.readFileSync('./target/idl/wusd_stablecoin.json', 'utf8'));
-      
-      // 确保accounts数组存在
-      if (!rawIdl.accounts) {
-        rawIdl.accounts = [];
-      }
-
-      // 为每个账户添加必要的属性
-      rawIdl.accounts = rawIdl.accounts.map(account => ({
-        ...account,
-        size: 200,
-        type: { kind: 'struct', fields: [] }
-      }));
-
-      const programId = new anchor.web3.PublicKey('3JmdookeJY96JsRnnN1C68qLiKmqrw6LuEhK9yhdKfWJ');
-      const program = new anchor.Program(rawIdl, programId, provider) as Program<WusdStablecoin>;
-      
-      if (!program || !program.programId) {
-        throw new Error('程序初始化失败');
-      }
-      
-      if (!program.account || !program.account.state) {
-        throw new Error('程序状态账户初始化失败');
-      }
-      
-      return program;
-    } catch (error) {
-      console.error('初始化程序时出错:', error);
-      throw error;
-    }
-  };
-
-  const program = initializeProgram();
+  const program = anchor.workspace.WusdApplication as Program<WusdApplication>;
   const mintAuthority = anchor.web3.Keypair.generate();
 
   let wusdMint: PublicKey;

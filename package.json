@@ -5,7 +5,7 @@
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "build": "anchor build",
     "test": "npx dotenv-cli yarn npxtest",
-    "npxtest": "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/wusd-stablecoin.ts"
+    "npxtest": "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/wusd-application.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.30.1",
