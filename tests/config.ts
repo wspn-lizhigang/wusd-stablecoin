@@ -4,14 +4,13 @@ export const config = {
     deployKeyPath: "/Users/lizhigang/Downloads/wusd-stablecoin/deploy-keypair.json",
     connectionConfig: {
         commitment: 'confirmed',
-        confirmTransactionInitialTimeout: 120000,
+        confirmTransactionInitialTimeout: 180000,
         preflightCommitment: 'confirmed',
-        disableRetryOnRateLimit: false,
+        disableRetryOnRateLimit: true,
         httpHeaders: {
             'Cache-Control': 'no-cache',
         },
-        wsEndpoint: 'wss://api.devnet.solana.com/',
-        useOnlyHttpEndpoint: false
+        useOnlyHttpEndpoint: true
     },
 
     // 代币配置

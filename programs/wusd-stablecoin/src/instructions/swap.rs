@@ -225,6 +225,9 @@ fn calculate_output_amount(
     token_out_mint: Pubkey,
     state: &StateAccount,
 ) -> Result<u64> {
+    // 验证输入金额
+    require!(amount_in > 0, WUSDError::InvalidAmount);
+
     // 验证代币精度
     let (in_decimals, out_decimals) = (
         StateAccount::get_token_decimals(token_in_mint, &state)?,
@@ -232,25 +235,32 @@ fn calculate_output_amount(
     );
     require!(in_decimals <= MAX_DECIMALS && out_decimals <= MAX_DECIMALS, WUSDError::InvalidDecimals);
 
-    // 将金额标准化为最大精度
-    let in_factor = 10u64.pow((MAX_DECIMALS - in_decimals) as u32);
-    let normalized_amount = amount_in.checked_mul(in_factor).ok_or(WUSDError::MathOverflow)?;
-
     // 获取并验证汇率
     let rate = StateAccount::get_exchange_rate(token_in_mint, token_out_mint, &state)?;
     require!(rate.input > 0 && rate.output > 0, WUSDError::InvalidExchangeRate);
 
-    // 应用汇率并检查溢出
+    // 将输入金额标准化为最大精度，使用 u128 避免中间计算溢出
+    let in_factor = 10u128.pow((MAX_DECIMALS - in_decimals) as u32);
+    let normalized_amount = (amount_in as u128)
+        .checked_mul(in_factor)
+        .ok_or(WUSDError::MathOverflow)?;
+
+    // 应用汇率，使用更安全的计算方式
     let amount_with_rate = normalized_amount
-        .checked_mul(rate.output).ok_or(WUSDError::MathOverflow)?
-        .checked_div(rate.input).ok_or(WUSDError::MathOverflow)?;
+        .checked_mul(rate.output as u128)
+        .ok_or(WUSDError::MathOverflow)?
+        .checked_div(rate.input as u128)
+        .ok_or(WUSDError::MathOverflow)?;
 
-    // 转换回输出代币精度
-    let out_factor = 10u64.pow((MAX_DECIMALS - out_decimals) as u32);
+    // 转换回输出代币精度，使用更严格的溢出检查
+    let out_factor = 10u128.pow((MAX_DECIMALS - out_decimals) as u32);
     let final_amount = amount_with_rate
-        .checked_div(out_factor).ok_or(WUSDError::MathOverflow)?;
+        .checked_div(out_factor)
+        .ok_or(WUSDError::MathOverflow)?
+        .try_into()
+        .map_err(|_| WUSDError::MathOverflow)?;
 
-    // 验证输出金额
+    // 验证输出金额并确保不为零
     require!(final_amount > 0, WUSDError::InvalidOutputAmount);
 
     Ok(final_amount)

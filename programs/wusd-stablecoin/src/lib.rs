@@ -42,22 +42,9 @@ pub mod wusd_stablecoin {
         stake_account.claim_type = ClaimType::Unclaimed;
         stake_account.apy_tier = 0;
         stake_account.emergency_cooldown = 0;
-        Ok(())
-    }
-
-    pub fn initialize_soft_stake_account(ctx: Context<SoftStake>) -> Result<()> {
-        let stake_account = &mut ctx.accounts.stake_account;
-        stake_account.owner = ctx.accounts.user.key();
-        stake_account.amount = 0;
-        stake_account.staking_pool_id = 0;
-        stake_account.apy = 0;
-        stake_account.start_time = Clock::get()?.unix_timestamp;
-        stake_account.end_time = 0;
-        stake_account.claimable_timestamp = 0;
-        stake_account.rewards_earned = 0;
-        stake_account.status = SoftStakingStatus::Active;
-        stake_account.access_key = [0; 32];
-        stake_account.last_update_time = Clock::get()?.unix_timestamp;
+        // 以下字段用于软质押账户初始化，可根据需要进行设置
+        // stake_account.access_key = [0; 32];
+        // stake_account.last_update_time = Clock::get()?.unix_timestamp;
         Ok(())
     }
 
