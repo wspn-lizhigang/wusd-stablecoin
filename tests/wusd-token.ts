@@ -131,5 +131,146 @@ describe("WUSD Token", () => {
 
       await provider.connection.confirmTransaction(tx, 'confirmed');
     });
+
+    it("Successfully transfers tokens", async () => {
+      const amount = new anchor.BN(1000000); // 1 WUSD
+      const recipient = anchor.web3.Keypair.generate();
+      const recipientToken = await getAssociatedTokenAddress(mint, recipient.publicKey);
+
+      // 创建接收者代币账户
+      const createRecipientAccountIx = createAssociatedTokenAccountInstruction(
+        provider.wallet.publicKey,
+        recipientToken,
+        recipient.publicKey,
+        mint
+      );
+
+      // 铸造代币给发送者
+      await mintTo(
+        provider.connection,
+        provider.wallet.payer,
+        mint,
+        userToken,
+        mintAuthority,
+        amount.toNumber()
+      );
+
+      // 创建接收者账户并转账
+      const setupAndTransferTx = new anchor.web3.Transaction()
+        .add(createRecipientAccountIx);
+
+      await provider.sendAndConfirm(setupAndTransferTx);
+
+      const tx = await program.methods
+        .transfer(amount)
+        .accounts({
+          from: userToken,
+          to: recipientToken,
+          authority: provider.wallet.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+
+      await provider.connection.confirmTransaction(tx, 'confirmed');
+    });
+
+    it("Successfully approves and transfers tokens", async () => {
+      const amount = new anchor.BN(1000000); // 1 WUSD
+      const delegate = anchor.web3.Keypair.generate();
+      const recipient = anchor.web3.Keypair.generate();
+      const recipientToken = await getAssociatedTokenAddress(mint, recipient.publicKey);
+
+      // 创建接收者代币账户
+      const createRecipientAccountIx = createAssociatedTokenAccountInstruction(
+        provider.wallet.publicKey,
+        recipientToken,
+        recipient.publicKey,
+        mint
+      );
+
+      // 铸造代币给发送者
+      await mintTo(
+        provider.connection,
+        provider.wallet.payer,
+        mint,
+        userToken,
+        mintAuthority,
+        amount.toNumber()
+      );
+
+      // 创建接收者账户
+      await provider.sendAndConfirm(
+        new anchor.web3.Transaction().add(createRecipientAccountIx)
+      );
+
+      // 授权委托
+      const approveTx = await program.methods
+        .approve(amount)
+        .accounts({
+          source: userToken,
+          delegate: delegate.publicKey,
+          authority: provider.wallet.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+
+      await provider.connection.confirmTransaction(approveTx, 'confirmed');
+
+      // 委托转账
+      const transferTx = await program.methods
+        .transferFrom(amount)
+        .accounts({
+          from: userToken,
+          to: recipientToken,
+          authority: delegate.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([delegate])
+        .rpc();
+
+      await provider.connection.confirmTransaction(transferTx, 'confirmed');
+    });
+
+    it("Fails when unauthorized user tries to mint tokens", async () => {
+      const amount = new anchor.BN(1000000); // 1 WUSD
+      const unauthorizedUser = anchor.web3.Keypair.generate();
+
+      try {
+        await program.methods
+          .mintToken(amount)
+          .accounts({
+            authority: unauthorizedUser.publicKey,
+            mint,
+            tokenAccount: userToken,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .signers([unauthorizedUser])
+          .rpc();
+        assert.fail("Expected error but transaction succeeded");
+      } catch (error) {
+        expect(error).to.be.instanceOf(Error);
+      }
+    });
+
+    it("Fails when unauthorized user tries to burn tokens", async () => {
+      const amount = new anchor.BN(500000); // 0.5 WUSD
+      const unauthorizedUser = anchor.web3.Keypair.generate();
+
+      try {
+        await program.methods
+          .burnToken(amount)
+          .accounts({
+            authority: unauthorizedUser.publicKey,
+            mint,
+            tokenAccount: userToken,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .signers([unauthorizedUser])
+          .rpc();
+        assert.fail("Expected error but transaction succeeded");
+      } catch (error) {
+        expect(error).to.be.instanceOf(Error);
+      }
+    });
   });
 });
