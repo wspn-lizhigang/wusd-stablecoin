@@ -133,7 +133,7 @@ pub mod wusd_token {
             false,
             None,
             &ctx.accounts.pause_state,
-            None
+            Some(&ctx.accounts.access_registry) 
         )?;
 
         token::mint_to(
@@ -174,7 +174,7 @@ pub mod wusd_token {
             true,
             None,
             &ctx.accounts.pause_state,
-            None
+            Some(&ctx.accounts.access_registry) 
         )?;
 
         require!(
@@ -213,7 +213,7 @@ pub mod wusd_token {
             true,
             Some(amount),
             &ctx.accounts.pause_state,
-            None
+            Some(&ctx.accounts.access_registry) 
         )?;
 
         require_has_access(
@@ -221,7 +221,7 @@ pub mod wusd_token {
             false,
             None,
             &ctx.accounts.pause_state,
-            None
+            Some(&ctx.accounts.access_registry) 
         )?;
 
         token::transfer(
@@ -252,7 +252,7 @@ pub mod wusd_token {
             true,
             Some(amount),
             &ctx.accounts.pause_state,
-            None
+            Some(&ctx.accounts.access_registry) 
         )?;
 
         require_has_access(
@@ -260,7 +260,7 @@ pub mod wusd_token {
             false,
             None,
             &ctx.accounts.pause_state,
-            None
+            Some(&ctx.accounts.access_registry) 
         )?;
 
         let allowance = &mut ctx.accounts.allowance;
@@ -375,6 +375,7 @@ pub struct MintAccounts<'info> {
     pub authority_state: Account<'info, AuthorityState>,
     pub mint_state: Account<'info, MintState>,
     pub pause_state: Account<'info, PauseState>,
+    pub access_registry: Account<'info, AccessRegistryState>,
 }
 
 #[derive(Accounts)]
@@ -389,6 +390,7 @@ pub struct Burn<'info> {
     pub authority_state: Account<'info, AuthorityState>,
     pub mint_state: Account<'info, MintState>,
     pub pause_state: Account<'info, PauseState>,
+    pub access_registry: Account<'info, AccessRegistryState>,
 }
 
 #[derive(Accounts)]
@@ -463,6 +465,7 @@ pub struct Transfer<'info> {
     pub owner: AccountInfo<'info>,
     #[account(mut)]
     pub pause_state: Account<'info, PauseState>,
+    pub access_registry: Account<'info, AccessRegistryState>,
 }
 
 #[derive(Accounts)]
@@ -488,6 +491,7 @@ pub struct TransferFrom<'info> {
     pub token_program: Program<'info, Token>,
     #[account(mut)]
     pub pause_state: Account<'info, PauseState>,
+    pub access_registry: Account<'info, AccessRegistryState>,
 }
 
 #[derive(Accounts)]

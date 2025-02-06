@@ -51,6 +51,9 @@ export type WusdToken = {
         },
         {
           "name": "pauseState"
+        },
+        {
+          "name": "accessRegistry"
         }
       ],
       "args": [
@@ -190,6 +193,9 @@ export type WusdToken = {
         },
         {
           "name": "pauseState"
+        },
+        {
+          "name": "accessRegistry"
         }
       ],
       "args": [
@@ -415,6 +421,9 @@ export type WusdToken = {
         {
           "name": "pauseState",
           "writable": true
+        },
+        {
+          "name": "accessRegistry"
         }
       ],
       "args": [
@@ -495,6 +504,9 @@ export type WusdToken = {
         {
           "name": "pauseState",
           "writable": true
+        },
+        {
+          "name": "accessRegistry"
         }
       ],
       "args": [
@@ -506,6 +518,19 @@ export type WusdToken = {
     }
   ],
   "accounts": [
+    {
+      "name": "accessRegistryState",
+      "discriminator": [
+        231,
+        61,
+        137,
+        205,
+        80,
+        10,
+        91,
+        243
+      ]
+    },
     {
       "name": "allowanceState",
       "discriminator": [
@@ -684,6 +709,24 @@ export type WusdToken = {
     }
   ],
   "types": [
+    {
+      "name": "accessRegistryState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "accessList",
+            "type": {
+              "vec": "pubkey"
+            }
+          }
+        ]
+      }
+    },
     {
       "name": "allowanceState",
       "type": {
