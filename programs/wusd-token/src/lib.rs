@@ -7,7 +7,7 @@ mod state;
 use state::{AuthorityState, MintState, PauseState, AllowanceState, PermitState, AccessRegistryState};
 use error::WusdError;
 
-declare_id!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+declare_id!("WUSDxgMdp1WgM1mZn5PGpJxC3znPe3vPgHDkzCGhqwv");
 
 #[event]
 pub struct InitializeEvent {
