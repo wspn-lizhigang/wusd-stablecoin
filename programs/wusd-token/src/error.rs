@@ -20,4 +20,8 @@ pub enum WusdError {
     ExpiredPermit,
     #[msg("Access denied")]
     AccessDenied,
+    #[msg("Invalid signature")]
+    InvalidSignature, 
+    #[msg("Unauthorized")]
+    Unauthorized,
 }

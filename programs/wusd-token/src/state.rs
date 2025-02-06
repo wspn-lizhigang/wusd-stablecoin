@@ -106,7 +106,7 @@ impl AccessRegistryState {
         }
     }
 
-    pub fn has_access(&self, user: Pubkey) -> bool {
+    pub fn has_access(&self, user: Pubkey, _level: crate::AccessLevel) -> bool {
         self.access_list.contains(&user)
     }
 }

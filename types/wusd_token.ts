@@ -10,7 +10,7 @@ export type WusdToken = {
     "name": "wusdToken",
     "version": "0.1.0",
     "spec": "0.1.0",
-    "description": "Created with WSPN"
+    "description": "Created with Anchor"
   },
   "instructions": [
     {
@@ -79,9 +79,48 @@ export type WusdToken = {
           "signer": true
         },
         {
+          "name": "mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  117,
+                  115,
+                  100,
+                  45,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
           "name": "authorityState",
           "writable": true,
-          "signer": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "mintState",
@@ -92,9 +131,6 @@ export type WusdToken = {
           "name": "pauseState",
           "writable": true,
           "signer": true
-        },
-        {
-          "name": "mint"
         },
         {
           "name": "systemProgram",
@@ -160,6 +196,10 @@ export type WusdToken = {
         {
           "name": "amount",
           "type": "u64"
+        },
+        {
+          "name": "bump",
+          "type": "u8"
         }
       ]
     },
@@ -271,6 +311,39 @@ export type WusdToken = {
       ]
     },
     {
+      "name": "setPaused",
+      "discriminator": [
+        91,
+        60,
+        125,
+        192,
+        176,
+        225,
+        166,
+        218
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pauseState",
+          "writable": true
+        },
+        {
+          "name": "authorityState"
+        }
+      ],
+      "args": [
+        {
+          "name": "paused",
+          "type": "bool"
+        }
+      ]
+    },
+    {
       "name": "supportsInterface",
       "discriminator": [
         247,
@@ -334,6 +407,10 @@ export type WusdToken = {
         {
           "name": "tokenProgram",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "owner",
+          "signer": true
         },
         {
           "name": "pauseState",
@@ -534,6 +611,19 @@ export type WusdToken = {
         95,
         16
       ]
+    },
+    {
+      "name": "transferEvent",
+      "discriminator": [
+        100,
+        10,
+        46,
+        113,
+        8,
+        28,
+        179,
+        125
+      ]
     }
   ],
   "errors": [
@@ -581,6 +671,16 @@ export type WusdToken = {
       "code": 6008,
       "name": "accessDenied",
       "msg": "Access denied"
+    },
+    {
+      "code": 6009,
+      "name": "invalidSignature",
+      "msg": "Invalid signature"
+    },
+    {
+      "code": 6010,
+      "name": "unauthorized",
+      "msg": "unauthorized"
     }
   ],
   "types": [
@@ -720,6 +820,30 @@ export type WusdToken = {
           {
             "name": "nonce",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "transferEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "from",
+            "type": "pubkey"
+          },
+          {
+            "name": "to",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
           }
         ]
       }
