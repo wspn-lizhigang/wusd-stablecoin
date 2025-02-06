@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/wusd_token.json`.
  */
 export type WusdToken = {
-  "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "address": "WUSDxgMdp1WgM1mZn5PGpJxC3znPe3vPgHDkzCGhqwv",
   "metadata": {
     "name": "wusdToken",
     "version": "0.1.0",
@@ -15,6 +15,11 @@ export type WusdToken = {
   "instructions": [
     {
       "name": "burn",
+      "docs": [
+        "销毁WUSD代币",
+        "* `ctx` - 销毁上下文",
+        "* `amount` - 销毁数量"
+      ],
       "discriminator": [
         116,
         110,
@@ -65,6 +70,11 @@ export type WusdToken = {
     },
     {
       "name": "initialize",
+      "docs": [
+        "初始化WUSD代币合约",
+        "* `ctx` - 初始化上下文",
+        "* `decimals` - 代币精度"
+      ],
       "discriminator": [
         175,
         175,
@@ -78,11 +88,17 @@ export type WusdToken = {
       "accounts": [
         {
           "name": "authority",
+          "docs": [
+            "管理员账户"
+          ],
           "writable": true,
           "signer": true
         },
         {
           "name": "mint",
+          "docs": [
+            "代币铸币账户"
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -105,6 +121,9 @@ export type WusdToken = {
         },
         {
           "name": "authorityState",
+          "docs": [
+            "权限管理账户"
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -127,11 +146,17 @@ export type WusdToken = {
         },
         {
           "name": "mintState",
+          "docs": [
+            "铸币状态账户"
+          ],
           "writable": true,
           "signer": true
         },
         {
           "name": "pauseState",
+          "docs": [
+            "暂停状态账户"
+          ],
           "writable": true,
           "signer": true
         },
@@ -157,6 +182,12 @@ export type WusdToken = {
     },
     {
       "name": "mint",
+      "docs": [
+        "铸造WUSD代币",
+        "* `ctx` - 铸币上下文",
+        "* `amount` - 铸造数量",
+        "* `bump` - PDA的bump值"
+      ],
       "discriminator": [
         51,
         57,
@@ -170,15 +201,24 @@ export type WusdToken = {
       "accounts": [
         {
           "name": "authority",
+          "docs": [
+            "铸币权限账户"
+          ],
           "writable": true,
           "signer": true
         },
         {
           "name": "mint",
+          "docs": [
+            "代币铸币账户"
+          ],
           "writable": true
         },
         {
           "name": "tokenAccount",
+          "docs": [
+            "接收代币的账户"
+          ],
           "writable": true
         },
         {
@@ -186,16 +226,28 @@ export type WusdToken = {
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "authorityState"
+          "name": "authorityState",
+          "docs": [
+            "权限管理账户"
+          ]
         },
         {
-          "name": "mintState"
+          "name": "mintState",
+          "docs": [
+            "铸币状态账户"
+          ]
         },
         {
-          "name": "pauseState"
+          "name": "pauseState",
+          "docs": [
+            "暂停状态账户"
+          ]
         },
         {
-          "name": "accessRegistry"
+          "name": "accessRegistry",
+          "docs": [
+            "访问权限账户"
+          ]
         }
       ],
       "args": [
@@ -211,6 +263,13 @@ export type WusdToken = {
     },
     {
       "name": "permit",
+      "docs": [
+        "签名授权转账",
+        "* `ctx` - 授权上下文",
+        "* `amount` - 授权数量",
+        "* `deadline` - 授权截止时间",
+        "* `signature` - 签名数据"
+      ],
       "discriminator": [
         195,
         207,
@@ -318,6 +377,11 @@ export type WusdToken = {
     },
     {
       "name": "setPaused",
+      "docs": [
+        "设置合约暂停状态",
+        "* `ctx` - 上下文",
+        "* `paused` - 是否暂停"
+      ],
       "discriminator": [
         91,
         60,
@@ -351,6 +415,11 @@ export type WusdToken = {
     },
     {
       "name": "supportsInterface",
+      "docs": [
+        "检查合约是否支持指定接口",
+        "* `_ctx` - 上下文",
+        "* `interface_id` - 接口ID"
+      ],
       "discriminator": [
         247,
         56,
@@ -364,6 +433,9 @@ export type WusdToken = {
       "accounts": [
         {
           "name": "authority",
+          "docs": [
+            "调用者地址"
+          ],
           "signer": true
         }
       ],
@@ -382,6 +454,11 @@ export type WusdToken = {
     },
     {
       "name": "transfer",
+      "docs": [
+        "转账WUSD代币",
+        "* `ctx` - 转账上下文",
+        "* `amount` - 转账数量"
+      ],
       "discriminator": [
         163,
         52,
@@ -435,6 +512,11 @@ export type WusdToken = {
     },
     {
       "name": "transferFrom",
+      "docs": [
+        "使用授权额度转账WUSD代币",
+        "* `ctx` - 转账上下文",
+        "* `amount` - 转账数量"
+      ],
       "discriminator": [
         230,
         255,
@@ -716,10 +798,16 @@ export type WusdToken = {
         "fields": [
           {
             "name": "admin",
+            "docs": [
+              "管理员地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "accessList",
+            "docs": [
+              "访问权限列表"
+            ],
             "type": {
               "vec": "pubkey"
             }
@@ -729,19 +817,31 @@ export type WusdToken = {
     },
     {
       "name": "allowanceState",
+      "docs": [
+        "授权额度状态账户，存储代币授权信息"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "owner",
+            "docs": [
+              "代币所有者地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "spender",
+            "docs": [
+              "被授权者地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "amount",
+            "docs": [
+              "授权额度"
+            ],
             "type": "u64"
           }
         ]
@@ -749,19 +849,31 @@ export type WusdToken = {
     },
     {
       "name": "authorityState",
+      "docs": [
+        "权限管理状态账户，存储合约的权限配置"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "admin",
+            "docs": [
+              "管理员地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "minter",
+            "docs": [
+              "铸币权限地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "pauser",
+            "docs": [
+              "暂停权限地址"
+            ],
             "type": "pubkey"
           }
         ]
@@ -769,15 +881,24 @@ export type WusdToken = {
     },
     {
       "name": "burnEvent",
+      "docs": [
+        "销毁事件，记录代币销毁的详细信息"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "burner",
+            "docs": [
+              "销毁者地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "amount",
+            "docs": [
+              "销毁数量"
+            ],
             "type": "u64"
           }
         ]
@@ -785,19 +906,31 @@ export type WusdToken = {
     },
     {
       "name": "initializeEvent",
+      "docs": [
+        "初始化事件，记录代币初始化的关键信息"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "authority",
+            "docs": [
+              "管理员地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "mint",
+            "docs": [
+              "代币铸币权地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "decimals",
+            "docs": [
+              "代币精度"
+            ],
             "type": "u8"
           }
         ]
@@ -805,19 +938,31 @@ export type WusdToken = {
     },
     {
       "name": "mintEvent",
+      "docs": [
+        "铸币事件，记录代币铸造的详细信息"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "minter",
+            "docs": [
+              "铸币者地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "recipient",
+            "docs": [
+              "接收者地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "amount",
+            "docs": [
+              "铸造数量"
+            ],
             "type": "u64"
           }
         ]
@@ -830,10 +975,16 @@ export type WusdToken = {
         "fields": [
           {
             "name": "mint",
+            "docs": [
+              "代币铸币权地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "decimals",
+            "docs": [
+              "代币精度"
+            ],
             "type": "u8"
           }
         ]
@@ -846,6 +997,9 @@ export type WusdToken = {
         "fields": [
           {
             "name": "paused",
+            "docs": [
+              "合约暂停状态"
+            ],
             "type": "bool"
           }
         ]
@@ -853,15 +1007,24 @@ export type WusdToken = {
     },
     {
       "name": "permitState",
+      "docs": [
+        "签名许可状态账户，用于EIP-2612兼容的签名授权"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "owner",
+            "docs": [
+              "所有者地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "nonce",
+            "docs": [
+              "随机数，用于防止重放攻击"
+            ],
             "type": "u64"
           }
         ]
@@ -869,23 +1032,38 @@ export type WusdToken = {
     },
     {
       "name": "transferEvent",
+      "docs": [
+        "转账事件，记录代币转账的详细信息"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "from",
+            "docs": [
+              "发送方地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "to",
+            "docs": [
+              "接收方地址"
+            ],
             "type": "pubkey"
           },
           {
             "name": "amount",
+            "docs": [
+              "转账数量"
+            ],
             "type": "u64"
           },
           {
             "name": "timestamp",
+            "docs": [
+              "转账时间戳"
+            ],
             "type": "i64"
           }
         ]

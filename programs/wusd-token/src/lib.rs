@@ -9,40 +9,65 @@ use error::WusdError;
 
 declare_id!("WUSDxgMdp1WgM1mZn5PGpJxC3znPe3vPgHDkzCGhqwv");
 
+/// 初始化事件，记录代币初始化的关键信息
 #[event]
 pub struct InitializeEvent {
+    /// 管理员地址
     pub authority: Pubkey,
+    /// 代币铸币权地址
     pub mint: Pubkey,
+    /// 代币精度
     pub decimals: u8,
 }
 
+/// 铸币事件，记录代币铸造的详细信息
 #[event]
 pub struct MintEvent {
+    /// 铸币者地址
     pub minter: Pubkey,
+    /// 接收者地址
     pub recipient: Pubkey,
+    /// 铸造数量
     pub amount: u64,
 }
 
+/// 销毁事件，记录代币销毁的详细信息
 #[event]
 pub struct BurnEvent {
+    /// 销毁者地址
     pub burner: Pubkey,
+    /// 销毁数量
     pub amount: u64,
 }
 
+/// 转账事件，记录代币转账的详细信息
 #[event]
 pub struct TransferEvent {
+    /// 发送方地址
     pub from: Pubkey,
+    /// 接收方地址
     pub to: Pubkey,
+    /// 转账数量
     pub amount: u64,
+    /// 转账时间戳
     pub timestamp: i64,
 }
 
+/// 访问级别枚举，用于控制账户的操作权限
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum AccessLevel {
+    /// 允许扣款操作
     Debit,
+    /// 允许入账操作
     Credit,
 }
 
+/// 检查用户是否具有执行操作的权限
+/// * `user` - 用户地址
+/// * `is_debit` - 是否为扣款操作
+/// * `amount` - 操作金额（可选）
+/// * `pause_state` - 暂停状态
+/// * `access_registry` - 访问权限注册表（可选）
 pub fn require_has_access(
     user: Pubkey,
     is_debit: bool,
@@ -91,6 +116,9 @@ fn verify_signature(message: &[u8], signature: &[u8; 64], pubkey: &[u8; 32]) -> 
 pub mod wusd_token {
     use super::*;
 
+    /// 初始化WUSD代币合约
+    /// * `ctx` - 初始化上下文
+    /// * `decimals` - 代币精度
     pub fn initialize(ctx: Context<Initialize>, decimals: u8) -> Result<()> {
         ctx.accounts.authority_state.set_inner(
             AuthorityState::initialize(ctx.accounts.authority.key())
@@ -116,6 +144,10 @@ pub mod wusd_token {
         Ok(())
     }
 
+    /// 铸造WUSD代币
+    /// * `ctx` - 铸币上下文
+    /// * `amount` - 铸造数量
+    /// * `bump` - PDA的bump值
     pub fn mint(ctx: Context<MintAccounts>, amount: u64, bump: u8) -> Result<()> {
         require!(amount > 0, WusdError::InvalidAmount);
         require!(
@@ -158,6 +190,9 @@ pub mod wusd_token {
         Ok(())
     }
 
+    /// 销毁WUSD代币
+    /// * `ctx` - 销毁上下文
+    /// * `amount` - 销毁数量
     pub fn burn(ctx: Context<Burn>, amount: u64) -> Result<()> {
         require!(
             ctx.accounts.authority.is_signer,
@@ -202,6 +237,9 @@ pub mod wusd_token {
         Ok(())
     }
 
+    /// 转账WUSD代币
+    /// * `ctx` - 转账上下文
+    /// * `amount` - 转账数量
     pub fn transfer(ctx: Context<Transfer>, amount: u64) -> Result<()> {
         require!(amount > 0, WusdError::InvalidAmount);
 
@@ -246,6 +284,9 @@ pub mod wusd_token {
         Ok(())
     }
 
+    /// 使用授权额度转账WUSD代币
+    /// * `ctx` - 转账上下文
+    /// * `amount` - 转账数量
     pub fn transfer_from(ctx: Context<TransferFrom>, amount: u64) -> Result<()> {
         require_has_access(
             ctx.accounts.from_token.owner,
@@ -281,6 +322,11 @@ pub mod wusd_token {
         Ok(())
     }
 
+    /// 签名授权转账
+    /// * `ctx` - 授权上下文
+    /// * `amount` - 授权数量
+    /// * `deadline` - 授权截止时间
+    /// * `signature` - 签名数据
     pub fn permit(ctx: Context<Permit>, amount: u64, deadline: i64, signature: [u8; 64]) -> Result<()> {
         let owner = ctx.accounts.owner.key();
         let spender = ctx.accounts.spender.key();
@@ -310,6 +356,9 @@ pub mod wusd_token {
         Ok(())
     }
 
+    /// 检查合约是否支持指定接口
+    /// * `_ctx` - 上下文
+    /// * `interface_id` - 接口ID
     pub fn supports_interface(_ctx: Context<SupportsInterface>, interface_id: [u8; 4]) -> Result<bool> {
         let erc20_interface_id: [u8; 4] = [0x36, 0x37, 0x2b, 0x07];
         let permit_interface_id: [u8; 4] = [0x79, 0x65, 0xdb, 0x0b];
@@ -317,6 +366,9 @@ pub mod wusd_token {
         Ok(interface_id == erc20_interface_id || interface_id == permit_interface_id)
     }
 
+    /// 设置合约暂停状态
+    /// * `ctx` - 上下文
+    /// * `paused` - 是否暂停
     pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
         require!(
             ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
@@ -327,16 +379,21 @@ pub mod wusd_token {
     }
 }
 
+/// 检查接口支持的账户参数
 #[derive(Accounts)]
 pub struct SupportsInterface<'info> {
+    /// 调用者地址
     pub authority: Signer<'info>,
 }
 
+/// 初始化指令的账户参数
 #[derive(Accounts)]
 #[instruction(decimals: u8)]
 pub struct Initialize<'info> {
+    /// 管理员账户
     #[account(mut)]
     pub authority: Signer<'info>,
+    /// 代币铸币账户
     #[account(
         init,
         payer = authority,
@@ -346,6 +403,7 @@ pub struct Initialize<'info> {
         bump
     )]
     pub mint: Account<'info, Mint>,
+    /// 权限管理账户
     #[account(
         init,
         payer = authority,
@@ -354,8 +412,10 @@ pub struct Initialize<'info> {
         space = 8 + 32 + 32 + 32
     )]
     pub authority_state: Account<'info, AuthorityState>,
+    /// 铸币状态账户
     #[account(init, payer = authority, space = 8 + 32 + 1)]
     pub mint_state: Account<'info, MintState>,
+    /// 暂停状态账户
     #[account(init, payer = authority, space = 8 + 1)]
     pub pause_state: Account<'info, PauseState>,
     pub system_program: Program<'info, System>,
@@ -363,18 +423,26 @@ pub struct Initialize<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
+/// 铸币指令的账户参数
 #[derive(Accounts)]
 pub struct MintAccounts<'info> {
+    /// 铸币权限账户
     #[account(mut)]
     pub authority: Signer<'info>,
+    /// 代币铸币账户
     #[account(mut)]
     pub mint: Account<'info, Mint>,
+    /// 接收代币的账户
     #[account(mut)]
     pub token_account: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
+    /// 权限管理账户
     pub authority_state: Account<'info, AuthorityState>,
+    /// 铸币状态账户
     pub mint_state: Account<'info, MintState>,
+    /// 暂停状态账户
     pub pause_state: Account<'info, PauseState>,
+    /// 访问权限账户
     pub access_registry: Account<'info, AccessRegistryState>,
 }
 
