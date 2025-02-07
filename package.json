@@ -6,10 +6,12 @@
     "deploy_token": "anchor deploy --program-name wusd_token", 
     "build_token": "anchor build --program-name wusd_token",
     "test_token": "npx dotenv-cli yarn token_test", 
+    "re_test_token": "yarn build_token & yarn deploy_token & yarn test_token", 
     "token_test": "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/wusd-token.ts",
     "deploy_app": "anchor deploy --program-name wusd_application",
     "build_app": "anchor build --program-name wusd_application",
     "test_app": "npx dotenv-cli yarn app_test", 
+    "re_test_app": "yarn build_app & yarn deploy_app & yarn test_app",
     "app_test": "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/wusd-application.ts"
   },
   "dependencies": {

@@ -74,9 +74,9 @@ describe("WUSD Token", () => {
         // 创建代币铸造账户
         wusdMint = await createMint(
           provider.connection,
-          payer,
-          mintAuthority.publicKey,
-          mintAuthority.publicKey,
+          provider.wallet.payer,
+          provider.wallet.publicKey,
+          provider.wallet.publicKey,
           config.wusdDecimals
         );
 
@@ -97,17 +97,28 @@ describe("WUSD Token", () => {
         console.log('用户代币账户创建成功');
 
         // 初始化代币程序状态
+        // 获取所有需要的PDA
+        const [authorityPda] = await PublicKey.findProgramAddress([Buffer.from("authority")], program.programId);
+        const [mintStatePda] = await PublicKey.findProgramAddress([Buffer.from("mint_state")], program.programId);
+        const [pauseStatePda] = await PublicKey.findProgramAddress([Buffer.from("pause_state")], program.programId);
+
         let tx = await program.methods
           .initialize(config.wusdDecimals)
           .accounts({
-            authority: payer.publicKey,
-            state,
-            wusdMint,
+            authority: provider.wallet.publicKey,
+            mint: wusdMint,
+            authority_state: authorityPda,
+            mint_state: mintStatePda,
+            pause_state: pauseStatePda,
             systemProgram: SystemProgram.programId,
             tokenProgram: TOKEN_PROGRAM_ID,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+            rent: anchor.web3.SYSVAR_RENT_PUBKEY
           })
-          .rpc();
+          .signers([provider.wallet.payer])
+          .preInstructions([
+            anchor.web3.ComputeBudgetProgram.setComputeUnitLimit({ units: 1000000 })
+          ])
+          .rpc({ skipPreflight: true });
 
         await provider.connection.confirmTransaction(tx, 'confirmed');
         console.log('代币程序状态初始化成功');

@@ -546,29 +546,35 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = authority,
-        mint::decimals = decimals,
-        mint::authority = authority_state
+        space = 82,
+        owner = token_program.key()
     )]
     pub mint: Account<'info, Mint>,
     /// 权限管理账户
     #[account(
         init,
         payer = authority,
-        space = 72
+        space = 72,
+        seeds = [b"authority"],
+        bump
     )]
     pub authority_state: Account<'info, AuthorityState>,
     /// 铸币状态账户
     #[account(
         init,
         payer = authority,
-        space = 41
+        space = 41,
+        seeds = [b"mint_state"],
+        bump
     )]
     pub mint_state: Account<'info, MintState>,
     /// 暂停状态账户
     #[account(
         init,
         payer = authority,
-        space = 9
+        space = 9,
+        seeds = [b"pause_state"],
+        bump
     )]
     pub pause_state: Account<'info, PauseState>,
     pub system_program: Program<'info, System>,
