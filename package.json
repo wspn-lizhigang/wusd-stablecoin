@@ -19,9 +19,7 @@
     "@coral-xyz/anchor": "0.30.1",
     "@metaplex-foundation/js": "^0.20.1",
     "@solana/spl-token": "^0.4.9",
-    "@solana/web3.js": "^1.98.0",
-    "@types/ws": "8.5.5",
-    "ws": "8.13.0"
+    "@solana/web3.js": "^1.98.0"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.0",

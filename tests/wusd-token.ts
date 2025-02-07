@@ -1,9 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program, BN } from "@coral-xyz/anchor";
-import WebSocket from "ws";
-import { exec } from 'child_process';
-import { promisify } from 'util';
-const execAsync = promisify(exec);
+import idl from "../target/idl/wusd_token.json";
 import { WusdToken } from "../target/types/wusd_token";
 import { PublicKey, SystemProgram, Keypair } from "@solana/web3.js";
 import {
@@ -21,72 +18,63 @@ describe("WUSD Token", () => {
   let program: Program<WusdToken>;
   let payer: anchor.web3.Keypair;
 
-  before("全局初始化", async function() {
-    this.timeout(30000); 
-    // 初始化顺序保障
-    provider = anchor.AnchorProvider.env();
+  before("全局初始化", async function () {
+    this.timeout(30000);
+    // 确保环境变量正确
+    console.log("环境变量检查:");
+    console.log("ANCHOR_PROVIDER_URL:", process.env.ANCHOR_PROVIDER_URL);
+    console.log("ANCHOR_WALLET:", process.env.ANCHOR_WALLET);
+
+    // 分步初始化 Provider
+    const connection = new anchor.web3.Connection(
+      process.env.ANCHOR_PROVIDER_URL || "http://localhost:8899",
+      "confirmed"
+    );
+
+    const wallet = anchor.Wallet.local(); // 显式初始化钱包
+    provider = new anchor.AnchorProvider(connection, wallet, {
+      commitment: "confirmed",
+    });
+
+    // 强制设置全局 provider
     anchor.setProvider(provider);
 
+    // 验证 Provider 功能
     console.log(
       "Provider 可用方法:",
       Object.keys(provider).filter((k) => typeof provider[k] === "function")
     );
 
-    // 正确初始化 WebSocket 客户端
-    if (provider.connection._rpcWebSocketClient === null) {
-      const wsEndpoint = provider.connection.rpcEndpoint
-        .replace("http", "ws") // 自动转换协议
-        .replace(":8899", ":8900"); // 显式指定 ws 端口
+    // 初始化 program 实例
+    const programId = new PublicKey(idl.metadata.address);
+    program = new anchor.Program(
+      idl as anchor.Idl,
+      programId,
+      provider
+    ) as unknown as Program<WusdToken>;
 
-      provider.connection._rpcWebSocketClient = new WebSocket(wsEndpoint, {
-        handshakeTimeout: 15000, // 增加握手超时
-        perMessageDeflate: false, // 禁用压缩
-      });
-
-      // 添加错误监听
-      provider.connection._rpcWebSocketClient
-        .on("error", (err) => console.error("WebSocket Error:", err))
-        .on("close", () => console.log("WebSocket Closed"));
-    }
-
-    await checkWebSocket();
+    console.log("程序 ID:", program.programId.toString());
     console.log(
-      "WebSocket 状态:",
-      provider.connection._rpcWebSocketClient?.readyState
-    );
-
-    program = anchor.workspace.WusdToken;
-    payer = (provider.wallet as anchor.Wallet).payer;
-
-    // 钱包验证
-    if (!provider.wallet) {
-      throw new Error("Wallet not initialized");
-    }
-    payer = (provider.wallet as anchor.Wallet).payer;
-
-    console.log("有效钱包地址:", payer.publicKey.toString());
-    console.log("当前 RPC 端点:", provider.connection.rpcEndpoint);
-    console.log(
-      "WebSocket 端点:",
-      provider.connection.rpcEndpoint.replace("http", "ws")
+      "IDL 方法列表:",
+      idl.instructions.map((i) => i.name)
     );
   });
 
-  before("启动前检查", async function() {
+  before("启动前检查", async function () {
     this.timeout(20000);
-    
+
     // 添加空值检查
     if (!provider || !provider.connection) {
       throw new Error("Provider 未正确初始化");
     }
-    
+
     // 使用新的连接检查方式
     const connection = provider.connection;
     const version = await connection.getVersion();
-    console.log("RPC 版本:", version['solana-core']);
-    
+    console.log("RPC 版本:", version["solana-core"]);
+
     // 使用 connection 替代 provider.connection
-    const { stdout } = await execAsync('lsof -i :8900');
+    const { stdout } = await execAsync("lsof -i :8900");
     if (!stdout.includes("LISTEN")) {
       throw new Error("WebSocket 端口 8900 未监听");
     }
@@ -122,30 +110,6 @@ describe("WUSD Token", () => {
     return txId;
   }
 
-  // 检查WebSocket连接
-  async function checkWebSocket() {
-    return new Promise((resolve, reject) => {
-      if (!provider?.connection?._rpcWebSocketClient) {
-        return reject(new Error("WebSocket 未初始化"));
-      }
-
-      const ws = provider.connection._rpcWebSocketClient;
-      console.log(`当前 WebSocket 状态: ${ws.readyState}`);
-
-      const checkInterval = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          clearInterval(checkInterval);
-          resolve(true);
-        }
-      }, 500);
-
-      setTimeout(() => {
-        clearInterval(checkInterval);
-        reject(new Error("WebSocket 连接超时 (15秒)"));
-      }, 15000);
-    });
-  }
-
   // 初始化PDA（添加mint和pause状态）
   function initializePdas() {
     [authorityPda] = PublicKey.findProgramAddressSync(
@@ -178,44 +142,6 @@ describe("WUSD Token", () => {
     console.log("State PDA:", statePda.toString());
     console.log("Mint State PDA:", mintStatePda.toString());
     console.log("Pause State PDA:", pauseStatePda.toString());
-  }
-
-  // 重试函数
-  async function retry<T>(
-    fn: () => Promise<T>,
-    retries = config.maxRetries,
-    delay = config.retryDelay
-  ): Promise<T> {
-    let lastError: any;
-    for (let i = 0; i < retries; i++) {
-      try {
-        return await fn();
-      } catch (error: any) {
-        lastError = error;
-        console.log(`重试尝试 ${i + 1}/${retries} 失败:`, error.message);
-
-        // 检查是否是不可重试的错误
-        if (
-          error.error?.errorCode?.code === config.errorCodes.Unauthorized ||
-          error.error?.errorCode?.code ===
-            config.errorCodes.InsufficientFunds ||
-          error.error?.errorCode?.code === config.errorCodes.InvalidAmount ||
-          error.error?.errorCode?.code ===
-            config.errorCodes.AccountNotInitialized ||
-          error.error?.errorCode?.code === config.errorCodes.ProgramPaused
-        ) {
-          console.log("遇到不可重试的错误，立即终止重试");
-          throw error;
-        }
-
-        if (i < retries - 1) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, delay * Math.pow(2, i))
-          );
-        }
-      }
-    }
-    throw lastError;
   }
 
   beforeEach(async () => {
