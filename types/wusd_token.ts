@@ -32,6 +32,36 @@ export type WusdToken = {
       ],
       "accounts": [
         {
+          "name": "authorityState",
+          "writable": true
+        },
+        {
+          "name": "mintAuthority",
+          "signer": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authorityState"
+              }
+            ]
+          }
+        },
+        {
           "name": "authority",
           "writable": true,
           "signer": true
@@ -47,9 +77,6 @@ export type WusdToken = {
         {
           "name": "tokenProgram",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "authorityState"
         },
         {
           "name": "mintState"
@@ -262,13 +289,47 @@ export type WusdToken = {
       ]
     },
     {
+      "name": "pause",
+      "docs": [
+        "暂停合约",
+        "* `ctx` - 上下文"
+      ],
+      "discriminator": [
+        211,
+        22,
+        221,
+        251,
+        74,
+        121,
+        193,
+        47
+      ],
+      "accounts": [
+        {
+          "name": "pauseState",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "authorityState"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "permit",
       "docs": [
-        "签名授权转账",
-        "* `ctx` - 授权上下文",
-        "* `amount` - 授权数量",
-        "* `deadline` - 授权截止时间",
-        "* `signature` - 签名数据"
+        "处理授权许可请求，允许代币持有者授权其他账户使用其代币",
+        "",
+        "# 参数",
+        "* `ctx` - 包含所有必要账户的上下文",
+        "* `params` - 授权许可的参数，包含签名、金额、期限等信息",
+        "",
+        "# 返回值",
+        "* `Result<()>` - 操作成功返回Ok(()), 失败返回错误"
       ],
       "discriminator": [
         195,
@@ -282,34 +343,13 @@ export type WusdToken = {
       ],
       "accounts": [
         {
-          "name": "owner"
+          "name": "owner",
+          "writable": true,
+          "signer": true
         },
         {
           "name": "spender",
           "writable": true
-        },
-        {
-          "name": "permitState",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  101,
-                  114,
-                  109,
-                  105,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "owner"
-              }
-            ]
-          }
         },
         {
           "name": "allowance",
@@ -342,74 +382,49 @@ export type WusdToken = {
           }
         },
         {
-          "name": "payer",
+          "name": "permitState",
           "writable": true,
-          "signer": true
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "pauseState",
-          "writable": true
-        }
-      ],
-      "args": [
-        {
-          "name": "amount",
-          "type": "u64"
-        },
-        {
-          "name": "deadline",
-          "type": "i64"
-        },
-        {
-          "name": "signature",
-          "type": {
-            "array": [
-              "u8",
-              64
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  101,
+                  114,
+                  109,
+                  105,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
             ]
           }
-        }
-      ]
-    },
-    {
-      "name": "setPaused",
-      "docs": [
-        "设置合约暂停状态",
-        "* `ctx` - 上下文",
-        "* `paused` - 是否暂停"
-      ],
-      "discriminator": [
-        91,
-        60,
-        125,
-        192,
-        176,
-        225,
-        166,
-        218
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true
         },
         {
-          "name": "pauseState",
+          "name": "mintState",
           "writable": true
         },
         {
-          "name": "authorityState"
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "clock",
+          "address": "SysvarC1ock11111111111111111111111111111111"
         }
       ],
       "args": [
         {
-          "name": "paused",
-          "type": "bool"
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "permitParams"
+            }
+          }
         }
       ]
     },
@@ -597,6 +612,37 @@ export type WusdToken = {
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "unpause",
+      "docs": [
+        "恢复合约",
+        "* `ctx` - 上下文"
+      ],
+      "discriminator": [
+        169,
+        144,
+        4,
+        38,
+        10,
+        141,
+        188,
+        255
+      ],
+      "accounts": [
+        {
+          "name": "pauseState",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "authorityState"
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [
@@ -720,6 +766,19 @@ export type WusdToken = {
       ]
     },
     {
+      "name": "permitGranted",
+      "discriminator": [
+        195,
+        66,
+        5,
+        140,
+        74,
+        128,
+        13,
+        164
+      ]
+    },
+    {
       "name": "transferEvent",
       "discriminator": [
         100,
@@ -786,8 +845,83 @@ export type WusdToken = {
     },
     {
       "code": 6010,
+      "name": "authorityRevoked",
+      "msg": "Authority revoked"
+    },
+    {
+      "code": 6011,
       "name": "unauthorized",
       "msg": "unauthorized"
+    },
+    {
+      "code": 6012,
+      "name": "scopeMismatch",
+      "msg": "Permission scope mismatch"
+    },
+    {
+      "code": 6013,
+      "name": "invalidChainId",
+      "msg": "Invalid chain ID"
+    },
+    {
+      "code": 6014,
+      "name": "usedNonce",
+      "msg": "Nonce already used"
+    },
+    {
+      "code": 6015,
+      "name": "invalidAllowanceAccount",
+      "msg": "Allowance account mismatch"
+    },
+    {
+      "code": 6016,
+      "name": "invalidMintAuthority",
+      "msg": "Mint authority mismatch"
+    },
+    {
+      "code": 6017,
+      "name": "crossChainAttack",
+      "msg": "Cross-chain permit attempt detected"
+    },
+    {
+      "code": 6018,
+      "name": "signatureExpired",
+      "msg": "Signature deadline expired"
+    },
+    {
+      "code": 6019,
+      "name": "exceedsMintCap",
+      "msg": "Minting cap exceeded"
+    },
+    {
+      "code": 6020,
+      "name": "versionMismatch",
+      "msg": "Contract version mismatch"
+    },
+    {
+      "code": 6021,
+      "name": "recursiveCall",
+      "msg": "Recursive call detected"
+    },
+    {
+      "code": 6022,
+      "name": "invalidDomain",
+      "msg": "Invalid domain separator"
+    },
+    {
+      "code": 6023,
+      "name": "nonceMismatch",
+      "msg": "Nonce mismatch"
+    },
+    {
+      "code": 6024,
+      "name": "insufficientFunds",
+      "msg": "Insufficient funds"
+    },
+    {
+      "code": 6025,
+      "name": "invalidScope",
+      "msg": "Invalid scope"
     }
   ],
   "types": [
@@ -890,14 +1024,14 @@ export type WusdToken = {
           {
             "name": "burner",
             "docs": [
-              "销毁者地址"
+              "销毁者地址，执行销毁操作的账户"
             ],
             "type": "pubkey"
           },
           {
             "name": "amount",
             "docs": [
-              "销毁数量"
+              "销毁数量，被销毁的代币数量"
             ],
             "type": "u64"
           }
@@ -915,21 +1049,21 @@ export type WusdToken = {
           {
             "name": "authority",
             "docs": [
-              "管理员地址"
+              "管理员地址，负责合约的权限管理"
             ],
             "type": "pubkey"
           },
           {
             "name": "mint",
             "docs": [
-              "代币铸币权地址"
+              "代币铸币权地址，用于控制代币的发行"
             ],
             "type": "pubkey"
           },
           {
             "name": "decimals",
             "docs": [
-              "代币精度"
+              "代币精度，定义代币的最小单位"
             ],
             "type": "u8"
           }
@@ -947,21 +1081,21 @@ export type WusdToken = {
           {
             "name": "minter",
             "docs": [
-              "铸币者地址"
+              "铸币者地址，执行铸币操作的账户"
             ],
             "type": "pubkey"
           },
           {
             "name": "recipient",
             "docs": [
-              "接收者地址"
+              "接收者地址，获得新铸造代币的账户"
             ],
             "type": "pubkey"
           },
           {
             "name": "amount",
             "docs": [
-              "铸造数量"
+              "铸造数量，新创建的代币数量"
             ],
             "type": "u64"
           }
@@ -1006,6 +1140,114 @@ export type WusdToken = {
       }
     },
     {
+      "name": "permitGranted",
+      "docs": [
+        "许可授权事件，记录EIP-2612兼容的许可授权信息"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "docs": [
+              "代币所有者地址"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "spender",
+            "docs": [
+              "被授权者地址"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "授权金额"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "scope",
+            "docs": [
+              "授权范围"
+            ],
+            "type": {
+              "defined": {
+                "name": "permitScope"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "permitParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "deadline",
+            "type": "i64"
+          },
+          {
+            "name": "nonce",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "scope",
+            "type": {
+              "defined": {
+                "name": "permitScope"
+              }
+            }
+          },
+          {
+            "name": "signature",
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          },
+          {
+            "name": "publicKey",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "permitScope",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "transfer"
+          },
+          {
+            "name": "mint"
+          },
+          {
+            "name": "burn"
+          }
+        ]
+      }
+    },
+    {
       "name": "permitState",
       "docs": [
         "签名许可状态账户，用于EIP-2612兼容的签名授权"
@@ -1041,30 +1283,46 @@ export type WusdToken = {
           {
             "name": "from",
             "docs": [
-              "发送方地址"
+              "转出地址"
             ],
             "type": "pubkey"
           },
           {
             "name": "to",
             "docs": [
-              "接收方地址"
+              "转入地址"
             ],
             "type": "pubkey"
           },
           {
             "name": "amount",
             "docs": [
-              "转账数量"
+              "转账金额"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "fee",
+            "docs": [
+              "手续费"
             ],
             "type": "u64"
           },
           {
             "name": "timestamp",
             "docs": [
-              "转账时间戳"
+              "交易时间戳"
             ],
             "type": "i64"
+          },
+          {
+            "name": "memo",
+            "docs": [
+              "转账备注（可选）"
+            ],
+            "type": {
+              "option": "string"
+            }
           }
         ]
       }

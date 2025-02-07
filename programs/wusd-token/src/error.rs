@@ -22,6 +22,36 @@ pub enum WusdError {
     AccessDenied,
     #[msg("Invalid signature")]
     InvalidSignature, 
+    #[msg("Authority revoked")]
+    AuthorityRevoked,
     #[msg("Unauthorized")]
-    Unauthorized,
+    Unauthorized, 
+    #[msg("Permission scope mismatch")]
+    ScopeMismatch, 
+    #[msg("Invalid chain ID")]
+    InvalidChainId,
+    #[msg("Nonce already used")]
+    UsedNonce,  
+    #[msg("Allowance account mismatch")]
+    InvalidAllowanceAccount,
+    #[msg("Mint authority mismatch")]
+    InvalidMintAuthority,
+    #[msg("Cross-chain permit attempt detected")]
+    CrossChainAttack, 
+    #[msg("Signature deadline expired")]
+    SignatureExpired, 
+    #[msg("Minting cap exceeded")]
+    ExceedsMintCap,  
+    #[msg("Contract version mismatch")]
+    VersionMismatch, 
+    #[msg("Recursive call detected")]
+    RecursiveCall,
+    #[msg("Invalid domain separator")]
+    InvalidDomain,
+    #[msg("Nonce mismatch")]
+    NonceMismatch, 
+    #[msg("Insufficient funds")]
+    InsufficientFunds,
+    #[msg("Invalid scope")]
+    InvalidScope,
 }

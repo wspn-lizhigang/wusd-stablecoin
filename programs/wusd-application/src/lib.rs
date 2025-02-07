@@ -1,4 +1,15 @@
+//! WUSD Application 程序
+//! 
+//! 这是一个基于Solana区块链的稳定币应用程序，实现了以下主要功能：
+//! - 代币质押与奖励分发
+//! - 代币互换与流动性管理
+//! - 抵押品管理与清算
+//! - 软质押机制
+//! - 紧急提现机制
+//! - 多级质押池配置
+
 #![allow(clippy::result_large_err)]
+
 /// 引入必要的依赖
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
@@ -25,9 +36,15 @@ declare_id!("3JmdookeJY96JsRnnN1C68qLiKmqrw6LuEhK9yhdKfWJ");
 pub mod wusd_application {
     use super::*;
 
-    /// 初始化WUSD稳定币系统
-    /// * `ctx` - 初始化上下文
-    /// * `decimals` - 代币精度
+    /// 初始化质押账户
+    /// 
+    /// # 参数
+    /// * `ctx` - 初始化上下文，包含用户账户和质押账户信息
+    /// 
+    /// # 功能
+    /// - 创建新的质押账户
+    /// - 设置初始状态和参数
+    /// - 记录质押开始时间
     pub fn initialize_stake_account(ctx: Context<InitializeStakeAccount>) -> Result<()> {
         let stake_account = &mut ctx.accounts.stake_account;
         stake_account.owner = ctx.accounts.user.key();
@@ -42,12 +59,21 @@ pub mod wusd_application {
         stake_account.claim_type = ClaimType::Unclaimed;
         stake_account.apy_tier = 0;
         stake_account.emergency_cooldown = 0;
-        // 以下字段用于软质押账户初始化，可根据需要进行设置
-        // stake_account.access_key = [0; 32];
-        // stake_account.last_update_time = Clock::get()?.unix_timestamp;
         Ok(())
     }
 
+    /// 初始化WUSD稳定币系统
+    /// 
+    /// # 参数
+    /// * `ctx` - 初始化上下文
+    /// * `decimals` - 代币精度
+    /// 
+    /// # 功能
+    /// - 设置系统管理员
+    /// - 初始化代币参数
+    /// - 配置质押奖励机制
+    /// - 设置紧急提现规则
+    /// - 初始化代币白名单
     pub fn initialize(
         ctx: Context<Initialize>,
         decimals: u8,
@@ -80,9 +106,16 @@ pub mod wusd_application {
     }
 
     /// 质押WUSD代币
-    /// * `ctx` - 质押上下文
+    /// 
+    /// # 参数
+    /// * `ctx` - 质押上下文，包含用户账户和质押账户信息
     /// * `amount` - 质押金额
-    /// * `staking_pool_id` - 质押池ID
+    /// * `staking_pool_id` - 质押池ID，用于确定APY和锁定期
+    /// 
+    /// # 功能
+    /// - 验证质押金额和用户余额
+    /// - 更新质押状态和奖励计算
+    /// - 锁定用户代币
     pub fn stake(
         ctx: Context<Stake>,
         amount: u64,
@@ -92,7 +125,14 @@ pub mod wusd_application {
     }
 
     /// 领取质押奖励
-    /// * `ctx` - 领取奖励的上下文
+    /// 
+    /// # 参数
+    /// * `ctx` - 领取奖励的上下文，包含质押账户和奖励接收账户
+    /// 
+    /// # 功能
+    /// - 计算可领取的奖励金额
+    /// - 验证领取条件
+    /// - 转移奖励代币
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         instructions::stake::claim(ctx)
     }

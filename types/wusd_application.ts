@@ -20,7 +20,14 @@ export type WusdApplication = {
       "name": "claim",
       "docs": [
         "领取质押奖励",
-        "* `ctx` - 领取奖励的上下文"
+        "",
+        "# 参数",
+        "* `ctx` - 领取奖励的上下文，包含质押账户和奖励接收账户",
+        "",
+        "# 功能",
+        "- 计算可领取的奖励金额",
+        "- 验证领取条件",
+        "- 转移奖励代币"
       ],
       "discriminator": [
         62,
@@ -102,6 +109,20 @@ export type WusdApplication = {
     },
     {
       "name": "initialize",
+      "docs": [
+        "初始化WUSD稳定币系统",
+        "",
+        "# 参数",
+        "* `ctx` - 初始化上下文",
+        "* `decimals` - 代币精度",
+        "",
+        "# 功能",
+        "- 设置系统管理员",
+        "- 初始化代币参数",
+        "- 配置质押奖励机制",
+        "- 设置紧急提现规则",
+        "- 初始化代币白名单"
+      ],
       "discriminator": [
         175,
         175,
@@ -168,9 +189,15 @@ export type WusdApplication = {
     {
       "name": "initializeStakeAccount",
       "docs": [
-        "初始化WUSD稳定币系统",
-        "* `ctx` - 初始化上下文",
-        "* `decimals` - 代币精度"
+        "初始化质押账户",
+        "",
+        "# 参数",
+        "* `ctx` - 初始化上下文，包含用户账户和质押账户信息",
+        "",
+        "# 功能",
+        "- 创建新的质押账户",
+        "- 设置初始状态和参数",
+        "- 记录质押开始时间"
       ],
       "discriminator": [
         184,
@@ -609,9 +636,16 @@ export type WusdApplication = {
       "name": "stake",
       "docs": [
         "质押WUSD代币",
-        "* `ctx` - 质押上下文",
+        "",
+        "# 参数",
+        "* `ctx` - 质押上下文，包含用户账户和质押账户信息",
         "* `amount` - 质押金额",
-        "* `staking_pool_id` - 质押池ID"
+        "* `staking_pool_id` - 质押池ID，用于确定APY和锁定期",
+        "",
+        "# 功能",
+        "- 验证质押金额和用户余额",
+        "- 更新质押状态和奖励计算",
+        "- 锁定用户代币"
       ],
       "discriminator": [
         206,

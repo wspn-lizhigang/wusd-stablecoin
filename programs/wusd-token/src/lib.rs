@@ -1,73 +1,120 @@
+//! WUSD Token 程序
+//! 
+//! 这是一个基于Solana区块链的稳定币智能合约，实现了以下主要功能：
+//! - 代币的铸造与销毁
+//! - 代币转账与余额管理
+//! - 授权和委托转账
+//! - 权限管理和访问控制
+//! - 暂停机制
+//! - EIP-2612兼容的签名许可
+
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Mint};
+use anchor_lang::solana_program::hash::hashv;
+use anchor_lang::solana_program::instruction::Instruction;
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
 
 mod error;
 mod state;
 
 use state::{AuthorityState, MintState, PauseState, AllowanceState, PermitState, AccessRegistryState};
-use error::WusdError;
+use error::WusdError;   
+
+// 根据部署环境选择链ID
+#[cfg(not(feature = "devnet"))]
+const CHAIN_ID: u64 = 1; // 主网链ID
+
+#[cfg(feature = "devnet")]
+const CHAIN_ID: u64 = 2; // 开发网链ID
 
 declare_id!("WUSDxgMdp1WgM1mZn5PGpJxC3znPe3vPgHDkzCGhqwv");
 
 /// 初始化事件，记录代币初始化的关键信息
 #[event]
 pub struct InitializeEvent {
-    /// 管理员地址
+    /// 管理员地址，负责合约的权限管理
     pub authority: Pubkey,
-    /// 代币铸币权地址
+    /// 代币铸币权地址，用于控制代币的发行
     pub mint: Pubkey,
-    /// 代币精度
+    /// 代币精度，定义代币的最小单位
     pub decimals: u8,
 }
 
 /// 铸币事件，记录代币铸造的详细信息
 #[event]
 pub struct MintEvent {
-    /// 铸币者地址
+    /// 铸币者地址，执行铸币操作的账户
     pub minter: Pubkey,
-    /// 接收者地址
+    /// 接收者地址，获得新铸造代币的账户
     pub recipient: Pubkey,
-    /// 铸造数量
+    /// 铸造数量，新创建的代币数量
     pub amount: u64,
 }
 
 /// 销毁事件，记录代币销毁的详细信息
 #[event]
 pub struct BurnEvent {
-    /// 销毁者地址
+    /// 销毁者地址，执行销毁操作的账户
     pub burner: Pubkey,
-    /// 销毁数量
+    /// 销毁数量，被销毁的代币数量
     pub amount: u64,
 }
 
 /// 转账事件，记录代币转账的详细信息
 #[event]
 pub struct TransferEvent {
-    /// 发送方地址
+    #[index] // 添加索引以便快速查询
+    /// 转出地址
     pub from: Pubkey,
-    /// 接收方地址
+    #[index]
+    /// 转入地址
     pub to: Pubkey,
-    /// 转账数量
+    /// 转账金额
     pub amount: u64,
-    /// 转账时间戳
+    /// 手续费
+    pub fee: u64,
+    /// 交易时间戳
     pub timestamp: i64,
+    /// 转账备注（可选）
+    pub memo: Option<String>,
 }
 
 /// 访问级别枚举，用于控制账户的操作权限
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum AccessLevel {
-    /// 允许扣款操作
+    /// 允许扣款操作，如转出、销毁等
     Debit,
-    /// 允许入账操作
+    /// 允许入账操作，如接收转账、铸币等
     Credit,
+} 
+
+/// 许可授权事件，记录EIP-2612兼容的许可授权信息
+#[event]
+pub struct PermitGranted {
+    /// 代币所有者地址
+    pub owner: Pubkey,
+    /// 被授权者地址
+    pub spender: Pubkey,
+    /// 授权金额
+    pub amount: u64,
+    /// 授权范围
+    pub scope: PermitScope,
 }
 
 /// 检查用户是否具有执行操作的权限
+/// 
+/// # 参数
 /// * `user` - 用户地址
 /// * `is_debit` - 是否为扣款操作
 /// * `amount` - 操作金额（可选）
 /// * `pause_state` - 暂停状态
 /// * `access_registry` - 访问权限注册表（可选）
+/// 
+/// # 错误
+/// * `WusdError::ContractPaused` - 合约已暂停
+/// * `WusdError::InvalidAmount` - 金额无效
+/// * `WusdError::AccessDenied` - 访问被拒绝
 pub fn require_has_access(
     user: Pubkey,
     is_debit: bool,
@@ -94,23 +141,53 @@ pub fn require_has_access(
     }
 
     Ok(())
+} 
+
+/// 验证Ed25519数字签名
+/// 
+/// # 参数
+/// * `message` - 待验证的消息字节数组
+/// * `signature` - Ed25519签名字节数组，固定长度64字节
+/// * `public_key` - Ed25519公钥字节数组，固定长度32字节
+/// 
+/// # 返回值
+/// * `Result<()>` - 验证成功返回Ok(()), 失败返回Err包含WusdError::InvalidSignature错误
+/// 
+/// # 实现说明
+/// 1. 构造验证数据，按顺序拼接:
+///    - 1字节的前缀(0)
+///    - 32字节的公钥
+///    - 消息内容
+///    - 64字节的签名
+/// 2. 通过Solana的ed25519_program进行签名验证
+/// 3. 验证失败时返回InvalidSignature错误
+fn verify_signature(
+    message: &[u8],
+    signature: &[u8; 64],
+    public_key: &[u8; 32]
+) -> Result<()> {
+    let mut data = vec![0u8];
+    data.extend_from_slice(public_key);
+    data.extend_from_slice(message);
+    data.extend_from_slice(signature);
+    
+    let instruction = Instruction::new_with_bytes(
+        anchor_lang::solana_program::ed25519_program::id(),
+        &data,
+        vec![]
+    );
+    
+    anchor_lang::solana_program::program::invoke(
+        &instruction,
+        &[]
+    ).map_err(|_| WusdError::InvalidSignature.into())
 }
 
-fn verify_signature(message: &[u8], signature: &[u8; 64], pubkey: &[u8; 32]) -> Result<()> {
-    // 使用anchor_lang提供的solana_program进行签名验证
-    use anchor_lang::solana_program::ed25519_program::ID;
-    let instruction = anchor_lang::solana_program::instruction::Instruction {
-        program_id: ID,
-        accounts: vec![],
-        data: [message, pubkey, signature].concat(),
-    };
-
-    if let Err(_) = anchor_lang::solana_program::program::invoke(&instruction, &[]) {
-        return Err(error!(WusdError::InvalidSignature));
-    }
-
-    Ok(())
-}
+// 实现费用计算函数
+fn calculate_transfer_fee(amount: u64) -> u64 {
+    // 示例：0.1% 手续费
+    amount.checked_div(1000).unwrap_or(0)
+} 
 
 #[program]
 pub mod wusd_token {
@@ -120,6 +197,24 @@ pub mod wusd_token {
     /// * `ctx` - 初始化上下文
     /// * `decimals` - 代币精度
     pub fn initialize(ctx: Context<Initialize>, decimals: u8) -> Result<()> {
+        // 验证mint账户的PDA
+        let bump = [ctx.bumps.mint];
+        let _mint_seeds = &[b"wusd-mint", &bump[..]][..]; 
+        
+        anchor_spl::token::initialize_mint(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                anchor_spl::token::InitializeMint {
+                    mint: ctx.accounts.mint.to_account_info(),
+                    rent: ctx.accounts.rent.to_account_info(),
+                },
+                &[&[b"authority", &[ctx.bumps.authority_state]]]
+            ),
+            decimals,
+            &ctx.accounts.authority.key(),
+            Some(&ctx.accounts.authority.key())
+        )?;
+
         ctx.accounts.authority_state.set_inner(
             AuthorityState::initialize(ctx.accounts.authority.key())
         );
@@ -242,6 +337,15 @@ pub mod wusd_token {
     /// * `amount` - 转账数量
     pub fn transfer(ctx: Context<Transfer>, amount: u64) -> Result<()> {
         require!(amount > 0, WusdError::InvalidAmount);
+        let fee = calculate_transfer_fee(amount); // 需要实现费用计算函数 
+        require!(
+            ctx.accounts.from_token.amount >= amount.saturating_add(fee),
+            WusdError::InsufficientFunds
+        );
+        require!(
+            amount.checked_sub(fee).is_some(),
+            WusdError::InvalidAmount
+        );
 
         let from = ctx.accounts.from_token.clone();
         let to = ctx.accounts.to_token.clone();
@@ -278,11 +382,13 @@ pub mod wusd_token {
             from: from.owner,
             to: to.owner,
             amount,
-            timestamp: Clock::get()?.unix_timestamp
+            fee,  // 添加缺失的fee字段
+            timestamp: Clock::get()?.unix_timestamp,
+            memo: None  // 添加默认memo
         });
 
         Ok(())
-    }
+    } 
 
     /// 使用授权额度转账WUSD代币
     /// * `ctx` - 转账上下文
@@ -321,40 +427,77 @@ pub mod wusd_token {
 
         Ok(())
     }
-
-    /// 签名授权转账
-    /// * `ctx` - 授权上下文
-    /// * `amount` - 授权数量
-    /// * `deadline` - 授权截止时间
-    /// * `signature` - 签名数据
-    pub fn permit(ctx: Context<Permit>, amount: u64, deadline: i64, signature: [u8; 64]) -> Result<()> {
-        let owner = ctx.accounts.owner.key();
-        let spender = ctx.accounts.spender.key();
-
-        let message = format!(
-            "Permit WUSD transfer:\nOwner: {}\nSpender: {}\nAmount: {}\nDeadline: {}",
-            owner, spender, amount, deadline
-        );
-        let message_bytes = message.as_bytes();
-        let message_hash = &solana_program::keccak::hashv(&[message_bytes]);
-
-        verify_signature(message_hash.as_ref(), &signature, &owner.to_bytes())?;
-
-        require!(Clock::get()?.unix_timestamp <= deadline, WusdError::ExpiredPermit);
-
-        let permit_state = &mut ctx.accounts.permit_state;
-        permit_state.validate_nonce(permit_state.nonce)?;
-        permit_state.increment_nonce();
-
-        let allowance = &mut ctx.accounts.allowance;
-        allowance.set_inner(AllowanceState::initialize(
-            ctx.accounts.owner.key(),
-            ctx.accounts.spender.key(),
-            amount
-        ));
-
-        Ok(())
-    }
+   
+    /// 处理授权许可请求，允许代币持有者授权其他账户使用其代币
+    /// 
+    /// # 参数
+    /// * `ctx` - 包含所有必要账户的上下文
+    /// * `params` - 授权许可的参数，包含签名、金额、期限等信息
+    /// 
+    /// # 返回值
+    /// * `Result<()>` - 操作成功返回Ok(()), 失败返回错误
+    pub fn permit(ctx: Context<Permit>, params: PermitParams) -> Result<()> {
+            // 获取当前时间戳
+            let clock = Clock::get()?;
+            // 验证许可是否过期
+            require!(clock.unix_timestamp <= params.deadline, WusdError::ExpiredPermit);
+            // 验证授权金额是否有效
+            require!(params.amount > 0, WusdError::InvalidAmount);
+        
+            // 获取nonce值，如果未提供则使用当前状态的nonce
+            let nonce = params.nonce.unwrap_or(ctx.accounts.permit_state.nonce);
+        
+            // 构建许可消息结构
+            let message = PermitMessage {
+                contract: ctx.accounts.token_program.key(),
+                domain_separator: [0u8; 32],
+                owner: ctx.accounts.owner.key(),
+                spender: ctx.accounts.spender.key(),
+                amount: params.amount,
+                nonce,
+                deadline: params.deadline,
+                scope: params.scope.clone(),
+                chain_id: CHAIN_ID,
+                version: ctx.program_id.to_bytes(),
+            };
+        
+            // 计算消息哈希
+            let message_hash = hashv(&[
+                b"\x19Solana Signed Message:\n32",
+                &message.try_to_vec().map_err(|_| WusdError::InvalidSignature)?
+            ]).to_bytes();
+        
+            // 验证签名
+            verify_signature(
+                &message_hash,
+                &params.signature,
+                &params.public_key
+            )?;
+        
+            // 根据授权范围处理
+            match params.scope {
+                // 如果是转账授权，设置授权金额
+                PermitScope::Transfer => {
+                    ctx.accounts.allowance.amount = params.amount;
+                }
+                // 其他授权范围暂不支持
+                _ => return Err(WusdError::InvalidScope.into())
+            }
+        
+            // 如果没有提供nonce，增加当前nonce值
+            if params.nonce.is_none() {
+                ctx.accounts.permit_state.nonce = nonce.checked_add(1).unwrap();
+            }
+        
+            // 发出授权许可事件
+            emit!(PermitGranted { 
+                owner: ctx.accounts.owner.key(),
+                spender: ctx.accounts.spender.key(),
+                amount: params.amount,
+                scope: params.scope
+            });
+            Ok(())
+        }
 
     /// 检查合约是否支持指定接口
     /// * `_ctx` - 上下文
@@ -366,17 +509,28 @@ pub mod wusd_token {
         Ok(interface_id == erc20_interface_id || interface_id == permit_interface_id)
     }
 
-    /// 设置合约暂停状态
+    /// 暂停合约
     /// * `ctx` - 上下文
-    /// * `paused` - 是否暂停
-    pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
+    pub fn pause(ctx: Context<Pause>) -> Result<()> {
         require!(
             ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
             WusdError::Unauthorized
         );
-        ctx.accounts.pause_state.set_paused(paused);
+        ctx.accounts.pause_state.set_paused(true);
         Ok(())
     }
+
+    /// 恢复合约
+    /// * `ctx` - 上下文
+    pub fn unpause(ctx: Context<Unpause>) -> Result<()> {
+        require!(
+            ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
+            WusdError::Unauthorized
+        );
+        ctx.accounts.pause_state.set_paused(false);
+        Ok(())
+    }
+
 }
 
 /// 检查接口支持的账户参数
@@ -448,14 +602,23 @@ pub struct MintAccounts<'info> {
 
 #[derive(Accounts)]
 pub struct Burn<'info> {
+    #[account(
+        mut 
+    )]
+    pub authority_state: Account<'info, AuthorityState>, 
+    #[account(
+        seeds = [b"mint_auth", authority_state.key().as_ref()],
+        bump,
+        constraint = mint_authority.is_signer @ WusdError::InvalidSignature
+    )]
+    pub mint_authority: Signer<'info>,
     #[account(mut)]
     pub authority: Signer<'info>,
     #[account(mut)]
     pub mint: Account<'info, Mint>,
     #[account(mut)]
     pub token_account: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>,
-    pub authority_state: Account<'info, AuthorityState>,
+    pub token_program: Program<'info, Token>, 
     pub mint_state: Account<'info, MintState>,
     pub pause_state: Account<'info, PauseState>,
     pub access_registry: Account<'info, AccessRegistryState>,
@@ -537,6 +700,22 @@ pub struct Transfer<'info> {
 }
 
 #[derive(Accounts)]
+pub struct Pause<'info> {
+    #[account(mut)]
+    pub pause_state: Account<'info, PauseState>,
+    pub authority: Signer<'info>,
+    pub authority_state: Account<'info, AuthorityState>,
+}
+
+#[derive(Accounts)]
+pub struct Unpause<'info> {
+    #[account(mut)]
+    pub pause_state: Account<'info, PauseState>,
+    pub authority: Signer<'info>,
+    pub authority_state: Account<'info, AuthorityState>,
+} 
+
+#[derive(Accounts)]
 pub struct TransferFrom<'info> {
     #[account(mut)]
     pub spender: Signer<'info>,
@@ -563,32 +742,66 @@ pub struct TransferFrom<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(params: PermitParams)]
 pub struct Permit<'info> {
-    /// CHECK: This account is not read or written to
-    pub owner: AccountInfo<'info>,
-    /// CHECK: This account is not read or written to
+    #[account(mut, signer)]
+    pub owner: Account<'info, TokenAccount>,
+
+    /// CHECK: This is the spender account that will be granted permission
     #[account(mut)]
-    pub spender: AccountInfo<'info>,
+    pub spender: UncheckedAccount<'info>,
+
     #[account(
-        init_if_needed,
-        payer = payer,
-        space = 8 + 32 + 8,
-        seeds = [b"permit", owner.key().as_ref()],
-        bump
-    )]
-    pub permit_state: Account<'info, PermitState>,
-    #[account(
-        init_if_needed,
-        payer = payer,
-        space = 8 + 32 + 32 + 8,
+        mut,
         seeds = [b"allowance", owner.key().as_ref(), spender.key().as_ref()],
         bump
     )]
-    pub allowance: Account<'info, AllowanceState>,
+    pub allowance: Box<Account<'info, AllowanceState>>,
+
+    #[account(
+        mut,
+        seeds = [b"permit", owner.key().as_ref()],
+        bump
+    )]
+    pub permit_state: Box<Account<'info, PermitState>>,
+
     #[account(mut)]
-    pub payer: Signer<'info>,
-    pub system_program: Program<'info, System>,
-    #[account(mut)]
-    pub pause_state: Account<'info, PauseState>,
+    pub mint_state: Box<Account<'info, MintState>>,
+
+    #[account(address = token::ID)]
+    pub token_program: Program<'info, Token>,
+    
+    pub clock: Sysvar<'info, Clock>,
+} 
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct PermitParams {
+    pub amount: u64,
+    pub deadline: i64,
+    pub nonce: Option<u64>,
+    pub scope: PermitScope,
+    pub signature: [u8; 64],
+    pub public_key: [u8; 32],
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub enum PermitScope {
+    Transfer,
+    Mint,
+    Burn,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct PermitMessage {
+    pub contract: Pubkey,
+    pub domain_separator: [u8; 32],
+    pub owner: Pubkey,
+    pub spender: Pubkey,
+    pub amount: u64,
+    pub nonce: u64,
+    pub deadline: i64,
+    pub scope: PermitScope,
+    pub chain_id: u64,
+    pub version: [u8; 32]
 }
 
