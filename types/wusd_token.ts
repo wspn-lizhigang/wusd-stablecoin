@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/wusd_token.json`.
  */
 export type WusdToken = {
-  "address": "WUSDxgMdp1WgM1mZn5PGpJxC3znPe3vPgHDkzCGhqwv",
+  "address": "2YBEVPJbsRjTik1mjhiDVeJQ2muskrCAShRyLQXXNibY",
   "metadata": {
     "name": "wusdToken",
     "version": "0.1.0",
@@ -127,24 +127,7 @@ export type WusdToken = {
             "代币铸币账户"
           ],
           "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  119,
-                  117,
-                  115,
-                  100,
-                  45,
-                  109,
-                  105,
-                  110,
-                  116
-                ]
-              }
-            ]
-          }
+          "signer": true
         },
         {
           "name": "authorityState",
@@ -152,24 +135,7 @@ export type WusdToken = {
             "权限管理账户"
           ],
           "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "signer": true
         },
         {
           "name": "mintState",

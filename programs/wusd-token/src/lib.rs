@@ -28,7 +28,7 @@ const CHAIN_ID: u64 = 1; // 主网链ID
 #[cfg(feature = "devnet")]
 const CHAIN_ID: u64 = 2; // 开发网链ID
 
-declare_id!("WUSDxgMdp1WgM1mZn5PGpJxC3znPe3vPgHDkzCGhqwv");
+declare_id!("2YBEVPJbsRjTik1mjhiDVeJQ2muskrCAShRyLQXXNibY");
 
 /// 初始化事件，记录代币初始化的关键信息
 #[event]
@@ -197,18 +197,13 @@ pub mod wusd_token {
     /// * `ctx` - 初始化上下文
     /// * `decimals` - 代币精度
     pub fn initialize(ctx: Context<Initialize>, decimals: u8) -> Result<()> {
-        // 验证mint账户的PDA
-        let bump = [ctx.bumps.mint];
-        let _mint_seeds = &[b"wusd-mint", &bump[..]][..]; 
-        
         anchor_spl::token::initialize_mint(
-            CpiContext::new_with_signer(
+            CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
                 anchor_spl::token::InitializeMint {
                     mint: ctx.accounts.mint.to_account_info(),
                     rent: ctx.accounts.rent.to_account_info(),
-                },
-                &[&[b"authority", &[ctx.bumps.authority_state]]]
+                }
             ),
             decimals,
             &ctx.accounts.authority.key(),
@@ -552,25 +547,29 @@ pub struct Initialize<'info> {
         init,
         payer = authority,
         mint::decimals = decimals,
-        mint::authority = authority_state,
-        seeds = [b"wusd-mint"],
-        bump
+        mint::authority = authority_state
     )]
     pub mint: Account<'info, Mint>,
     /// 权限管理账户
     #[account(
         init,
         payer = authority,
-        seeds = [b"authority"],
-        bump,
-        space = 8 + 32 + 32 + 32
+        space = 72
     )]
     pub authority_state: Account<'info, AuthorityState>,
     /// 铸币状态账户
-    #[account(init, payer = authority, space = 8 + 32 + 1)]
+    #[account(
+        init,
+        payer = authority,
+        space = 41
+    )]
     pub mint_state: Account<'info, MintState>,
     /// 暂停状态账户
-    #[account(init, payer = authority, space = 8 + 1)]
+    #[account(
+        init,
+        payer = authority,
+        space = 9
+    )]
     pub pause_state: Account<'info, PauseState>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,

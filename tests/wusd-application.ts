@@ -3,8 +3,7 @@ import { Program } from "@coral-xyz/anchor";
 import { WusdApplication } from "../target/types/wusd_application";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, createMint, mintTo, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
-import * as fs from 'fs';
-import { config } from './config';
+import { config } from './wusd-application-config';
 import { newAccountWithLamports } from './util/new-account-with-lamports';
 
 describe("WUSD Application", () => {
