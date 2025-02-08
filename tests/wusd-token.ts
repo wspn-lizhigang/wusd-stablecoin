@@ -19,6 +19,7 @@ describe("WUSD Token", () => {
   let payer: anchor.web3.Keypair;
   let fundedAccount: Keypair;
   let connection: anchor.web3.Connection;
+  let collateralMint: PublicKey;
 
   before("全局初始化", async function () {
     this.timeout(30000);
@@ -55,6 +56,7 @@ describe("WUSD Token", () => {
   let pauseStatePda: PublicKey;
   let wusdMint: PublicKey;
   let mintKeypair: Keypair;
+  let treasury: PublicKey;
 
   // 余额检查函数
   async function checkBalance(account: PublicKey, label: string) {
@@ -66,13 +68,16 @@ describe("WUSD Token", () => {
   beforeEach(async function () {
     this.timeout(60000); // 60秒超时
     console.log("当前程序ID:", program.programId.toString());
+    
+    // 初始化funded account
+    fundedAccount = await newAccountWithLamports(
+      provider.connection,
+      1000000000 // 1 SOL
+    );
+    
     // 初始化PDA
     initializePdas();
-    console.log("当前RPC节点:", provider.connection.rpcEndpoint);
-    console.log(
-      "Provider 可用方法:",
-      Object.keys(provider).filter((k) => typeof provider[k] === "function")
-    );
+    console.log("当前RPC节点:", provider.connection.rpcEndpoint); 
 
     console.log("环境变量验证:");
     console.log("ANCHOR_PROVIDER_URL:", process.env.ANCHOR_PROVIDER_URL);
@@ -91,6 +96,40 @@ describe("WUSD Token", () => {
       mintAuthority: authorityPda.toString(),
       rent: mintRent,
     });
+
+    // 初始化抵押代币Mint
+    const collateralMintKeypair = Keypair.generate();
+    collateralMint = collateralMintKeypair.publicKey;
+    console.log("抵押代币Mint地址:", collateralMint.toString());
+
+    // 创建抵押代币Mint账户
+    const createCollateralAccountTx = new anchor.web3.Transaction().add(
+      SystemProgram.createAccount({
+        fromPubkey: fundedAccount.publicKey,
+        newAccountPubkey: collateralMint,
+        space: MintLayout.span,
+        lamports: mintRent,
+        programId: TOKEN_PROGRAM_ID,
+      })
+    );
+
+    await sendAndConfirmWithRetry(
+      provider,
+      createCollateralAccountTx,
+      [fundedAccount, collateralMintKeypair],
+      "创建抵押代币Mint账户"
+    );
+
+    // 初始化抵押代币Mint
+    const initCollateralMintTx = new anchor.web3.Transaction().add(
+      createInitializeMintInstruction(
+        collateralMint,
+        config.wusdDecimals,
+        authorityPda,
+        authorityPda
+      )
+    );
+    await sendAndConfirmWithRetry(provider, initCollateralMintTx, [fundedAccount], "初始化抵押代币Mint");
 
     // 生成资金账户
     fundedAccount = await (async () => {
@@ -306,6 +345,40 @@ describe("WUSD Token", () => {
       rent: mintRent,
     });
 
+    // 初始化抵押代币Mint
+    const collateralMintKeypair = Keypair.generate();
+    collateralMint = collateralMintKeypair.publicKey;
+    console.log("抵押代币Mint地址:", collateralMint.toString());
+
+    // 创建抵押代币Mint账户
+    const createCollateralAccountTx = new anchor.web3.Transaction().add(
+      SystemProgram.createAccount({
+        fromPubkey: fundedAccount.publicKey,
+        newAccountPubkey: collateralMint,
+        space: MintLayout.span,
+        lamports: mintRent,
+        programId: TOKEN_PROGRAM_ID,
+      })
+    );
+
+    await sendAndConfirmWithRetry(
+      provider,
+      createCollateralAccountTx,
+      [fundedAccount, collateralMintKeypair],
+      "创建抵押代币Mint账户"
+    );
+
+    // 初始化抵押代币Mint
+    const initCollateralMintTx = new anchor.web3.Transaction().add(
+      createInitializeMintInstruction(
+        collateralMint,
+        config.wusdDecimals,
+        authorityPda,
+        authorityPda
+      )
+    );
+    await sendAndConfirmWithRetry(provider, initCollateralMintTx, [fundedAccount], "初始化抵押代币Mint");
+
     // 生成资金账户
     fundedAccount = await (async () => {
       const account = Keypair.generate();
@@ -434,7 +507,7 @@ describe("WUSD Token", () => {
     await sendAndConfirmWithRetry(
       provider,
       createAccountTx,
-      [fundedAccount, mintKeypair], // 正确签名者
+      [fundedAccount, mintKeypair],
       "创建Mint账户"
     );
 
@@ -459,27 +532,29 @@ describe("WUSD Token", () => {
     );
 
     // 初始化程序状态
-    console.log("=== 初始化程序状态 ===");
-    const initTx = await program.methods
+    const [statePda] = await PublicKey.findProgramAddress(
+      [Buffer.from(config.seeds.state)],
+      program.programId
+    );
+    const state = statePda;
+
+    let tx = await program.methods
       .initialize(config.wusdDecimals)
       .accounts({
-        authority: authorityPda,
-        mint: wusdMint,
-        authority_state: authorityPda,
-        mint_state: mintStatePda,
-        pause_state: pauseStatePda,
+        authority: fundedAccount.publicKey,
+        state,
+        wusdMint,
+        collateralMint,
+        treasury,
         systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       })
-      .rpc({
-        skipPreflight: false,
-        commitment: "confirmed",
-      });
+      .signers([fundedAccount, mintKeypair])
+      .rpc();
 
-    // 验证初始化结果
-    const txStatus = await provider.connection.getSignatureStatus(initTx);
-    console.log("初始化交易状态:", txStatus.value?.confirmationStatus);
+    await provider.connection.confirmTransaction(tx, 'confirmed');
+    console.log('协议状态初始化成功');
   });
 
   describe("核心功能测试", () => {
