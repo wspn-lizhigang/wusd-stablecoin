@@ -1,6 +1,5 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program, BN } from "@coral-xyz/anchor";
-import idl from "../target/idl/wusd_token.json";
 import { WusdToken } from "../target/types/wusd_token";
 import { PublicKey, SystemProgram, Keypair } from "@solana/web3.js";
 import {
@@ -8,6 +7,7 @@ import {
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction,
   createInitializeMintInstruction,
+  MintLayout,
 } from "@solana/spl-token";
 import { config } from "./wusd-token-config";
 import { expect } from "chai";
@@ -17,76 +17,157 @@ describe("WUSD Token", () => {
   let provider: anchor.AnchorProvider;
   let program: Program<WusdToken>;
   let payer: anchor.web3.Keypair;
+  let fundedAccount: Keypair;
+  let connection: anchor.web3.Connection;
 
   before("全局初始化", async function () {
     this.timeout(30000);
-    // 确保环境变量正确
-    console.log("环境变量检查:");
-    console.log("ANCHOR_PROVIDER_URL:", process.env.ANCHOR_PROVIDER_URL);
-    console.log("ANCHOR_WALLET:", process.env.ANCHOR_WALLET);
 
-    // 分步初始化 Provider
-    const connection = new anchor.web3.Connection(
-      process.env.ANCHOR_PROVIDER_URL || "http://localhost:8899",
+    // 增强版环境检查
+    const requiredEnvVars = ["ANCHOR_PROVIDER_URL", "ANCHOR_WALLET"];
+    requiredEnvVars.forEach((env) => {
+      if (!process.env[env]) throw new Error(`缺少环境变量 ${env}`);
+    });
+
+    // 分步初始化
+    connection = new anchor.web3.Connection(
+      process.env.ANCHOR_PROVIDER_URL!,
       "confirmed"
     );
 
-    const wallet = anchor.Wallet.local(); // 显式初始化钱包
+    // 显式加载钱包
+    payer = Keypair.generate();
+    const wallet = new anchor.Wallet(payer);
     provider = new anchor.AnchorProvider(connection, wallet, {
       commitment: "confirmed",
     });
-
-    // 强制设置全局 provider
     anchor.setProvider(provider);
 
-    // 验证 Provider 功能
-    console.log(
-      "Provider 可用方法:",
-      Object.keys(provider).filter((k) => typeof provider[k] === "function")
-    );
-
-    // 初始化 program 实例
-    const programId = new PublicKey(idl.metadata.address);
-    program = new anchor.Program(
-      idl as anchor.Idl,
-      programId,
-      provider
-    ) as unknown as Program<WusdToken>;
-
-    console.log("程序 ID:", program.programId.toString());
-    console.log(
-      "IDL 方法列表:",
-      idl.instructions.map((i) => i.name)
-    );
+    // 程序初始化
+    program = anchor.workspace.WusdToken as Program<WusdToken>;
+    console.log("程序ID验证:", program.programId.toString());
   });
 
-  before("启动前检查", async function () {
-    this.timeout(20000);
-
-    // 添加空值检查
-    if (!provider || !provider.connection) {
-      throw new Error("Provider 未正确初始化");
-    }
-
-    // 使用新的连接检查方式
-    const connection = provider.connection;
-    const version = await connection.getVersion();
-    console.log("RPC 版本:", version["solana-core"]);
-
-    // 使用 connection 替代 provider.connection
-    const { stdout } = await execAsync("lsof -i :8900");
-    if (!stdout.includes("LISTEN")) {
-      throw new Error("WebSocket 端口 8900 未监听");
-    }
-  });
-
-  // PDA缓存
+  // 初始化PDA（添加mint和pause状态）
   let statePda: PublicKey;
   let authorityPda: PublicKey;
   let mintStatePda: PublicKey;
   let pauseStatePda: PublicKey;
   let wusdMint: PublicKey;
   let mintKeypair: Keypair;
+
+  // 余额检查函数
+  async function checkBalance(account: PublicKey, label: string) {
+    const balance = await provider.connection.getBalance(account);
+    console.log(`[${label}] 余额检查: ${balance} lamports`);
+    return balance;
+  }
+
+  beforeEach(async function () {
+    this.timeout(60000); // 60秒超时
+    console.log("当前程序ID:", program.programId.toString());
+    // 初始化PDA
+    initializePdas();
+    console.log("当前RPC节点:", provider.connection.rpcEndpoint);
+    console.log(
+      "Provider 可用方法:",
+      Object.keys(provider).filter((k) => typeof provider[k] === "function")
+    );
+
+    console.log("环境变量验证:");
+    console.log("ANCHOR_PROVIDER_URL:", process.env.ANCHOR_PROVIDER_URL);
+    console.log("ANCHOR_WALLET:", process.env.ANCHOR_WALLET);
+
+    // 初始化Mint密钥对
+    mintKeypair = Keypair.generate();
+    wusdMint = mintKeypair.publicKey;
+    console.log("新Mint地址:", wusdMint.toString());
+    const mintRent =
+      await provider.connection.getMinimumBalanceForRentExemption(
+        MintLayout.span
+      );
+    console.log("Mint账户参数:", {
+      decimals: config.wusdDecimals,
+      mintAuthority: authorityPda.toString(),
+      rent: mintRent,
+    });
+
+    // 生成资金账户
+    fundedAccount = await (async () => {
+      const account = Keypair.generate();
+      // 空投操作（增加重试机制）
+      let retries = 3;
+      while (retries-- > 0) {
+        try {
+          // 请求空投
+          const airdropSig = await provider.connection.requestAirdrop(
+            account.publicKey,
+            anchor.web3.LAMPORTS_PER_SOL * 100
+          );
+
+          // 等待确认并重试
+          let confirmRetries = 5;
+          while (confirmRetries > 0) {
+            try {
+              const { blockhash, lastValidBlockHeight } =
+                await provider.connection.getLatestBlockhash("confirmed");
+              await provider.connection.confirmTransaction(
+                {
+                  signature: airdropSig,
+                  blockhash,
+                  lastValidBlockHeight,
+                },
+                "confirmed"
+              );
+
+              // 等待更长时间确保资金到账
+              await new Promise((resolve) => setTimeout(resolve, 10000));
+
+              // 验证余额
+              const currentBalance = await provider.connection.getBalance(
+                account.publicKey
+              );
+              if (currentBalance >= anchor.web3.LAMPORTS_PER_SOL * 100) {
+                // 再次等待确保交易完全确认
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+                const finalBalance = await provider.connection.getBalance(
+                  account.publicKey
+                );
+                if (finalBalance >= currentBalance) {
+                  console.log(`空投成功，最终余额: ${finalBalance} lamports`);
+                  return account;
+                }
+              }
+              throw new Error("空投资金未完全到账");
+            } catch (error) {
+              console.log(`确认空投失败，剩余重试次数: ${confirmRetries}`);
+              confirmRetries--;
+              if (confirmRetries === 0) throw error;
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
+          }
+        } catch (error) {
+          console.error(`空投失败，剩余重试次数: ${retries}`, error);
+          if (retries > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+          }
+        }
+      }
+      throw new Error("空投操作失败");
+    })();
+
+    const wallet = new anchor.Wallet(fundedAccount);
+    console.log("操作钱包地址:", wallet.publicKey.toString());
+
+    provider = new anchor.AnchorProvider(connection, wallet, {
+      commitment: "confirmed",
+    });
+    anchor.setProvider(provider);
+
+    // 程序初始化（关键修复）
+    program = anchor.workspace.WusdToken as Program<WusdToken>;
+    console.log("程序ID验证:", program.programId.toString());
+  });
 
   // 增强版交易发送函数
   async function sendAndConfirmWithRetry(
@@ -95,28 +176,76 @@ describe("WUSD Token", () => {
     signers: anchor.web3.Signer[],
     label: string
   ) {
-    console.log(`[${label}] 发送交易...`);
+    let retry = 3;
+    while (retry-- > 0) {
+      try {
+        console.log(`[${label}] 发送交易...`);
 
-    // 获取最新区块哈希
-    const { blockhash, lastValidBlockHeight } =
-      await provider.connection.getLatestBlockhash("confirmed");
+        // 获取最新区块哈希
+        const { blockhash, lastValidBlockHeight } =
+          await provider.connection.getLatestBlockhash("confirmed");
+        console.log(
+          `blockhash: ${blockhash},最新区块高度: ${lastValidBlockHeight}`
+        );
 
-    // 主动确认交易
-    const txId = await provider.sendAndConfirm(tx, signers, {
-      skipPreflight: false,
-      commitment: "confirmed",
-    });
-    console.log(`[${label}] 交易已确认: ${txId}`);
-    return txId;
+        // 设置交易参数
+        tx.recentBlockhash = blockhash;
+        tx.lastValidBlockHeight = lastValidBlockHeight;
+        tx.feePayer = fundedAccount.publicKey;
+
+        // 所有签名者签名
+        tx.sign(...signers);
+
+        // 发送交易
+        const txId = await provider.connection.sendTransaction(tx, signers, {
+          skipPreflight: false,
+          preflightCommitment: "confirmed",
+        });
+
+        // 等待确认
+        await provider.connection.confirmTransaction(
+          {
+            signature: txId,
+            blockhash,
+            lastValidBlockHeight,
+          },
+          "confirmed"
+        );
+
+        console.log(`[${label}] 交易已确认: ${txId}`);
+        console.log("完整交易详情:", tx.serializeMessage().toString("hex"));
+
+        // 等待交易确认
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const postBalance = await provider.connection.getBalance(
+          fundedAccount.publicKey
+        );
+        console.log(`交易后余额: ${postBalance} lamports`);
+        return txId;
+      } catch (error) {
+        console.error(`[${label}] 交易失败，剩余重试次数 ${retry}`, error);
+
+        // 自动补充手续费
+        if (error.message.includes("insufficient funds")) {
+          await provider.connection.requestAirdrop(
+            fundedAccount.publicKey,
+            anchor.web3.LAMPORTS_PER_SOL * 0.1
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
+    throw new Error(`交易失败: ${label}`);
+  }
+
+  function validatePda(pda: PublicKey, name: string) {
+    if (pda.toBase58() === SystemProgram.programId.toBase58()) {
+      throw new Error(`无效的PDA地址 ${name}`);
+    }
   }
 
   // 初始化PDA（添加mint和pause状态）
   function initializePdas() {
-    [authorityPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("authority")],
-      program.programId // 始终使用外层program实例
-    );
-
     [authorityPda] = PublicKey.findProgramAddressSync(
       [Buffer.from("authority")],
       program.programId
@@ -137,6 +266,10 @@ describe("WUSD Token", () => {
       program.programId
     );
 
+    // 验证PDA有效性
+    validatePda(authorityPda, "Authority PDA");
+    validatePda(statePda, "State PDA");
+
     console.log("=== PDA初始化 ===");
     console.log("Authority PDA:", authorityPda.toString());
     console.log("State PDA:", statePda.toString());
@@ -144,7 +277,8 @@ describe("WUSD Token", () => {
     console.log("Pause State PDA:", pauseStatePda.toString());
   }
 
-  beforeEach(async () => {
+  beforeEach(async function () {
+    this.timeout(60000); // 60秒超时
     console.log("当前程序ID:", program.programId.toString());
     // 初始化PDA
     initializePdas();
@@ -158,46 +292,149 @@ describe("WUSD Token", () => {
     console.log("ANCHOR_PROVIDER_URL:", process.env.ANCHOR_PROVIDER_URL);
     console.log("ANCHOR_WALLET:", process.env.ANCHOR_WALLET);
 
-    // 生成Mint账户
+    // 初始化Mint密钥对
     mintKeypair = Keypair.generate();
     wusdMint = mintKeypair.publicKey;
-    console.log("新Mint账户:", wusdMint.toString());
-
-    // 创建系统账户
-    const systemAccount = Keypair.generate();
-    console.log("系统账户:", systemAccount.publicKey.toString());
-
-    // 增强空投逻辑
-    await (async () => {
-      const airdropAmount = anchor.web3.LAMPORTS_PER_SOL * 100;
-      console.log(`空投 ${airdropAmount} lamports 到系统账户...`);
-      const airdropSig = await provider.connection.requestAirdrop(
-        systemAccount.publicKey,
-        airdropAmount
+    console.log("新Mint地址:", wusdMint.toString());
+    const mintRent =
+      await provider.connection.getMinimumBalanceForRentExemption(
+        MintLayout.span
       );
-      await provider.connection.confirmTransaction(airdropSig);
+    console.log("Mint账户参数:", {
+      decimals: config.wusdDecimals,
+      mintAuthority: authorityPda.toString(),
+      rent: mintRent,
+    });
+
+    // 生成资金账户
+    fundedAccount = await (async () => {
+      const account = Keypair.generate();
+      // 空投操作（增加重试机制）
+      let retries = 3;
+      while (retries-- > 0) {
+        try {
+          // 请求空投
+          const airdropSig = await provider.connection.requestAirdrop(
+            account.publicKey,
+            anchor.web3.LAMPORTS_PER_SOL * 100
+          );
+
+          // 等待确认并重试
+          let confirmRetries = 5;
+          while (confirmRetries > 0) {
+            try {
+              const { blockhash, lastValidBlockHeight } =
+                await provider.connection.getLatestBlockhash("confirmed");
+              await provider.connection.confirmTransaction(
+                {
+                  signature: airdropSig,
+                  blockhash,
+                  lastValidBlockHeight,
+                },
+                "confirmed"
+              );
+
+              // 等待更长时间确保资金到账
+              await new Promise((resolve) => setTimeout(resolve, 10000));
+
+              // 验证余额
+              const currentBalance = await provider.connection.getBalance(
+                account.publicKey
+              );
+              if (currentBalance >= anchor.web3.LAMPORTS_PER_SOL * 100) {
+                // 再次等待确保交易完全确认
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+                const finalBalance = await provider.connection.getBalance(
+                  account.publicKey
+                );
+                if (finalBalance >= currentBalance) {
+                  console.log(`空投成功，最终余额: ${finalBalance} lamports`);
+                  return account;
+                }
+              }
+              throw new Error("空投资金未完全到账");
+            } catch (error) {
+              console.log(`确认空投失败，剩余重试次数: ${confirmRetries}`);
+              confirmRetries--;
+              if (confirmRetries === 0) throw error;
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
+          }
+        } catch (error) {
+          console.error(`空投失败，剩余重试次数: ${retries}`, error);
+          if (retries > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+          }
+        }
+      }
+      throw new Error("空投操作失败");
     })();
 
-    // 创建Mint账户
-    const mintRent =
-      await provider.connection.getMinimumBalanceForRentExemption(165);
-    console.log("Mint账户租金:", mintRent);
+    await checkBalance(fundedAccount.publicKey, "空投后");
 
-    // 分步执行交易
-    // 步骤1: 创建账户
+    // 生成系统账户
+    const systemAccount = Keypair.generate();
+
+    // 第一步：转账到系统账户 
+    const transferAmount = mintRent + 0.3 * anchor.web3.LAMPORTS_PER_SOL;
+    const transferIx = SystemProgram.transfer({
+      fromPubkey: fundedAccount.publicKey,
+      toPubkey: systemAccount.publicKey,
+      lamports: transferAmount,
+    });
+
+    const fundTx = new anchor.web3.Transaction().add(transferIx);
+    const { blockhash, lastValidBlockHeight } =
+      await provider.connection.getLatestBlockhash("confirmed");
+
+    fundTx.recentBlockhash = blockhash;
+    fundTx.lastValidBlockHeight = lastValidBlockHeight;
+    fundTx.feePayer = fundedAccount.publicKey;
+
+    fundTx.sign(fundedAccount);
+
+    try {
+      const signature = await provider.connection.sendRawTransaction(
+        fundTx.serialize(),
+        { skipPreflight: false }
+      );
+
+      await provider.connection.confirmTransaction({
+        signature,
+        blockhash,
+        lastValidBlockHeight,
+      });
+
+      // 验证转账结果
+      const balance = await provider.connection.getBalance(
+        systemAccount.publicKey
+      );
+      console.log(`Transfer successful. New balance: ${balance}`);
+    } catch (error) {
+      console.error("Transfer failed:", error);
+      throw error;
+    } 
+    await checkBalance(systemAccount.publicKey, "转账后");
+    // 第二步：创建Mint账户
+    const mintPreBalance = await provider.connection.getBalance(
+      fundedAccount.publicKey
+    );
+    console.log(`创建Mint前余额检查: ${mintPreBalance} lamports`);
+
     const createAccountTx = new anchor.web3.Transaction().add(
       SystemProgram.createAccount({
-        fromPubkey: systemAccount.publicKey,
+        fromPubkey: fundedAccount.publicKey,
         newAccountPubkey: wusdMint,
-        space: 165,
+        space: MintLayout.span,
         lamports: mintRent,
         programId: TOKEN_PROGRAM_ID,
       })
     );
+
     await sendAndConfirmWithRetry(
       provider,
       createAccountTx,
-      [systemAccount, mintKeypair],
+      [fundedAccount, mintKeypair], // 正确签名者
       "创建Mint账户"
     );
 
@@ -212,12 +449,21 @@ describe("WUSD Token", () => {
     );
     await sendAndConfirmWithRetry(provider, initMintTx, [], "初始化Mint");
 
+    const mintPostBalance = await provider.connection.getBalance(
+      fundedAccount.publicKey
+    );
+    console.log(
+      `Mint账户创建消耗:\n` +
+        `  实际费用: ${mintPreBalance - mintPostBalance} lamports\n` +
+        `  理论费用: ${mintRent + 5000} lamports` // 5000为基准手续费
+    );
+
     // 初始化程序状态
     console.log("=== 初始化程序状态 ===");
     const initTx = await program.methods
       .initialize(config.wusdDecimals)
       .accounts({
-        authority: systemAccount.publicKey,
+        authority: authorityPda,
         mint: wusdMint,
         authority_state: authorityPda,
         mint_state: mintStatePda,
@@ -226,7 +472,6 @@ describe("WUSD Token", () => {
         tokenProgram: TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       })
-      .signers([systemAccount])
       .rpc({
         skipPreflight: false,
         commitment: "confirmed",
@@ -242,7 +487,7 @@ describe("WUSD Token", () => {
       // 测试账户初始化
       const testUser = await newAccountWithLamports(
         provider.connection,
-        1000000000 // 1 SOL
+        10000000000 // 10 SOL
       );
       const userAta = await getAssociatedTokenAddress(
         wusdMint,
