@@ -97,6 +97,40 @@ describe("WUSD Token", () => {
       rent: mintRent,
     });
 
+    // 创建WUSD Mint账户
+    const createMintAccountTx = new anchor.web3.Transaction().add(
+      SystemProgram.createAccount({
+        fromPubkey: fundedAccount.publicKey,
+        newAccountPubkey: wusdMint,
+        space: MintLayout.span,
+        lamports: mintRent,
+        programId: TOKEN_PROGRAM_ID,
+      })
+    );
+
+    await sendAndConfirmWithRetry(
+      provider,
+      createMintAccountTx,
+      [fundedAccount, mintKeypair],
+      "创建Mint账户"
+    );
+
+    // 初始化WUSD Mint
+    const initMintTx = new anchor.web3.Transaction().add(
+      createInitializeMintInstruction(
+        wusdMint,
+        config.wusdDecimals,
+        authorityPda,
+        authorityPda
+      )
+    );
+    await sendAndConfirmWithRetry(provider, initMintTx, [fundedAccount], "初始化Mint");
+
+    // 记录Mint账户创建的成本
+    const initialBalance = await checkBalance(fundedAccount.publicKey, "创建Mint前");
+    const finalBalance = await provider.connection.getBalance(fundedAccount.publicKey);
+    console.log("Mint账户创建消耗:\n  实际费用:", initialBalance - finalBalance, "lamports\n  理论费用:", mintRent, "lamports");
+
     // 初始化抵押代币Mint
     const collateralMintKeypair = Keypair.generate();
     collateralMint = collateralMintKeypair.publicKey;
@@ -314,248 +348,7 @@ describe("WUSD Token", () => {
     console.log("State PDA:", statePda.toString());
     console.log("Mint State PDA:", mintStatePda.toString());
     console.log("Pause State PDA:", pauseStatePda.toString());
-  }
-
-  beforeEach(async function () {
-    this.timeout(60000); // 60秒超时
-    console.log("当前程序ID:", program.programId.toString());
-    // 初始化PDA
-    initializePdas();
-    console.log("当前RPC节点:", provider.connection.rpcEndpoint);
-    console.log(
-      "Provider 可用方法:",
-      Object.keys(provider).filter((k) => typeof provider[k] === "function")
-    );
-
-    console.log("环境变量验证:");
-    console.log("ANCHOR_PROVIDER_URL:", process.env.ANCHOR_PROVIDER_URL);
-    console.log("ANCHOR_WALLET:", process.env.ANCHOR_WALLET);
-
-    // 初始化Mint密钥对
-    mintKeypair = Keypair.generate();
-    wusdMint = mintKeypair.publicKey;
-    console.log("新Mint地址:", wusdMint.toString());
-    const mintRent =
-      await provider.connection.getMinimumBalanceForRentExemption(
-        MintLayout.span
-      );
-    console.log("Mint账户参数:", {
-      decimals: config.wusdDecimals,
-      mintAuthority: authorityPda.toString(),
-      rent: mintRent,
-    });
-
-    // 初始化抵押代币Mint
-    const collateralMintKeypair = Keypair.generate();
-    collateralMint = collateralMintKeypair.publicKey;
-    console.log("抵押代币Mint地址:", collateralMint.toString());
-
-    // 创建抵押代币Mint账户
-    const createCollateralAccountTx = new anchor.web3.Transaction().add(
-      SystemProgram.createAccount({
-        fromPubkey: fundedAccount.publicKey,
-        newAccountPubkey: collateralMint,
-        space: MintLayout.span,
-        lamports: mintRent,
-        programId: TOKEN_PROGRAM_ID,
-      })
-    );
-
-    await sendAndConfirmWithRetry(
-      provider,
-      createCollateralAccountTx,
-      [fundedAccount, collateralMintKeypair],
-      "创建抵押代币Mint账户"
-    );
-
-    // 初始化抵押代币Mint
-    const initCollateralMintTx = new anchor.web3.Transaction().add(
-      createInitializeMintInstruction(
-        collateralMint,
-        config.wusdDecimals,
-        authorityPda,
-        authorityPda
-      )
-    );
-    await sendAndConfirmWithRetry(provider, initCollateralMintTx, [fundedAccount], "初始化抵押代币Mint");
-
-    // 生成资金账户
-    fundedAccount = await (async () => {
-      const account = Keypair.generate();
-      // 空投操作（增加重试机制）
-      let retries = 3;
-      while (retries-- > 0) {
-        try {
-          // 请求空投
-          const airdropSig = await provider.connection.requestAirdrop(
-            account.publicKey,
-            anchor.web3.LAMPORTS_PER_SOL * 100
-          );
-
-          // 等待确认并重试
-          let confirmRetries = 5;
-          while (confirmRetries > 0) {
-            try {
-              const { blockhash, lastValidBlockHeight } =
-                await provider.connection.getLatestBlockhash("confirmed");
-              await provider.connection.confirmTransaction(
-                {
-                  signature: airdropSig,
-                  blockhash,
-                  lastValidBlockHeight,
-                },
-                "confirmed"
-              );
-
-              // 等待更长时间确保资金到账
-              await new Promise((resolve) => setTimeout(resolve, 10000));
-
-              // 验证余额
-              const currentBalance = await provider.connection.getBalance(
-                account.publicKey
-              );
-              if (currentBalance >= anchor.web3.LAMPORTS_PER_SOL * 100) {
-                // 再次等待确保交易完全确认
-                await new Promise((resolve) => setTimeout(resolve, 5000));
-                const finalBalance = await provider.connection.getBalance(
-                  account.publicKey
-                );
-                if (finalBalance >= currentBalance) {
-                  console.log(`空投成功，最终余额: ${finalBalance} lamports`);
-                  return account;
-                }
-              }
-              throw new Error("空投资金未完全到账");
-            } catch (error) {
-              console.log(`确认空投失败，剩余重试次数: ${confirmRetries}`);
-              confirmRetries--;
-              if (confirmRetries === 0) throw error;
-              await new Promise((resolve) => setTimeout(resolve, 5000));
-            }
-          }
-        } catch (error) {
-          console.error(`空投失败，剩余重试次数: ${retries}`, error);
-          if (retries > 0) {
-            await new Promise((resolve) => setTimeout(resolve, 5000));
-          }
-        }
-      }
-      throw new Error("空投操作失败");
-    })();
-
-    await checkBalance(fundedAccount.publicKey, "空投后");
-
-    // 生成系统账户
-    const systemAccount = Keypair.generate();
-
-    // 第一步：转账到系统账户 
-    const transferAmount = mintRent + 0.3 * anchor.web3.LAMPORTS_PER_SOL;
-    const transferIx = SystemProgram.transfer({
-      fromPubkey: fundedAccount.publicKey,
-      toPubkey: systemAccount.publicKey,
-      lamports: transferAmount,
-    });
-
-    const fundTx = new anchor.web3.Transaction().add(transferIx);
-    const { blockhash, lastValidBlockHeight } =
-      await provider.connection.getLatestBlockhash("confirmed");
-
-    fundTx.recentBlockhash = blockhash;
-    fundTx.lastValidBlockHeight = lastValidBlockHeight;
-    fundTx.feePayer = fundedAccount.publicKey;
-
-    fundTx.sign(fundedAccount);
-
-    try {
-      const signature = await provider.connection.sendRawTransaction(
-        fundTx.serialize(),
-        { skipPreflight: false }
-      );
-
-      await provider.connection.confirmTransaction({
-        signature,
-        blockhash,
-        lastValidBlockHeight,
-      });
-
-      // 验证转账结果
-      const balance = await provider.connection.getBalance(
-        systemAccount.publicKey
-      );
-      console.log(`Transfer successful. New balance: ${balance}`);
-    } catch (error) {
-      console.error("Transfer failed:", error);
-      throw error;
-    } 
-    await checkBalance(systemAccount.publicKey, "转账后");
-    // 第二步：创建Mint账户
-    const mintPreBalance = await provider.connection.getBalance(
-      fundedAccount.publicKey
-    );
-    console.log(`创建Mint前余额检查: ${mintPreBalance} lamports`);
-
-    const createAccountTx = new anchor.web3.Transaction().add(
-      SystemProgram.createAccount({
-        fromPubkey: fundedAccount.publicKey,
-        newAccountPubkey: wusdMint,
-        space: MintLayout.span,
-        lamports: mintRent,
-        programId: TOKEN_PROGRAM_ID,
-      })
-    );
-
-    await sendAndConfirmWithRetry(
-      provider,
-      createAccountTx,
-      [fundedAccount, mintKeypair],
-      "创建Mint账户"
-    );
-
-    // 步骤2: 初始化Mint
-    const initMintTx = new anchor.web3.Transaction().add(
-      createInitializeMintInstruction(
-        wusdMint,
-        config.wusdDecimals,
-        authorityPda,
-        authorityPda
-      )
-    );
-    await sendAndConfirmWithRetry(provider, initMintTx, [fundedAccount], "初始化Mint");
-
-    const mintPostBalance = await provider.connection.getBalance(
-      fundedAccount.publicKey
-    );
-    console.log(
-      `Mint账户创建消耗:\n` +
-        `  实际费用: ${mintPreBalance - mintPostBalance} lamports\n` +
-        `  理论费用: ${mintRent + 5000} lamports` // 5000为基准手续费
-    );
-
-    // 初始化程序状态
-    const [statePda] = await PublicKey.findProgramAddress(
-      [Buffer.from(config.seeds.state)],
-      program.programId
-    );
-    const state = statePda;
-
-    let tx = await program.methods
-      .initialize(config.wusdDecimals)
-      .accounts({
-        authority: fundedAccount.publicKey,
-        state,
-        wusdMint,
-        collateralMint,
-        treasury,
-        systemProgram: SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-      })
-      .signers([fundedAccount, mintKeypair])
-      .rpc();
-
-    await provider.connection.confirmTransaction(tx, 'confirmed');
-    console.log('协议状态初始化成功');
-  });
+  } 
 
   describe("核心功能测试", () => {
     it("完整生命周期测试", async () => {
