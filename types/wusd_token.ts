@@ -14,6 +14,54 @@ export type WusdToken = {
   },
   "instructions": [
     {
+      "name": "addOperator",
+      "docs": [
+        "添加操作员",
+        "* `ctx` - 上下文",
+        "* `operator` - 操作员地址"
+      ],
+      "discriminator": [
+        149,
+        142,
+        187,
+        68,
+        33,
+        250,
+        87,
+        105
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "管理员账户"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "authorityState",
+          "docs": [
+            "权限管理状态账户"
+          ]
+        },
+        {
+          "name": "operator",
+          "docs": [
+            "要管理的操作员账户"
+          ]
+        },
+        {
+          "name": "accessRegistry",
+          "docs": [
+            "访问权限注册表"
+          ],
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "burn",
       "docs": [
         "销毁WUSD代币",
@@ -226,6 +274,63 @@ export type WusdToken = {
           "type": "u8"
         }
       ]
+    },
+    {
+      "name": "initializeAccessRegistry",
+      "docs": [
+        "初始化访问注册表",
+        "* `ctx` - 初始化上下文"
+      ],
+      "discriminator": [
+        193,
+        224,
+        33,
+        22,
+        51,
+        245,
+        44,
+        175
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "accessRegistry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  99,
+                  101,
+                  115,
+                  115,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
     },
     {
       "name": "mint",
@@ -447,6 +552,54 @@ export type WusdToken = {
           }
         }
       ]
+    },
+    {
+      "name": "removeOperator",
+      "docs": [
+        "移除操作员",
+        "* `ctx` - 上下文",
+        "* `operator` - 操作员地址"
+      ],
+      "discriminator": [
+        84,
+        183,
+        126,
+        251,
+        137,
+        150,
+        214,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "管理员账户"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "authorityState",
+          "docs": [
+            "权限管理状态账户"
+          ]
+        },
+        {
+          "name": "operator",
+          "docs": [
+            "要管理的操作员账户"
+          ]
+        },
+        {
+          "name": "accessRegistry",
+          "docs": [
+            "访问权限注册表"
+          ],
+          "writable": true
+        }
+      ],
+      "args": []
     },
     {
       "name": "supportsInterface",
@@ -947,20 +1100,30 @@ export type WusdToken = {
   "types": [
     {
       "name": "accessRegistryState",
+      "docs": [
+        "访问权限注册表状态"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "admin",
+            "name": "authority",
             "docs": [
               "管理员地址"
             ],
             "type": "pubkey"
           },
           {
-            "name": "accessList",
+            "name": "initialized",
             "docs": [
-              "访问权限列表"
+              "是否已初始化"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "operators",
+            "docs": [
+              "操作员列表"
             ],
             "type": {
               "vec": "pubkey"

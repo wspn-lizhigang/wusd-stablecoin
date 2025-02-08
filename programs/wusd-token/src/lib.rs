@@ -193,6 +193,39 @@ fn calculate_transfer_fee(amount: u64) -> u64 {
 pub mod wusd_token {
     use super::*;
 
+    /// 初始化访问注册表
+    /// * `ctx` - 初始化上下文
+    pub fn initialize_access_registry(ctx: Context<InitializeAccessRegistry>) -> Result<()> {
+        let access_registry = &mut ctx.accounts.access_registry;
+        access_registry.authority = ctx.accounts.authority.key();
+        access_registry.initialized = true;
+        Ok(())
+    }
+
+    /// 添加操作员
+    /// * `ctx` - 上下文
+    /// * `operator` - 操作员地址
+    pub fn add_operator(ctx: Context<ManageOperator>) -> Result<()> {
+        require!(
+            ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
+            WusdError::Unauthorized
+        );
+        ctx.accounts.access_registry.add_operator(ctx.accounts.operator.key());
+        Ok(())
+    }
+
+    /// 移除操作员
+    /// * `ctx` - 上下文
+    /// * `operator` - 操作员地址
+    pub fn remove_operator(ctx: Context<ManageOperator>) -> Result<()> {
+        require!(
+            ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
+            WusdError::Unauthorized
+        );
+        ctx.accounts.access_registry.remove_operator(ctx.accounts.operator.key());
+        Ok(())
+    }
+
     /// 初始化WUSD代币合约
     /// * `ctx` - 初始化上下文
     /// * `decimals` - 代币精度
@@ -718,7 +751,24 @@ pub struct Unpause<'info> {
     pub pause_state: Account<'info, PauseState>,
     pub authority: Signer<'info>,
     pub authority_state: Account<'info, AuthorityState>,
-} 
+}
+
+#[derive(Accounts)]
+pub struct InitializeAccessRegistry<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + 32 + 1,
+        seeds = [b"access_registry"],
+        bump
+    )]
+    pub access_registry: Account<'info, AccessRegistryState>,
+
+    pub system_program: Program<'info, System>,
+}
 
 #[derive(Accounts)]
 pub struct TransferFrom<'info> {
@@ -808,5 +858,25 @@ pub struct PermitMessage {
     pub scope: PermitScope,
     pub chain_id: u64,
     pub version: [u8; 32]
+}
+
+
+/// 操作员管理账户结构体
+#[derive(Accounts)]
+pub struct ManageOperator<'info> {
+    /// 管理员账户
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    /// 权限管理状态账户
+    pub authority_state: Account<'info, AuthorityState>,
+
+    /// 要管理的操作员账户
+    /// CHECK: 仅用于记录地址
+    pub operator: AccountInfo<'info>,
+
+    /// 访问权限注册表
+    #[account(mut)]
+    pub access_registry: Account<'info, AccessRegistryState>,
 }
 

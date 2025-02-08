@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use crate::AccessLevel;
 
 /// 授权额度状态账户，存储代币授权信息
 #[account]
@@ -118,29 +119,35 @@ impl AuthorityState {
     }
 }
 
+/// 访问权限注册表状态
 #[account]
 pub struct AccessRegistryState {
     /// 管理员地址
-    pub admin: Pubkey,
-    /// 访问权限列表
-    pub access_list: Vec<Pubkey>,
+    pub authority: Pubkey,
+    /// 是否已初始化
+    pub initialized: bool,
+    /// 操作员列表
+    pub operators: Vec<Pubkey>,
 }
 
 impl AccessRegistryState {
-    /// 初始化访问权限注册表
-    /// * `admin` - 管理员地址
-    pub fn initialize(admin: Pubkey) -> Self {
-        Self {
-            admin,
-            access_list: vec![],
+    /// 添加操作员
+    pub fn add_operator(&mut self, operator: Pubkey) {
+        if !self.operators.contains(&operator) {
+            self.operators.push(operator);
         }
     }
 
-    /// 检查用户是否具有指定级别的访问权限
-    /// * `user` - 用户地址
-    /// * `_level` - 访问级别
-    pub fn has_access(&self, user: Pubkey, _level: crate::AccessLevel) -> bool {
-        self.access_list.contains(&user)
+    /// 移除操作员
+    pub fn remove_operator(&mut self, operator: Pubkey) {
+        if let Some(pos) = self.operators.iter().position(|x| x == &operator) {
+            self.operators.remove(pos);
+        }
+    }
+
+    /// 检查是否有访问权限
+    pub fn has_access(&self, user: Pubkey, _level: AccessLevel) -> bool {
+        self.operators.contains(&user) || user == self.authority
     }
 }
 
