@@ -31,6 +31,9 @@ export const config = {
         state: "state"
     },
 
+    // PDA配置
+    authorityBump: 255, // 默认bump值
+
     // 重试配置
     maxRetries: 3,
     retryDelay: 1000, // 毫秒

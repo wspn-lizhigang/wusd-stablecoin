@@ -28,7 +28,7 @@ const CHAIN_ID: u64 = 1; // 主网链ID
 #[cfg(feature = "devnet")]
 const CHAIN_ID: u64 = 2; // 开发网链ID
 
-declare_id!("2YBEVPJbsRjTik1mjhiDVeJQ2muskrCAShRyLQXXNibY");
+declare_id!("BbRY9UKMB9xAkL7jUbgSEsL2KGRU1DGYeBZQwsMV1p69");
 
 /// 初始化事件，记录代币初始化的关键信息
 #[event]
@@ -198,6 +198,8 @@ pub mod wusd_token {
     pub fn initialize_access_registry(ctx: Context<InitializeAccessRegistry>) -> Result<()> {
         let access_registry = &mut ctx.accounts.access_registry;
         access_registry.authority = ctx.accounts.authority.key();
+        access_registry.initialized = true;
+        access_registry.operators = Vec::new();
         access_registry.initialized = true;
         Ok(())
     }
@@ -660,16 +662,7 @@ pub struct Burn<'info> {
     pub mint_state: Account<'info, MintState>,
     pub pause_state: Account<'info, PauseState>,
     pub access_registry: Account<'info, AccessRegistryState>,
-}
-
-#[derive(Accounts)]
-pub struct SetPaused<'info> {
-    #[account(mut)]
-    pub authority: Signer<'info>,
-    #[account(mut)]
-    pub pause_state: Account<'info, PauseState>,
-    pub authority_state: Account<'info, AuthorityState>,
-}
+} 
 
 #[derive(Accounts)]
 pub struct RecoverTokens<'info> {

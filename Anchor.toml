@@ -6,7 +6,7 @@ skip-lint = false
 
 [programs.localnet]
 wusd_application = "3JmdookeJY96JsRnnN1C68qLiKmqrw6LuEhK9yhdKfWJ"
-wusd_token = "2YBEVPJbsRjTik1mjhiDVeJQ2muskrCAShRyLQXXNibY"
+wusd_token = "BbRY9UKMB9xAkL7jUbgSEsL2KGRU1DGYeBZQwsMV1p69"
 
 [registry]
 url = "https://api.apr.dev"
