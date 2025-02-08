@@ -98,18 +98,30 @@ describe("WUSD Token Mint Test", () => {
       );
       if (!authorityStateAccount) {
         console.log("Initializing AuthorityState...");
-        // 初始化访问注册表
-        await program.methods
-          .initializeAccessRegistry()
-          .accounts({
-            authority: provider.wallet.publicKey,
-            accessRegistry: accessRegistryPda,
-            systemProgram: SystemProgram.programId,
-          })
-          .signers([provider.wallet.payer])
-          .rpc();
-        // 在这里添加初始化 AuthorityState 的逻辑
-        const initAuthTx = await program.methods
+        
+        // 创建并初始化mint账户
+        const lamports = await getMinimumBalanceForRentExemptMint(provider.connection);
+        const createMintAccountIx = SystemProgram.createAccount({
+          fromPubkey: provider.wallet.publicKey,
+          newAccountPubkey: mintKeypair.publicKey,
+          space: MINT_SIZE,
+          lamports,
+          programId: TOKEN_PROGRAM_ID,
+        });
+        
+        const initializeMintIx = createInitializeMintInstruction(
+          mintKeypair.publicKey,
+          6, // decimals
+          provider.wallet.publicKey,
+          provider.wallet.publicKey
+        );
+        
+        const tx = new anchor.web3.Transaction().add(createMintAccountIx, initializeMintIx);
+        await provider.sendAndConfirm(tx, [mintKeypair]);
+        console.log("Mint account initialized");
+        
+        // 初始化合约状态
+        const initTx = await program.methods
           .initialize(6)
           .accounts({
             authority: provider.wallet.publicKey,
@@ -123,10 +135,26 @@ describe("WUSD Token Mint Test", () => {
           })
           .signers([provider.wallet.payer, mintKeypair])
           .rpc();
-        await provider.connection.confirmTransaction(initAuthTx, "confirmed");
-        await sleep(1000);
-      }
 
+        await provider.connection.confirmTransaction(initTx, "confirmed");
+        await sleep(1000);
+        console.log("Contract state initialized");
+
+        // 初始化访问注册表
+        const registryTx = await program.methods
+          .initializeAccessRegistry()
+          .accounts({
+            authority: provider.wallet.publicKey,
+            accessRegistry: accessRegistryPda,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([provider.wallet.payer])
+          .rpc();
+
+        await provider.connection.confirmTransaction(registryTx, "confirmed");
+        await sleep(1000);
+        console.log("Access registry initialized");
+      }
       console.log("Setup completed");
       console.log("Program ID:", program.programId.toString());
       console.log("Wallet pubkey:", provider.wallet.publicKey.toString());

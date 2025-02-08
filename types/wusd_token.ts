@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/wusd_token.json`.
  */
 export type WusdToken = {
-  "address": "BbRY9UKMB9xAkL7jUbgSEsL2KGRU1DGYeBZQwsMV1p69",
+  "address": "FXKUzBGwEyDATfShWLU8AiWN3T8qHdy3FSALFSXHnWmx",
   "metadata": {
     "name": "wusdToken",
     "version": "0.1.0",
