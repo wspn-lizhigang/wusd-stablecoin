@@ -447,7 +447,7 @@ describe("WUSD Token", () => {
         authorityPda
       )
     );
-    await sendAndConfirmWithRetry(provider, initMintTx, [], "初始化Mint");
+    await sendAndConfirmWithRetry(provider, initMintTx, [fundedAccount], "初始化Mint");
 
     const mintPostBalance = await provider.connection.getBalance(
       fundedAccount.publicKey
