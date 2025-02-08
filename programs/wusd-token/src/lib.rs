@@ -10,8 +10,8 @@
 
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Mint};
-use anchor_lang::solana_program::hash::hashv;
 use anchor_lang::solana_program::instruction::Instruction;
+use anchor_lang::solana_program::hash::{hash};
 #[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
 
@@ -198,40 +198,26 @@ pub mod wusd_token {
     pub fn initialize_access_registry(ctx: Context<InitializeAccessRegistry>) -> Result<()> {
         let access_registry = &mut ctx.accounts.access_registry;
         access_registry.authority = ctx.accounts.authority.key();
-        access_registry.initialized = true;
-        access_registry.operators = Vec::new();
-        access_registry.initialized = true;
+        access_registry.operator_count = 0;
+        access_registry.operators = [Pubkey::default(); 10];
         Ok(())
     }
 
-    /// 添加操作员
-    /// * `ctx` - 上下文
-    /// * `operator` - 操作员地址
-    pub fn add_operator(ctx: Context<ManageOperator>) -> Result<()> {
-        require!(
-            ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
-            WusdError::Unauthorized
-        );
-        ctx.accounts.access_registry.add_operator(ctx.accounts.operator.key());
-        Ok(())
-    }
-
-    /// 移除操作员
-    /// * `ctx` - 上下文
-    /// * `operator` - 操作员地址
-    pub fn remove_operator(ctx: Context<ManageOperator>) -> Result<()> {
-        require!(
-            ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
-            WusdError::Unauthorized
-        );
-        ctx.accounts.access_registry.remove_operator(ctx.accounts.operator.key());
-        Ok(())
-    }
-
-    /// 初始化WUSD代币合约
-    /// * `ctx` - 初始化上下文
-    /// * `decimals` - 代币精度
     pub fn initialize(ctx: Context<Initialize>, decimals: u8) -> Result<()> {
+        // 1. 首先初始化所有状态账户
+        // 初始化 AuthorityState
+        ctx.accounts.authority_state.admin = ctx.accounts.authority.key();
+        ctx.accounts.authority_state.minter = ctx.accounts.authority.key();
+        ctx.accounts.authority_state.pauser = ctx.accounts.authority.key();
+    
+        // 初始化 MintState
+        ctx.accounts.mint_state.mint = ctx.accounts.mint.key();
+        ctx.accounts.mint_state.decimals = decimals;
+    
+        // 初始化 PauseState
+        ctx.accounts.pause_state.paused = false;
+    
+        // 2. 初始化 Mint
         anchor_spl::token::initialize_mint(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -244,28 +230,14 @@ pub mod wusd_token {
             &ctx.accounts.authority.key(),
             Some(&ctx.accounts.authority.key())
         )?;
-
-        ctx.accounts.authority_state.set_inner(
-            AuthorityState::initialize(ctx.accounts.authority.key())
-        );
-
-        ctx.accounts.mint_state.set_inner(
-            MintState::initialize(
-                ctx.accounts.mint.key(),
-                decimals
-            )?
-        );
-
-        ctx.accounts.pause_state.set_inner(
-            PauseState::initialize()
-        );
-
+    
+        // 3. 发出初始化事件
         emit!(InitializeEvent {
             authority: ctx.accounts.authority.key(),
             mint: ctx.accounts.mint.key(),
-            decimals: decimals
+            decimals
         });
-
+    
         Ok(())
     }
 
@@ -492,11 +464,13 @@ pub mod wusd_token {
             };
         
             // 计算消息哈希
-            let message_hash = hashv(&[
-                b"\x19Solana Signed Message:\n32",
-                &message.try_to_vec().map_err(|_| WusdError::InvalidSignature)?
-            ]).to_bytes();
-        
+            let message_bytes = message.try_to_vec().map_err(|_| WusdError::InvalidSignature)?;
+            let prefix = b"\x19Solana Signed Message:\n32";
+            let mut hash_input = Vec::with_capacity(prefix.len() + message_bytes.len());
+            hash_input.extend_from_slice(prefix);
+            hash_input.extend_from_slice(&message_bytes);
+            let message_hash = hash(&hash_input).to_bytes();
+
             // 验证签名
             verify_signature(
                 &message_hash,
@@ -570,52 +544,74 @@ pub struct SupportsInterface<'info> {
     pub authority: Signer<'info>,
 }
 
-/// 初始化指令的账户参数
 #[derive(Accounts)]
 #[instruction(decimals: u8)]
 pub struct Initialize<'info> {
     /// 管理员账户
     #[account(mut)]
     pub authority: Signer<'info>,
-    /// 代币铸币账户
+
+    /// 代币铸币账户 
     #[account(
         init,
         payer = authority,
-        space = 82,
+        // Mint 结构体空间计算:
+        // - 8 (discriminator)
+        // - 32 (mint_authority)
+        // - 32 (freeze_authority)
+        // - 8 (supply)
+        // - 1 (decimals)
+        // - 1 (is_initialized)
+        space = 8 + 32 + 32 + 8 + 1 + 1,
         owner = token_program.key()
     )]
     pub mint: Account<'info, Mint>,
+
     /// 权限管理账户
     #[account(
         init,
         payer = authority,
-        space = 72,
-        seeds = [b"authority"],
+        // AuthorityState 空间计算:
+        // - 8 (discriminator)
+        // - 32 (authority pubkey)
+        // - 32 (operators vec, assuming max capacity needed)
+        space = 8 + 32 + 32,
+        seeds = [b"authority", mint.key().as_ref()],
         bump
     )]
     pub authority_state: Account<'info, AuthorityState>,
+
     /// 铸币状态账户
     #[account(
         init,
         payer = authority,
-        space = 41,
-        seeds = [b"mint_state"],
+        // MintState 空间计算:
+        // - 8 (discriminator)
+        // - 32 (mint pubkey)
+        // - 1 (decimals)
+        space = 8 + 32 + 1,
+        seeds = [b"mint_state", mint.key().as_ref()],
         bump
     )]
     pub mint_state: Account<'info, MintState>,
+
     /// 暂停状态账户
     #[account(
         init,
         payer = authority,
-        space = 9,
-        seeds = [b"pause_state"],
+        // PauseState 空间计算:
+        // - 8 (discriminator)
+        // - 1 (paused boolean)
+        space = 8 + 1,
+        seeds = [b"pause_state", mint.key().as_ref()],
         bump
     )]
     pub pause_state: Account<'info, PauseState>,
+
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
-}
+} 
 
 /// 铸币指令的账户参数
 #[derive(Accounts)]
@@ -749,12 +745,13 @@ pub struct Unpause<'info> {
 #[derive(Accounts)]
 pub struct InitializeAccessRegistry<'info> {
     #[account(mut)]
-    pub authority: Signer<'info>,
-
+    pub authority: Signer<'info>, 
+     
     #[account(
         init,
         payer = authority,
-        space = 8 + 32 + 1,
+        // 调整空间计算：8(discriminator) + 32(pubkey) + 1(bool) + 4(vec len) + 32 * 10(预留10个操作员空间)
+        space = 8 + 32 + 1 + 4 + 32 * 10,
         seeds = [b"access_registry"],
         bump
     )]

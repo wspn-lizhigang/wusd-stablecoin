@@ -14,54 +14,6 @@ export type WusdToken = {
   },
   "instructions": [
     {
-      "name": "addOperator",
-      "docs": [
-        "添加操作员",
-        "* `ctx` - 上下文",
-        "* `operator` - 操作员地址"
-      ],
-      "discriminator": [
-        149,
-        142,
-        187,
-        68,
-        33,
-        250,
-        87,
-        105
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "docs": [
-            "管理员账户"
-          ],
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "authorityState",
-          "docs": [
-            "权限管理状态账户"
-          ]
-        },
-        {
-          "name": "operator",
-          "docs": [
-            "要管理的操作员账户"
-          ]
-        },
-        {
-          "name": "accessRegistry",
-          "docs": [
-            "访问权限注册表"
-          ],
-          "writable": true
-        }
-      ],
-      "args": []
-    },
-    {
       "name": "burn",
       "docs": [
         "销毁WUSD代币",
@@ -145,11 +97,6 @@ export type WusdToken = {
     },
     {
       "name": "initialize",
-      "docs": [
-        "初始化WUSD代币合约",
-        "* `ctx` - 初始化上下文",
-        "* `decimals` - 代币精度"
-      ],
       "discriminator": [
         175,
         175,
@@ -198,6 +145,10 @@ export type WusdToken = {
                   116,
                   121
                 ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
               }
             ]
           }
@@ -224,6 +175,10 @@ export type WusdToken = {
                   116,
                   101
                 ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
               }
             ]
           }
@@ -251,6 +206,10 @@ export type WusdToken = {
                   116,
                   101
                 ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
               }
             ]
           }
@@ -552,54 +511,6 @@ export type WusdToken = {
           }
         }
       ]
-    },
-    {
-      "name": "removeOperator",
-      "docs": [
-        "移除操作员",
-        "* `ctx` - 上下文",
-        "* `operator` - 操作员地址"
-      ],
-      "discriminator": [
-        84,
-        183,
-        126,
-        251,
-        137,
-        150,
-        214,
-        134
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "docs": [
-            "管理员账户"
-          ],
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "authorityState",
-          "docs": [
-            "权限管理状态账户"
-          ]
-        },
-        {
-          "name": "operator",
-          "docs": [
-            "要管理的操作员账户"
-          ]
-        },
-        {
-          "name": "accessRegistry",
-          "docs": [
-            "访问权限注册表"
-          ],
-          "writable": true
-        }
-      ],
-      "args": []
     },
     {
       "name": "supportsInterface",
@@ -968,133 +879,78 @@ export type WusdToken = {
   "errors": [
     {
       "code": 6000,
-      "name": "invalidDecimals",
-      "msg": "Invalid decimals"
+      "name": "contractPaused",
+      "msg": ""
     },
     {
       "code": 6001,
       "name": "invalidAmount",
-      "msg": "Invalid amount"
+      "msg": ""
     },
     {
       "code": 6002,
-      "name": "invalidNonce",
-      "msg": "Invalid nonce"
+      "name": "invalidDecimals",
+      "msg": ""
     },
     {
       "code": 6003,
-      "name": "contractPaused",
-      "msg": "Contract is paused"
+      "name": "invalidSignature",
+      "msg": ""
     },
     {
       "code": 6004,
-      "name": "notMinter",
-      "msg": "Not minter"
+      "name": "invalidNonce",
+      "msg": ""
     },
     {
       "code": 6005,
-      "name": "notBurner",
-      "msg": "Not burner"
+      "name": "invalidScope",
+      "msg": ""
     },
     {
       "code": 6006,
-      "name": "insufficientBalance",
-      "msg": "Insufficient balance"
+      "name": "expiredPermit",
+      "msg": ""
     },
     {
       "code": 6007,
-      "name": "expiredPermit",
-      "msg": "Expired permit"
+      "name": "unauthorized",
+      "msg": ""
     },
     {
       "code": 6008,
-      "name": "accessDenied",
-      "msg": "Access denied"
+      "name": "notMinter",
+      "msg": ""
     },
     {
       "code": 6009,
-      "name": "invalidSignature",
-      "msg": "Invalid signature"
+      "name": "notBurner",
+      "msg": ""
     },
     {
       "code": 6010,
-      "name": "authorityRevoked",
-      "msg": "Authority revoked"
+      "name": "insufficientBalance",
+      "msg": ""
     },
     {
       "code": 6011,
-      "name": "unauthorized",
-      "msg": "unauthorized"
+      "name": "tooManyOperators",
+      "msg": ""
     },
     {
       "code": 6012,
-      "name": "scopeMismatch",
-      "msg": "Permission scope mismatch"
+      "name": "operatorNotFound",
+      "msg": ""
     },
     {
       "code": 6013,
-      "name": "invalidChainId",
-      "msg": "Invalid chain ID"
+      "name": "accessDenied",
+      "msg": ""
     },
     {
       "code": 6014,
-      "name": "usedNonce",
-      "msg": "Nonce already used"
-    },
-    {
-      "code": 6015,
-      "name": "invalidAllowanceAccount",
-      "msg": "Allowance account mismatch"
-    },
-    {
-      "code": 6016,
-      "name": "invalidMintAuthority",
-      "msg": "Mint authority mismatch"
-    },
-    {
-      "code": 6017,
-      "name": "crossChainAttack",
-      "msg": "Cross-chain permit attempt detected"
-    },
-    {
-      "code": 6018,
-      "name": "signatureExpired",
-      "msg": "Signature deadline expired"
-    },
-    {
-      "code": 6019,
-      "name": "exceedsMintCap",
-      "msg": "Minting cap exceeded"
-    },
-    {
-      "code": 6020,
-      "name": "versionMismatch",
-      "msg": "Contract version mismatch"
-    },
-    {
-      "code": 6021,
-      "name": "recursiveCall",
-      "msg": "Recursive call detected"
-    },
-    {
-      "code": 6022,
-      "name": "invalidDomain",
-      "msg": "Invalid domain separator"
-    },
-    {
-      "code": 6023,
-      "name": "nonceMismatch",
-      "msg": "Nonce mismatch"
-    },
-    {
-      "code": 6024,
       "name": "insufficientFunds",
-      "msg": "Insufficient funds"
-    },
-    {
-      "code": 6025,
-      "name": "invalidScope",
-      "msg": "Invalid scope"
+      "msg": ""
     }
   ],
   "types": [
@@ -1123,11 +979,21 @@ export type WusdToken = {
           {
             "name": "operators",
             "docs": [
-              "操作员列表"
+              "操作员列表 (使用固定大小数组代替 Vec 来避免序列化问题)"
             ],
             "type": {
-              "vec": "pubkey"
+              "array": [
+                "pubkey",
+                10
+              ]
             }
+          },
+          {
+            "name": "operatorCount",
+            "docs": [
+              "当前操作员数量"
+            ],
+            "type": "u8"
           }
         ]
       }

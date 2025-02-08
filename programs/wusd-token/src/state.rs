@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use crate::AccessLevel;
+use crate::{AccessLevel, error::WusdError};
 
 /// 授权额度状态账户，存储代币授权信息
 #[account]
@@ -121,35 +121,86 @@ impl AuthorityState {
 
 /// 访问权限注册表状态
 #[account]
+#[derive(Default)]
 pub struct AccessRegistryState {
     /// 管理员地址
     pub authority: Pubkey,
     /// 是否已初始化
     pub initialized: bool,
-    /// 操作员列表
-    pub operators: Vec<Pubkey>,
+    /// 操作员列表 (使用固定大小数组代替 Vec 来避免序列化问题)
+    pub operators: [Pubkey; 10],  // 支持最多10个操作员
+    /// 当前操作员数量
+    pub operator_count: u8,
 }
 
 impl AccessRegistryState {
-    /// 添加操作员
-    pub fn add_operator(&mut self, operator: Pubkey) {
-        if !self.operators.contains(&operator) {
-            self.operators.push(operator);
+    /// 创建新的访问注册表
+    pub fn new(authority: Pubkey) -> Self {
+        Self {
+            authority,
+            initialized: true,
+            operators: [Pubkey::default(); 10],
+            operator_count: 0,
         }
     }
 
-    /// 移除操作员
-    pub fn remove_operator(&mut self, operator: Pubkey) {
-        if let Some(pos) = self.operators.iter().position(|x| x == &operator) {
-            self.operators.remove(pos);
+    /// 添加操作员
+    pub fn add_operator(&mut self, operator: Pubkey) -> Result<()> {
+        // 检查是否已达到最大操作员数量
+        require!(
+            self.operator_count < 10,
+            WusdError::TooManyOperators
+        );
+
+        // 检查操作员是否已存在
+        for i in 0..self.operator_count as usize {
+            if self.operators[i] == operator {
+                return Ok(());  // 操作员已存在，直接返回
+            }
         }
+
+        // 添加新操作员
+        self.operators[self.operator_count as usize] = operator;
+        self.operator_count += 1;
+        Ok(())
+    }
+
+    /// 移除操作员
+    pub fn remove_operator(&mut self, operator: Pubkey) -> Result<()> {
+        let mut found = false;
+        for i in 0..self.operator_count as usize {
+            if self.operators[i] == operator {
+                // 找到要移除的操作员
+                found = true;
+                // 将后面的操作员向前移动
+                for j in i..self.operator_count as usize - 1 {
+                    self.operators[j] = self.operators[j + 1];
+                }
+                // 清除最后一个位置
+                self.operators[self.operator_count as usize - 1] = Pubkey::default();
+                self.operator_count -= 1;
+                break;
+            }
+        }
+
+        require!(found, WusdError::OperatorNotFound);
+        Ok(())
     }
 
     /// 检查是否有访问权限
     pub fn has_access(&self, user: Pubkey, _level: AccessLevel) -> bool {
-        self.operators.contains(&user) || user == self.authority
+        if user == self.authority {
+            return true;
+        }
+
+        for i in 0..self.operator_count as usize {
+            if self.operators[i] == user {
+                return true;
+            }
+        }
+        false
     }
-}
+} 
 
 #[account]
 pub struct MintState {
