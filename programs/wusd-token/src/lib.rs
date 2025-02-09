@@ -228,7 +228,25 @@ pub mod wusd_token {
         let pause_state = &mut ctx.accounts.pause_state;
         pause_state.paused = false;
     
-        // 2. 发出初始化事件
+        // 2. 转移mint的authority给authority_state PDA
+        let mint_key = ctx.accounts.mint.key();
+        let _seeds = &[b"authority", mint_key.as_ref()]; 
+        let bump = ctx.bumps.authority_state;
+        let _bump_bytes = &[bump];
+
+        token::set_authority(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                token::SetAuthority {
+                    current_authority: ctx.accounts.authority.to_account_info(),
+                    account_or_mint: ctx.accounts.mint.to_account_info(),
+                }
+            ),
+            token::spl_token::instruction::AuthorityType::MintTokens,
+            Some(ctx.accounts.authority_state.key()),
+        )?;
+    
+        // 3. 发出初始化事件
         emit!(InitializeEvent {
             authority: ctx.accounts.authority.key(),
             mint: ctx.accounts.mint.key(),
@@ -237,7 +255,7 @@ pub mod wusd_token {
     
         msg!("Initialization completed successfully");
         Ok(())
-    } 
+    }
 
     /// 铸造WUSD代币
     /// * `ctx` - 铸币上下文
@@ -549,6 +567,16 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 
+    /// 权限管理账户
+    #[account(
+        init,
+        payer = authority, 
+        space = AUTHORITY_STATE_SIZE,
+        seeds = [b"authority", mint.key().as_ref()],
+        bump
+    )]
+    pub authority_state: Account<'info, AuthorityState>,
+
     /// 代币铸币账户 
     #[account(
         init,
@@ -557,16 +585,6 @@ pub struct Initialize<'info> {
         mint::authority = authority.key()
     )]
     pub mint: Account<'info, Mint>,
-
-    /// 权限管理账户
-    #[account(
-        init_if_needed,
-        payer = authority, 
-        space = AUTHORITY_STATE_SIZE,
-        seeds = [b"authority", mint.key().as_ref()],
-        bump
-    )]
-    pub authority_state: Account<'info, AuthorityState>,
 
     /// 铸币状态账户
     #[account(

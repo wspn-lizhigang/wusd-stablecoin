@@ -117,14 +117,6 @@ export type WusdToken = {
           "signer": true
         },
         {
-          "name": "mint",
-          "docs": [
-            "代币铸币账户"
-          ],
-          "writable": true,
-          "signer": true
-        },
-        {
           "name": "authorityState",
           "docs": [
             "权限管理账户"
@@ -152,6 +144,14 @@ export type WusdToken = {
               }
             ]
           }
+        },
+        {
+          "name": "mint",
+          "docs": [
+            "代币铸币账户"
+          ],
+          "writable": true,
+          "signer": true
         },
         {
           "name": "mintState",
