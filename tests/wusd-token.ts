@@ -159,6 +159,24 @@ describe("WUSD Token Mint Test", () => {
 
   it("Initialize Access Registry", async () => {
     try {
+      // 首先检查访问注册表是否已经初始化
+      try {
+        const accessRegistry = await program.account.accessRegistryState.fetch(accessRegistryPda);
+        console.log("Access Registry State:", {
+          authority: accessRegistry.authority.toString(),
+          initialized: accessRegistry.initialized,
+          operatorCount: accessRegistry.operatorCount
+        });
+        // 如果已经初始化，则跳过初始化步骤
+        if (accessRegistry.initialized) {
+          console.log("Access Registry already initialized");
+          return;
+        }
+      } catch (e) {
+        // 如果账户不存在，继续初始化流程
+        console.log("Access Registry not found, proceeding with initialization");
+      }
+
       const tx = await program.methods
         .initializeAccessRegistry()
         .accounts({
@@ -188,6 +206,12 @@ describe("WUSD Token Mint Test", () => {
 
   it("Create Recipient Token Account", async () => {
     try {
+      // 获取关联代币账户地址
+      recipientTokenAccount = await anchor.utils.token.associatedAddress({
+        mint: mintKeypair.publicKey,
+        owner: recipientKeypair.publicKey
+      });
+
       const createTokenAccountIx = createAssociatedTokenAccountInstruction(
         provider.wallet.publicKey,
         recipientTokenAccount,
@@ -195,12 +219,11 @@ describe("WUSD Token Mint Test", () => {
         mintKeypair.publicKey
       );
 
-      const tx = await provider.sendAndConfirm(
-        new anchor.web3.Transaction().add(createTokenAccountIx)
-      );
-      await provider.connection.confirmTransaction(tx, "confirmed");
+      const tx = new anchor.web3.Transaction().add(createTokenAccountIx);
+      const signature = await provider.sendAndConfirm(tx);
+      await provider.connection.confirmTransaction(signature, "confirmed");
       await sleep(1000);
-      console.log("Recipient token account created");
+      console.log("Recipient token account created:", recipientTokenAccount.toString());
     } catch (error) {
       console.error("Token account creation failed:", error);
       throw error;
@@ -226,7 +249,7 @@ describe("WUSD Token Mint Test", () => {
       }
 
       const tx = await program.methods
-        .mint(new anchor.BN(1000000))
+        .mint(new anchor.BN(1000000), authorityBump)
         .accounts({
           authority: provider.wallet.publicKey,
           mint: mintKeypair.publicKey,
