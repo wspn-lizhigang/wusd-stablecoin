@@ -28,7 +28,7 @@ const CHAIN_ID: u64 = 1; // 主网链ID
 #[cfg(feature = "devnet")]
 const CHAIN_ID: u64 = 2; // 开发网链ID
 
-declare_id!("FXKUzBGwEyDATfShWLU8AiWN3T8qHdy3FSALFSXHnWmx");
+declare_id!("6pAJiTzEfqZckz1oFKm4DcQSA8pbWtsSb7SLiNVWENee");
 
 /// 初始化事件，记录代币初始化的关键信息
 #[event]
@@ -204,18 +204,25 @@ pub mod wusd_token {
     }
 
     pub fn initialize(ctx: Context<Initialize>, decimals: u8) -> Result<()> {
+        msg!("Starting initialization...");
+        msg!("Authority: {}", ctx.accounts.authority.key());
+        msg!("Mint: {}", ctx.accounts.mint.key());
+
         // 1. 首先初始化所有状态账户
         // 初始化 AuthorityState
-        ctx.accounts.authority_state.admin = ctx.accounts.authority.key();
-        ctx.accounts.authority_state.minter = ctx.accounts.authority.key();
-        ctx.accounts.authority_state.pauser = ctx.accounts.authority.key();
+        let authority_state = &mut ctx.accounts.authority_state;
+        authority_state.admin = ctx.accounts.authority.key();
+        authority_state.minter = ctx.accounts.authority.key();
+        authority_state.pauser = ctx.accounts.authority.key();
     
         // 初始化 MintState
-        ctx.accounts.mint_state.mint = ctx.accounts.mint.key();
-        ctx.accounts.mint_state.decimals = decimals;
+        let mint_state = &mut ctx.accounts.mint_state;
+        mint_state.mint = ctx.accounts.mint.key();
+        mint_state.decimals = decimals;
     
         // 初始化 PauseState
-        ctx.accounts.pause_state.paused = false;
+        let pause_state = &mut ctx.accounts.pause_state;
+        pause_state.paused = false;
     
         // 2. 初始化 Mint
         anchor_spl::token::initialize_mint(
@@ -238,6 +245,7 @@ pub mod wusd_token {
             decimals
         });
     
+        msg!("Initialization completed successfully");
         Ok(())
     }
 
@@ -553,28 +561,15 @@ pub struct Initialize<'info> {
 
     /// 代币铸币账户 
     #[account(
-        init,
-        payer = authority,
-        // Mint 结构体空间计算:
-        // - 8 (discriminator)
-        // - 32 (mint_authority)
-        // - 32 (freeze_authority)
-        // - 8 (supply)
-        // - 1 (decimals)
-        // - 1 (is_initialized)
-        space = 8 + 32 + 32 + 8 + 1 + 1,
-        owner = token_program.key()
+        mut,
+        constraint = mint.mint_authority.unwrap() == authority.key()
     )]
     pub mint: Account<'info, Mint>,
 
     /// 权限管理账户
     #[account(
-        init,
-        payer = authority,
-        // AuthorityState 空间计算:
-        // - 8 (discriminator)
-        // - 32 (authority pubkey)
-        // - 32 (operators vec, assuming max capacity needed)
+        init_if_needed,
+        payer = authority, 
         space = 8 + 32 + 32,
         seeds = [b"authority", mint.key().as_ref()],
         bump
@@ -584,11 +579,7 @@ pub struct Initialize<'info> {
     /// 铸币状态账户
     #[account(
         init,
-        payer = authority,
-        // MintState 空间计算:
-        // - 8 (discriminator)
-        // - 32 (mint pubkey)
-        // - 1 (decimals)
+        payer = authority, 
         space = 8 + 32 + 1,
         seeds = [b"mint_state", mint.key().as_ref()],
         bump
@@ -598,10 +589,7 @@ pub struct Initialize<'info> {
     /// 暂停状态账户
     #[account(
         init,
-        payer = authority,
-        // PauseState 空间计算:
-        // - 8 (discriminator)
-        // - 1 (paused boolean)
+        payer = authority, 
         space = 8 + 1,
         seeds = [b"pause_state", mint.key().as_ref()],
         bump

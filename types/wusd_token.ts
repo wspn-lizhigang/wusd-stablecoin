@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/wusd_token.json`.
  */
 export type WusdToken = {
-  "address": "FXKUzBGwEyDATfShWLU8AiWN3T8qHdy3FSALFSXHnWmx",
+  "address": "6pAJiTzEfqZckz1oFKm4DcQSA8pbWtsSb7SLiNVWENee",
   "metadata": {
     "name": "wusdToken",
     "version": "0.1.0",
@@ -121,8 +121,7 @@ export type WusdToken = {
           "docs": [
             "代币铸币账户"
           ],
-          "writable": true,
-          "signer": true
+          "writable": true
         },
         {
           "name": "authorityState",
