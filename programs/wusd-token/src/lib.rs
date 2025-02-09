@@ -19,7 +19,14 @@ mod error;
 mod state;
 
 use state::{AuthorityState, MintState, PauseState, AllowanceState, PermitState, AccessRegistryState};
-use error::WusdError;   
+use error::WusdError;  
+
+// Account sizes
+const AUTHORITY_STATE_SIZE: usize = 8 + 32 * 3;   // discriminator + admin + minter + pauser
+const MINT_STATE_SIZE: usize = 8 + 32 + 1;        // discriminator + mint + decimals
+const PAUSE_STATE_SIZE: usize = 8 + 1;            // discriminator + paused
+const ALLOWANCE_SIZE: usize = 8 + 32 + 32 + 8;    // discriminator + owner + spender + amount
+const ACCESS_REGISTRY_SIZE: usize = 8 + 32 + 1 + (32 * 10) + 1;  // discriminator + authority + initialized + operators + operator_count
 
 // 根据部署环境选择链ID
 #[cfg(not(feature = "devnet"))]
@@ -28,7 +35,7 @@ const CHAIN_ID: u64 = 1; // 主网链ID
 #[cfg(feature = "devnet")]
 const CHAIN_ID: u64 = 2; // 开发网链ID
 
-declare_id!("6pAJiTzEfqZckz1oFKm4DcQSA8pbWtsSb7SLiNVWENee");
+declare_id!("HVSXoGKt18mhHBYBLnowVtPkYtDHBVyXWb7iUtf2JXUS");
 
 /// 初始化事件，记录代币初始化的关键信息
 #[event]
@@ -207,38 +214,21 @@ pub mod wusd_token {
         msg!("Starting initialization...");
         msg!("Authority: {}", ctx.accounts.authority.key());
         msg!("Mint: {}", ctx.accounts.mint.key());
-
-        // 1. 首先初始化所有状态账户
-        // 初始化 AuthorityState
+    
+        // 1. 初始化状态账户
         let authority_state = &mut ctx.accounts.authority_state;
         authority_state.admin = ctx.accounts.authority.key();
         authority_state.minter = ctx.accounts.authority.key();
         authority_state.pauser = ctx.accounts.authority.key();
     
-        // 初始化 MintState
         let mint_state = &mut ctx.accounts.mint_state;
         mint_state.mint = ctx.accounts.mint.key();
         mint_state.decimals = decimals;
     
-        // 初始化 PauseState
         let pause_state = &mut ctx.accounts.pause_state;
         pause_state.paused = false;
     
-        // 2. 初始化 Mint
-        anchor_spl::token::initialize_mint(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                anchor_spl::token::InitializeMint {
-                    mint: ctx.accounts.mint.to_account_info(),
-                    rent: ctx.accounts.rent.to_account_info(),
-                }
-            ),
-            decimals,
-            &ctx.accounts.authority.key(),
-            Some(&ctx.accounts.authority.key())
-        )?;
-    
-        // 3. 发出初始化事件
+        // 2. 发出初始化事件
         emit!(InitializeEvent {
             authority: ctx.accounts.authority.key(),
             mint: ctx.accounts.mint.key(),
@@ -247,7 +237,7 @@ pub mod wusd_token {
     
         msg!("Initialization completed successfully");
         Ok(())
-    }
+    } 
 
     /// 铸造WUSD代币
     /// * `ctx` - 铸币上下文
@@ -561,8 +551,10 @@ pub struct Initialize<'info> {
 
     /// 代币铸币账户 
     #[account(
-        mut,
-        constraint = mint.mint_authority.unwrap() == authority.key()
+        init,
+        payer = authority,
+        mint::decimals = decimals,
+        mint::authority = authority.key()
     )]
     pub mint: Account<'info, Mint>,
 
@@ -570,7 +562,7 @@ pub struct Initialize<'info> {
     #[account(
         init_if_needed,
         payer = authority, 
-        space = 8 + 32 + 32,
+        space = AUTHORITY_STATE_SIZE,
         seeds = [b"authority", mint.key().as_ref()],
         bump
     )]
@@ -580,7 +572,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = authority, 
-        space = 8 + 32 + 1,
+        space = MINT_STATE_SIZE,
         seeds = [b"mint_state", mint.key().as_ref()],
         bump
     )]
@@ -590,7 +582,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = authority, 
-        space = 8 + 1,
+        space = PAUSE_STATE_SIZE,
         seeds = [b"pause_state", mint.key().as_ref()],
         bump
     )]
@@ -670,7 +662,7 @@ pub struct Approve<'info> {
     #[account(
         init_if_needed,
         payer = owner,
-        space = 8 + 32 + 32 + 8,
+        space = ALLOWANCE_SIZE,
         seeds = [b"allowance", owner.key().as_ref(), spender.key().as_ref()],
         bump
     )]
@@ -737,9 +729,8 @@ pub struct InitializeAccessRegistry<'info> {
      
     #[account(
         init,
-        payer = authority,
-        // 调整空间计算：8(discriminator) + 32(pubkey) + 1(bool) + 4(vec len) + 32 * 10(预留10个操作员空间)
-        space = 8 + 32 + 1 + 4 + 32 * 10,
+        payer = authority, 
+        space = ACCESS_REGISTRY_SIZE,
         seeds = [b"access_registry"],
         bump
     )]

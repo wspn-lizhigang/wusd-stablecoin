@@ -15,11 +15,6 @@ import {
   createInitializeMintInstruction,
 } from "@solana/spl-token";
 
-const AUTHORITY_STATE_SIZE = 8 + 32 * 3; // discriminator + admin + minter + pauser
-const MINT_STATE_SIZE = 8 + 32 + 1; // discriminator + mint + decimals
-const PAUSE_STATE_SIZE = 8 + 1; // discriminator + paused
-const ACCESS_REGISTRY_SIZE = 8 + 32 + 1 + 32 * 10 + 1; // discriminator + authority + initialized + operators + operator_count
-
 describe("WUSD Token Mint Test", () => {
   // 1. 首先定义所有变量
   const provider = anchor.AnchorProvider.env();
@@ -55,17 +50,17 @@ describe("WUSD Token Mint Test", () => {
       // 2. 计算 PDA 地址
       console.log("Calculating PDA addresses...");
       [authorityPda, authorityBump] = PublicKey.findProgramAddressSync(
-        [Buffer.from("authority")],
+        [Buffer.from("authority"), mintKeypair.publicKey.toBuffer()],
         program.programId
       );
 
       [mintStatePda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("mint_state")],
+        [Buffer.from("mint_state"), mintKeypair.publicKey.toBuffer()],
         program.programId
       );
 
       [pauseStatePda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("pause_state")],
+        [Buffer.from("pause_state"), mintKeypair.publicKey.toBuffer()],
         program.programId
       );
 
@@ -86,44 +81,7 @@ describe("WUSD Token Mint Test", () => {
       );
       console.log("Airdrop completed");
 
-      // 4. 创建 Mint 账户
-      console.log("Creating mint account...");
-      const mintAccount = await provider.connection.getAccountInfo(
-        mintKeypair.publicKey
-      );
-
-      if (!mintAccount) {
-        const lamports = await getMinimumBalanceForRentExemptMint(
-          provider.connection
-        );
-        const createMintTx = new anchor.web3.Transaction().add(
-          SystemProgram.createAccount({
-            fromPubkey: provider.wallet.publicKey,
-            newAccountPubkey: mintKeypair.publicKey,
-            space: MINT_SIZE,
-            lamports,
-            programId: TOKEN_PROGRAM_ID,
-          })
-        );
-
-        await provider.sendAndConfirm(createMintTx, [mintKeypair]);
-        console.log("Mint account created");
-
-        // 初始化 Mint
-        const initMintTx = new anchor.web3.Transaction().add(
-          createInitializeMintInstruction(
-            mintKeypair.publicKey,
-            6,
-            provider.wallet.publicKey,
-            provider.wallet.publicKey
-          )
-        );
-
-        await provider.sendAndConfirm(initMintTx, []);
-        console.log("Mint initialized");
-      }
-
-      // 5. 初始化合约状态
+      // 4. 初始化合约状态
       console.log("Initializing contract state...");
       try {
         console.log("Debug: Account addresses being used:");
@@ -134,26 +92,48 @@ describe("WUSD Token Mint Test", () => {
         console.log("Pause State PDA:", pauseStatePda.toString());
         console.log("Access Registry PDA:", accessRegistryPda.toString());
 
+        // 创建交易指令
         const tx = await program.methods
-          .initialize(6) // decimals parameter
+          .initialize(6)
           .accounts({
             authority: provider.wallet.publicKey,
             mint: mintKeypair.publicKey,
             authorityState: authorityPda,
             mintState: mintStatePda,
             pauseState: pauseStatePda,
-            accessRegistry: accessRegistryPda, // 添加访问注册表账户
             systemProgram: SystemProgram.programId,
             tokenProgram: TOKEN_PROGRAM_ID,
             rent: anchor.web3.SYSVAR_RENT_PUBKEY,
           })
-          .signers([provider.wallet.payer])
-          .rpc();
+          .transaction(); // 使用 .transaction() 而不是 .rpc()
 
-        await provider.connection.confirmTransaction(tx, "confirmed");
+        // 获取最新的区块哈希
+        const latestBlockhash = await provider.connection.getLatestBlockhash();
+        tx.recentBlockhash = latestBlockhash.blockhash;
+        tx.feePayer = provider.wallet.publicKey;
+
+        // 添加签名者
+        const txSigned = await provider.wallet.signTransaction(tx);
+        txSigned.partialSign(mintKeypair);
+
+        // 发送交易
+        const signature = await provider.connection.sendRawTransaction(
+          txSigned.serialize(),
+          {
+            skipPreflight: false,
+            preflightCommitment: "confirmed",
+          }
+        );
+        await provider.connection.confirmTransaction(signature, "confirmed");
+
         console.log("Contract state initialized");
 
         // 验证初始化结果
+        const mintInfo = await provider.connection.getAccountInfo(
+          mintKeypair.publicKey
+        );
+        console.log("Mint account info:", mintInfo);
+
         const authorityState = await program.account.authorityState.fetch(
           authorityPda
         );
@@ -162,32 +142,17 @@ describe("WUSD Token Mint Test", () => {
           pauseStatePda
         );
 
-        console.log("Verification results:");
-        console.log("Authority State:", {
-          admin: authorityState.admin.toString(),
-          minter: authorityState.minter.toString(),
-          pauser: authorityState.pauser.toString(),
-        });
-        console.log("Mint State:", {
-          mint: mintState.mint.toString(),
-          decimals: mintState.decimals,
-        });
-        console.log("Pause State:", {
-          paused: pauseState.paused,
+        console.log("Verification results:", {
+          authorityState,
+          mintState,
+          pauseState,
         });
       } catch (error) {
-        console.error("Contract initialization failed with error:", error);
-        if (error.logs) {
-          console.error("Transaction logs:", error.logs);
-        }
+        console.error("Contract initialization failed:", error);
         throw error;
       }
     } catch (error) {
-      console.error("Setup failed with error:", error);
-      if (error instanceof Error) {
-        console.error("Error message:", error.message);
-        console.error("Stack trace:", error.stack);
-      }
+      console.error("Setup failed:", error);
       throw error;
     }
   });
@@ -217,121 +182,6 @@ describe("WUSD Token Mint Test", () => {
       });
     } catch (error) {
       console.error("Access Registry initialization failed:", error);
-      throw error;
-    }
-  });
-
-  it("Create and Initialize Mint", async () => {
-    try {
-      // 检查 Mint 账户是否已存在
-      const mintAccount = await provider.connection.getAccountInfo(
-        mintKeypair.publicKey
-      );
-      if (!mintAccount) {
-        // 1. 创建 Mint 账户
-        const lamports = await getMinimumBalanceForRentExemptMint(
-          provider.connection
-        );
-        const createMintAccountIx = SystemProgram.createAccount({
-          fromPubkey: provider.wallet.publicKey,
-          newAccountPubkey: mintKeypair.publicKey,
-          space: MINT_SIZE,
-          lamports,
-          programId: TOKEN_PROGRAM_ID,
-        });
-
-        // 2. 初始化 Mint
-        const initializeMintIx = createInitializeMintInstruction(
-          mintKeypair.publicKey,
-          6,
-          provider.wallet.publicKey,
-          provider.wallet.publicKey
-        );
-
-        // 3. 创建交易并发送
-        const tx = new anchor.web3.Transaction()
-          .add(createMintAccountIx)
-          .add(initializeMintIx);
-
-        await provider.sendAndConfirm(tx, [mintKeypair]);
-        await sleep(1000);
-      }
-      console.log("Mint account created and initialized");
-
-      // 4. 初始化代币合约
-      // 检查账户是否已存在
-      const authorityStateAccount = await provider.connection.getAccountInfo(
-        authorityPda
-      );
-      const mintStateAccount = await provider.connection.getAccountInfo(
-        mintStatePda
-      );
-      const pauseStateAccount = await provider.connection.getAccountInfo(
-        pauseStatePda
-      );
-
-      if (!authorityStateAccount || !mintStateAccount || !pauseStateAccount) {
-        console.log("Creating account spaces...");
-        // 使用PDA创建账户
-        const [authorityPda, authorityBump] =
-          await PublicKey.findProgramAddress(
-            [Buffer.from("authority")],
-            program.programId
-          );
-
-        const [mintStatePda] = await PublicKey.findProgramAddress(
-          [Buffer.from("mint_state")],
-          program.programId
-        );
-
-        const [pauseStatePda] = await PublicKey.findProgramAddress(
-          [Buffer.from("pause_state")],
-          program.programId
-        );
-
-        // 初始化合约状态
-        console.log("Initializing contract state...");
-        const initTx = await program.methods
-          .initialize(6)
-          .accounts({
-            authority: provider.wallet.publicKey,
-            mint: mintKeypair.publicKey,
-            authorityState: authorityPda,
-            mintState: mintStatePda,
-            pauseState: pauseStatePda,
-            systemProgram: SystemProgram.programId,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          })
-          .rpc();
-
-        await provider.connection.confirmTransaction(initTx, "confirmed");
-        await sleep(1000);
-        console.log("Contract state initialized");
-      } else {
-        console.log("Contract state already initialized, skipping...");
-      }
-
-      // 4. 初始化代币合约
-      const initTx = await program.methods
-        .initialize(6)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          mint: mintKeypair.publicKey,
-          authorityState: authorityPda,
-          mintState: mintStatePda,
-          pauseState: pauseStatePda,
-          systemProgram: SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        })
-        .rpc();
-
-      await provider.connection.confirmTransaction(initTx, "confirmed");
-      await sleep(1000);
-      console.log("WUSD Token initialized");
-    } catch (error) {
-      console.error("Mint initialization failed:", error);
       throw error;
     }
   });
