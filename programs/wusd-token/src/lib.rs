@@ -272,20 +272,22 @@ pub mod wusd_token {
             ctx.accounts.authority.is_signer,
             WusdError::Unauthorized
         );
-
+    
         require!(
             ctx.accounts.authority_state.is_minter(ctx.accounts.authority.key()),
             WusdError::NotMinter
         );
-
+    
+        // 修改这里：接收账户使用 Credit 级别检查
         require_has_access(
             ctx.accounts.token_account.owner,
-            false,
-            None,
+            false,  // is_debit = false 表示这是一个 Credit 操作
+            Some(amount),
             &ctx.accounts.pause_state,
-            Some(&ctx.accounts.access_registry) 
+            Some(&ctx.accounts.access_registry)
         )?;
-
+    
+        let mint_key = ctx.accounts.mint.key();
         token::mint_to(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
@@ -294,19 +296,23 @@ pub mod wusd_token {
                     to: ctx.accounts.token_account.to_account_info(),
                     authority: ctx.accounts.authority_state.to_account_info(),
                 },
-                &[&[b"authority", &[bump]]]
+                &[&[
+                    b"authority",
+                    mint_key.as_ref(),
+                    &[bump]
+                ]]
             ),
             amount,
         )?;
-
+    
         emit!(MintEvent {
             minter: ctx.accounts.authority.key(),
             recipient: ctx.accounts.token_account.owner,
             amount: amount
         });
-
+    
         Ok(())
-    }
+    } 
 
     /// 销毁WUSD代币
     /// * `ctx` - 销毁上下文
@@ -656,6 +662,10 @@ pub struct MintAccounts<'info> {
     pub token_account: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
     /// 权限管理账户
+    #[account(
+        seeds = [b"authority", mint.key().as_ref()],
+        bump,
+    )]
     pub authority_state: Account<'info, AuthorityState>,
     /// 铸币状态账户
     pub mint_state: Account<'info, MintState>,

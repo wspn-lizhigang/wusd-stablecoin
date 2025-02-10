@@ -9,7 +9,7 @@ import {
 } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
-  createAssociatedTokenAccountInstruction, 
+  createAssociatedTokenAccountInstruction,
 } from "@solana/spl-token";
 
 describe("WUSD Token Mint Test", () => {
@@ -282,7 +282,6 @@ describe("WUSD Token Mint Test", () => {
 
   it("Mint WUSD tokens", async () => {
     try {
-      // 1. 先打印更多调试信息
       console.log("Debug mint operation:");
       console.log(
         "Token Account Owner:",
@@ -290,7 +289,7 @@ describe("WUSD Token Mint Test", () => {
       );
       console.log("Current Authority:", provider.wallet.publicKey.toString());
 
-      // 2. 检查访问注册表状态
+      // 检查访问注册表状态
       const accessRegistry = await program.account.accessRegistryState.fetch(
         accessRegistryPda
       );
@@ -299,25 +298,8 @@ describe("WUSD Token Mint Test", () => {
         operators: accessRegistry.operators.map((op) => op.toString()),
       });
 
-      // 3. 确保接收账户也有权限
-      const tx1 = await program.methods
-        .addOperator(recipientKeypair.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          authorityState: authorityPda,
-          accessRegistry: accessRegistryPda,
-          operator: recipientKeypair.publicKey,
-        })
-        .rpc();
-
-      await provider.connection.confirmTransaction(tx1);
-      console.log("Added recipient as operator");
-
-      // 4. 等待状态更新
-      await sleep(2000);
-
-      // 5. 执行铸币操作
-      const tx2 = await program.methods
+      // 执行铸币操作
+      const tx = await program.methods
         .mint(new anchor.BN(1000000), authorityBump)
         .accounts({
           authority: provider.wallet.publicKey,
@@ -332,9 +314,10 @@ describe("WUSD Token Mint Test", () => {
         .signers([provider.wallet.payer])
         .rpc();
 
-      await provider.connection.confirmTransaction(tx2);
+      await provider.connection.confirmTransaction(tx);
       console.log("Successfully minted WUSD tokens");
 
+      // 验证铸币结果
       const tokenAccount = await provider.connection.getTokenAccountBalance(
         recipientTokenAccount
       );

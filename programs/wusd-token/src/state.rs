@@ -188,16 +188,25 @@ impl AccessRegistryState {
     }
 
     /// 检查是否有访问权限
-    pub fn has_access(&self, user: Pubkey, _level: AccessLevel) -> bool {
+    pub fn has_access(&self, user: Pubkey, level: AccessLevel) -> bool {
+        // 如果是 Credit 操作（接收代币），直接允许
+        if matches!(level, AccessLevel::Credit) {
+            return true;
+        }
+
+        // 如果是管理员，允许所有操作
         if user == self.authority {
             return true;
         }
 
-        for i in 0..self.operator_count as usize {
-            if self.operators[i] == user {
-                return true;
+        // 对于 Debit 操作（转出、销毁等），检查是否是操作员
+        if matches!(level, AccessLevel::Debit) {
+            for i in 0..self.operator_count as usize {
+                if self.operators[i] == user {
+                    return true;
+                }
             }
-        }
+        } 
         false
     }
 } 
