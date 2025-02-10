@@ -565,6 +565,57 @@ export type WusdToken = {
       ]
     },
     {
+      "name": "removeOperator",
+      "docs": [
+        "移除操作员"
+      ],
+      "discriminator": [
+        84,
+        183,
+        126,
+        251,
+        137,
+        150,
+        214,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "管理员账户"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "authorityState",
+          "docs": [
+            "权限管理状态账户"
+          ]
+        },
+        {
+          "name": "operator",
+          "docs": [
+            "要管理的操作员账户"
+          ]
+        },
+        {
+          "name": "accessRegistry",
+          "docs": [
+            "访问权限注册表"
+          ],
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "operator",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
       "name": "supportsInterface",
       "docs": [
         "检查合约是否支持指定接口",

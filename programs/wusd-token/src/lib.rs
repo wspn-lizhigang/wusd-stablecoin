@@ -578,8 +578,22 @@ pub mod wusd_token {
         access_registry.operator_count += 1;
         
         Ok(())
+    } 
+
+    /// 移除操作员
+    pub fn remove_operator(ctx: Context<ManageOperator>, operator: Pubkey) -> Result<()> {
+        let access_registry = &mut ctx.accounts.access_registry;
+        require!(access_registry.initialized, WusdError::AccessRegistryNotInitialized);
+        
+        // 确保调用者是管理员
+        require!(
+            ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
+            WusdError::Unauthorized
+        );
+        
+        // 移除操作员
+        access_registry.remove_operator(operator)
     }
-    
 
     /// 暂停合约
     /// * `ctx` - 上下文
@@ -916,4 +930,5 @@ pub struct ManageOperator<'info> {
     #[account(mut)]
     pub access_registry: Account<'info, AccessRegistryState>,
 }
+
 

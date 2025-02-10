@@ -29,6 +29,7 @@ describe("WUSD Token Mint Test", () => {
   let mintStatePda: PublicKey;
   let pauseStatePda: PublicKey;
   let accessRegistryPda: PublicKey;
+  let permitStatePda: PublicKey;
   let authorityBump: number;
 
   // 定义代币账户
@@ -64,6 +65,11 @@ describe("WUSD Token Mint Test", () => {
 
       [accessRegistryPda] = PublicKey.findProgramAddressSync(
         [Buffer.from("access_registry")],
+        program.programId
+      );
+
+      [permitStatePda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("permit"), provider.wallet.publicKey.toBuffer()],
         program.programId
       );
 
@@ -331,6 +337,28 @@ describe("WUSD Token Mint Test", () => {
 
   it("Transfer WUSD tokens", async () => {
     try {
+      // 检查当前操作员列表
+      const accessRegistry = await program.account.accessRegistryState.fetch(
+        accessRegistryPda
+      );
+      
+      // 如果操作员列表已满，移除第一个操作员
+      if (accessRegistry.operatorCount >= 10) {
+        const removeOperatorTx = await program.methods
+          .removeOperator(accessRegistry.operators[0])
+          .accounts({
+            authority: provider.wallet.publicKey,
+            authorityState: authorityPda,
+            accessRegistry: accessRegistryPda,
+            operator: accessRegistry.operators[0],
+          })
+          .rpc();
+
+        await provider.connection.confirmTransaction(removeOperatorTx);
+        console.log("Removed operator:", accessRegistry.operators[0].toString());
+        await sleep(1000);
+      }
+
       // 为发送方账户添加转账权限
       const addOperatorTx = await program.methods
         .addOperator(recipientKeypair.publicKey)
@@ -370,8 +398,8 @@ describe("WUSD Token Mint Test", () => {
       );
       console.log("Sender balance before transfer:", balanceBefore.value.uiAmount);
 
-      // 执行转账操作，转账20个WUSD代币
-      const transferAmount = new anchor.BN(20000000); 
+      // 执行转账操作
+      const transferAmount = new anchor.BN(20000000); // 20 WUSD
       const transferTx = await program.methods
         .transfer(transferAmount)
         .accounts({
@@ -380,7 +408,6 @@ describe("WUSD Token Mint Test", () => {
           fromToken: recipientTokenAccount,
           toToken: newRecipientTokenAccount,
           tokenProgram: TOKEN_PROGRAM_ID,
-          owner: recipientKeypair.publicKey,
           pauseState: pauseStatePda,
           accessRegistry: accessRegistryPda,
         })
@@ -419,6 +446,128 @@ describe("WUSD Token Mint Test", () => {
       console.log("Transfer operation successful");
     } catch (error) {
       console.error("Transfer operation failed:", error);
+      throw error;
+    }
+  });
+
+  it("Test transfer_from functionality", async () => {
+    try {
+      // 创建新的接收账户
+      const spender = Keypair.generate();
+      const spenderTokenAccount = await anchor.utils.token.associatedAddress({
+        mint: mintKeypair.publicKey,
+        owner: spender.publicKey,
+      });
+
+      // 创建接收账户的代币账户
+      const createTokenAccountIx = createAssociatedTokenAccountInstruction(
+        provider.wallet.publicKey,
+        spenderTokenAccount,
+        spender.publicKey,
+        mintKeypair.publicKey
+      );
+
+      const tx = new anchor.web3.Transaction().add(createTokenAccountIx);
+      const trs_signature = await provider.sendAndConfirm(tx);
+      await provider.connection.confirmTransaction(trs_signature, "confirmed");
+      await sleep(1000);
+
+      // 检查当前操作员列表
+      const accessRegistry = await program.account.accessRegistryState.fetch(
+        accessRegistryPda
+      );
+      console.log("Current operators:", {
+        operatorCount: accessRegistry.operatorCount,
+        operators: accessRegistry.operators.slice(0, accessRegistry.operatorCount).map(op => op.toString())
+      });
+
+      // 如果操作员列表已满，移除前两个操作员
+      if (accessRegistry.operatorCount >= 9) {
+        for (let i = 0; i < 2; i++) {
+          const operator = accessRegistry.operators[i];
+          const removeOperatorTx = await program.methods
+            .removeOperator(operator)
+            .accounts({
+              authority: provider.wallet.publicKey,
+              authorityState: authorityPda,
+              accessRegistry: accessRegistryPda,
+              operator: operator,
+            })
+            .rpc();
+
+          await provider.connection.confirmTransaction(removeOperatorTx);
+          console.log(`Removed operator ${i + 1}:`, operator.toString());
+          await sleep(1000);
+        }
+      }
+
+      // 为 spender 添加操作员权限
+      const addOperatorTx = await program.methods
+        .addOperator(spender.publicKey)
+        .accounts({
+          authority: provider.wallet.publicKey,
+          authorityState: authorityPda,
+          accessRegistry: accessRegistryPda,
+          operator: spender.publicKey,
+        })
+        .rpc();
+
+      await provider.connection.confirmTransaction(addOperatorTx);
+      console.log("Added spender as operator");
+      await sleep(1000);
+
+      // 创建授权
+      const permitTx = await program.methods
+        .permit(new anchor.BN(10000000))
+        .accounts({
+          authority: recipientKeypair.publicKey,
+          spender: spender.publicKey,
+          permit: permitStatePda,
+          systemProgram: SystemProgram.programId,
+          mintState: mintStatePda
+        })
+        .signers([recipientKeypair])
+        .rpc();
+
+      await provider.connection.confirmTransaction(permitTx, "confirmed");
+      console.log("Permit granted to spender");
+      await sleep(1000);
+
+      // 执行 transfer_from 操作
+      const transferFromTx = await program.methods
+        .transferFrom(new anchor.BN(10000000))
+        .accounts({
+          from: recipientKeypair.publicKey,
+          to: spender.publicKey,
+          fromToken: recipientTokenAccount,
+          toToken: spenderTokenAccount,
+          spender: spender.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          pauseState: pauseStatePda,
+          accessRegistry: accessRegistryPda,
+          mintState: mintStatePda,
+          allowance: permitStatePda
+        })
+        .signers([spender, recipientKeypair])
+        .rpc();
+
+      await provider.connection.confirmTransaction(transferFromTx, "confirmed");
+      console.log("TransferFrom executed successfully");
+
+      // 验证转账结果
+      const fromBalance = await provider.connection.getTokenAccountBalance(
+        recipientTokenAccount
+      );
+      const spenderBalance = await provider.connection.getTokenAccountBalance(
+        spenderTokenAccount
+      );
+
+      console.log("From account balance after transfer:", fromBalance.value.uiAmount);
+      console.log("Spender account balance:", spenderBalance.value.uiAmount);
+
+      console.log("TransferFrom operation successful");
+    } catch (error) {
+      console.error("TransferFrom operation failed:", error);
       throw error;
     }
   });
