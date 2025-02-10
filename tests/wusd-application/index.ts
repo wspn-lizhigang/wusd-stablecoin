@@ -1,10 +1,10 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { WusdApplication } from "../target/types/wusd_application";
+import { WusdApplication } from "../../target/types/wusd_application";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, createMint, mintTo, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
-import { config } from './wusd-application-config';
-import { newAccountWithLamports } from './util/new-account-with-lamports';
+import { config } from './config';
+import { newAccountWithLamports } from '../util/new-account-with-lamports';
 
 describe("WUSD Application", () => {
   // 最大重试次数

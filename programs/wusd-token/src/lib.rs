@@ -35,7 +35,7 @@ const CHAIN_ID: u64 = 1; // 主网链ID
 #[cfg(feature = "devnet")]
 const CHAIN_ID: u64 = 2; // 开发网链ID
 
-declare_id!("HVSXoGKt18mhHBYBLnowVtPkYtDHBVyXWb7iUtf2JXUS");
+declare_id!("43eXSSqZGLVkn9sTkMoR7nm9oKzc1R8DhAVBkPgUbCyc");
 
 /// 初始化事件，记录代币初始化的关键信息
 #[event]

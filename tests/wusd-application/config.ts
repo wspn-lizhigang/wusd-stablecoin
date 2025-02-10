@@ -1,3 +1,10 @@
+/*
+ * @Author: 李志刚
+ * @Date: 2025-01-23 01:07:58
+ * @LastEditors: 李志刚
+ * @LastEditTime: 2025-02-10 15:51:24
+ * @Description: 
+ */
 export const config = {
     // 连接配置
     rpcUrl: "http://127.0.0.1:8899",

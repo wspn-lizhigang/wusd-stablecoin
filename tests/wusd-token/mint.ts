@@ -1,6 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { WusdToken } from "../target/types/wusd_token";
+import { WusdToken } from "../../target/types/wusd_token";
 import {
   PublicKey,
   SystemProgram,
@@ -300,7 +300,7 @@ describe("WUSD Token Mint Test", () => {
 
       // 执行铸币操作
       const tx = await program.methods
-        .mint(new anchor.BN(1000000), authorityBump)
+        .mint(new anchor.BN(100000000), authorityBump)
         .accounts({
           authority: provider.wallet.publicKey,
           mint: mintKeypair.publicKey,
