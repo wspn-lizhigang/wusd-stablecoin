@@ -14,6 +14,57 @@ export type WusdToken = {
   },
   "instructions": [
     {
+      "name": "addOperator",
+      "docs": [
+        "添加操作员"
+      ],
+      "discriminator": [
+        149,
+        142,
+        187,
+        68,
+        33,
+        250,
+        87,
+        105
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "管理员账户"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "authorityState",
+          "docs": [
+            "权限管理状态账户"
+          ]
+        },
+        {
+          "name": "operator",
+          "docs": [
+            "要管理的操作员账户"
+          ]
+        },
+        {
+          "name": "accessRegistry",
+          "docs": [
+            "访问权限注册表"
+          ],
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "operator",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
       "name": "burn",
       "docs": [
         "销毁WUSD代币",
@@ -880,77 +931,82 @@ export type WusdToken = {
     {
       "code": 6000,
       "name": "contractPaused",
-      "msg": ""
+      "msg": "Contract is paused"
     },
     {
       "code": 6001,
       "name": "invalidAmount",
-      "msg": ""
+      "msg": "Invalid amount"
     },
     {
       "code": 6002,
       "name": "invalidDecimals",
-      "msg": ""
+      "msg": "Invalid decimals"
     },
     {
       "code": 6003,
       "name": "invalidSignature",
-      "msg": ""
+      "msg": "Invalid signature"
     },
     {
       "code": 6004,
       "name": "invalidNonce",
-      "msg": ""
+      "msg": "Invalid nonce"
     },
     {
       "code": 6005,
       "name": "invalidScope",
-      "msg": ""
+      "msg": "Invalid scope"
     },
     {
       "code": 6006,
       "name": "expiredPermit",
-      "msg": ""
+      "msg": "Permit expired"
     },
     {
       "code": 6007,
       "name": "unauthorized",
-      "msg": ""
+      "msg": "unauthorized"
     },
     {
       "code": 6008,
       "name": "notMinter",
-      "msg": ""
+      "msg": "Not a minter"
     },
     {
       "code": 6009,
       "name": "notBurner",
-      "msg": ""
+      "msg": "Not a burner"
     },
     {
       "code": 6010,
       "name": "insufficientBalance",
-      "msg": ""
+      "msg": "Insufficient balance"
     },
     {
       "code": 6011,
       "name": "tooManyOperators",
-      "msg": ""
+      "msg": "Too many operators"
     },
     {
       "code": 6012,
       "name": "operatorNotFound",
-      "msg": ""
+      "msg": "Operator not found"
     },
     {
       "code": 6013,
       "name": "accessDenied",
-      "msg": ""
+      "msg": "Access denied"
     },
     {
       "code": 6014,
       "name": "insufficientFunds",
-      "msg": ""
+      "msg": "Insufficient funds"
+    },
+    {
+      "code": 6015,
+      "name": "accessRegistryNotInitialized",
+      "msg": "Access registry not initialized"
     }
   ],
   "types": [

@@ -2,34 +2,36 @@ use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum WusdError {
-    #[msg("合约已暂停")]
+    #[msg("Contract is paused")]
     ContractPaused,
-    #[msg("无效金额")]
+    #[msg("Invalid amount")]
     InvalidAmount,
-    #[msg("无效精度")]
+    #[msg("Invalid decimals")]
     InvalidDecimals,
-    #[msg("无效签名")]
+    #[msg("Invalid signature")]
     InvalidSignature,
-    #[msg("无效随机数")]
+    #[msg("Invalid nonce")]
     InvalidNonce,
-    #[msg("无效范围")]
+    #[msg("Invalid scope")]
     InvalidScope,
-    #[msg("许可已过期")]
+    #[msg("Permit expired")]
     ExpiredPermit,
-    #[msg("未授权操作")]
+    #[msg("Unauthorized")]
     Unauthorized,
-    #[msg("非铸币者")]
+    #[msg("Not a minter")]
     NotMinter,
-    #[msg("非销毁者")]
+    #[msg("Not a burner")]
     NotBurner,
-    #[msg("余额不足")]
+    #[msg("Insufficient balance")]
     InsufficientBalance,
-    #[msg("操作员数量超过限制")]
+    #[msg("Too many operators")]
     TooManyOperators,
-    #[msg("操作员不存在")]
+    #[msg("Operator not found")]
     OperatorNotFound,
-    #[msg("访问被拒绝")]
+    #[msg("Access denied")]
     AccessDenied,
-    #[msg("资金不足")]
+    #[msg("Insufficient funds")]
     InsufficientFunds,
+    #[msg("Access registry not initialized")]
+    AccessRegistryNotInitialized,
 }

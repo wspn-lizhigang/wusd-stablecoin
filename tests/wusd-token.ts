@@ -9,10 +9,7 @@ import {
 } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
-  createAssociatedTokenAccountInstruction,
-  MINT_SIZE,
-  getMinimumBalanceForRentExemptMint,
-  createInitializeMintInstruction,
+  createAssociatedTokenAccountInstruction, 
 } from "@solana/spl-token";
 
 describe("WUSD Token Mint Test", () => {
@@ -159,24 +156,23 @@ describe("WUSD Token Mint Test", () => {
 
   it("Initialize Access Registry", async () => {
     try {
-      // 首先检查访问注册表是否已经初始化
-      try {
-        const accessRegistry = await program.account.accessRegistryState.fetch(accessRegistryPda);
-        console.log("Access Registry State:", {
-          authority: accessRegistry.authority.toString(),
-          initialized: accessRegistry.initialized,
-          operatorCount: accessRegistry.operatorCount
-        });
-        // 如果已经初始化，则跳过初始化步骤
+      // 首先检查账户是否存在
+      const accountInfo = await provider.connection.getAccountInfo(
+        accessRegistryPda
+      );
+
+      if (accountInfo !== null) {
+        // 如果账户已存在，验证其状态
+        const accessRegistry = await program.account.accessRegistryState.fetch(
+          accessRegistryPda
+        );
         if (accessRegistry.initialized) {
           console.log("Access Registry already initialized");
           return;
         }
-      } catch (e) {
-        // 如果账户不存在，继续初始化流程
-        console.log("Access Registry not found, proceeding with initialization");
       }
 
+      // 初始化访问注册表
       const tx = await program.methods
         .initializeAccessRegistry()
         .accounts({
@@ -184,22 +180,73 @@ describe("WUSD Token Mint Test", () => {
           accessRegistry: accessRegistryPda,
           systemProgram: SystemProgram.programId,
         })
-        .signers([provider.wallet.payer])
         .rpc();
 
-      await provider.connection.confirmTransaction(tx, "confirmed");
+      await provider.connection.confirmTransaction(tx);
 
       // 验证初始化结果
       const accessRegistry = await program.account.accessRegistryState.fetch(
         accessRegistryPda
       );
-      console.log("Access Registry initialized:", {
+      console.log("Access Registry State after initialization:", {
         authority: accessRegistry.authority.toString(),
         initialized: accessRegistry.initialized,
         operatorCount: accessRegistry.operatorCount,
       });
+
+      // 确保初始化成功
+      if (!accessRegistry.initialized) {
+        throw new Error("Access Registry initialization failed");
+      }
+
+      console.log("Access Registry initialized successfully");
     } catch (error) {
       console.error("Access Registry initialization failed:", error);
+      throw error;
+    }
+  });
+
+  it("Set minter access", async () => {
+    try {
+      // 添加重试机制
+      let retries = 3;
+      let accessRegistry;
+
+      while (retries > 0) {
+        accessRegistry = await program.account.accessRegistryState.fetch(
+          accessRegistryPda
+        );
+
+        if (accessRegistry.initialized) {
+          break;
+        }
+
+        console.log(
+          `Waiting for access registry initialization... (${retries} retries left)`
+        );
+        await sleep(1000); // 等待1秒
+        retries--;
+      }
+
+      if (!accessRegistry.initialized) {
+        throw new Error("Access Registry not initialized after retries");
+      }
+
+      // 添加铸币权限
+      const tx = await program.methods
+        .addOperator(provider.wallet.publicKey)
+        .accounts({
+          authority: provider.wallet.publicKey,
+          authorityState: authorityPda,
+          accessRegistry: accessRegistryPda,
+          operator: provider.wallet.publicKey,
+        })
+        .rpc();
+
+      await provider.connection.confirmTransaction(tx);
+      console.log("Minter access granted");
+    } catch (error) {
+      console.error("Failed to set minter access:", error);
       throw error;
     }
   });
@@ -209,7 +256,7 @@ describe("WUSD Token Mint Test", () => {
       // 获取关联代币账户地址
       recipientTokenAccount = await anchor.utils.token.associatedAddress({
         mint: mintKeypair.publicKey,
-        owner: recipientKeypair.publicKey
+        owner: recipientKeypair.publicKey,
       });
 
       const createTokenAccountIx = createAssociatedTokenAccountInstruction(
@@ -223,7 +270,10 @@ describe("WUSD Token Mint Test", () => {
       const signature = await provider.sendAndConfirm(tx);
       await provider.connection.confirmTransaction(signature, "confirmed");
       await sleep(1000);
-      console.log("Recipient token account created:", recipientTokenAccount.toString());
+      console.log(
+        "Recipient token account created:",
+        recipientTokenAccount.toString()
+      );
     } catch (error) {
       console.error("Token account creation failed:", error);
       throw error;
@@ -232,23 +282,42 @@ describe("WUSD Token Mint Test", () => {
 
   it("Mint WUSD tokens", async () => {
     try {
-      // 首先检查访问权限
+      // 1. 先打印更多调试信息
+      console.log("Debug mint operation:");
+      console.log(
+        "Token Account Owner:",
+        recipientKeypair.publicKey.toString()
+      );
+      console.log("Current Authority:", provider.wallet.publicKey.toString());
+
+      // 2. 检查访问注册表状态
       const accessRegistry = await program.account.accessRegistryState.fetch(
         accessRegistryPda
       );
-      console.log("Access Registry State:", {
-        authority: accessRegistry.authority.toString(),
-        initialized: accessRegistry.initialized,
+      console.log("Access Registry Status:", {
         operatorCount: accessRegistry.operatorCount,
+        operators: accessRegistry.operators.map((op) => op.toString()),
       });
 
-      // 检查暂停状态
-      const pauseState = await program.account.pauseState.fetch(pauseStatePda);
-      if (pauseState.paused) {
-        throw new Error("Contract is paused");
-      }
+      // 3. 确保接收账户也有权限
+      const tx1 = await program.methods
+        .addOperator(recipientKeypair.publicKey)
+        .accounts({
+          authority: provider.wallet.publicKey,
+          authorityState: authorityPda,
+          accessRegistry: accessRegistryPda,
+          operator: recipientKeypair.publicKey,
+        })
+        .rpc();
 
-      const tx = await program.methods
+      await provider.connection.confirmTransaction(tx1);
+      console.log("Added recipient as operator");
+
+      // 4. 等待状态更新
+      await sleep(2000);
+
+      // 5. 执行铸币操作
+      const tx2 = await program.methods
         .mint(new anchor.BN(1000000), authorityBump)
         .accounts({
           authority: provider.wallet.publicKey,
@@ -263,7 +332,7 @@ describe("WUSD Token Mint Test", () => {
         .signers([provider.wallet.payer])
         .rpc();
 
-      await provider.connection.confirmTransaction(tx, "confirmed");
+      await provider.connection.confirmTransaction(tx2);
       console.log("Successfully minted WUSD tokens");
 
       const tokenAccount = await provider.connection.getTokenAccountBalance(

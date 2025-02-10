@@ -129,13 +129,17 @@ pub fn require_has_access(
     pause_state: &PauseState,
     access_registry: Option<&AccessRegistryState>,
 ) -> Result<()> {
+    // 确保合约未暂停
     pause_state.validate_not_paused()?;
 
+    // 验证金额，确保大于0且不为None
     if let Some(amount) = amount {
         require!(amount > 0, WusdError::InvalidAmount);
     }
 
+    // 验证访问权限
     if let Some(registry) = access_registry {
+        require!(registry.initialized, WusdError::AccessRegistryNotInitialized);
         let required_level = if is_debit {
             AccessLevel::Debit
         } else {
@@ -207,6 +211,7 @@ pub mod wusd_token {
         access_registry.authority = ctx.accounts.authority.key();
         access_registry.operator_count = 0;
         access_registry.operators = [Pubkey::default(); 10];
+        access_registry.initialized = true;
         Ok(())
     }
 
@@ -528,6 +533,32 @@ pub mod wusd_token {
 
         Ok(interface_id == erc20_interface_id || interface_id == permit_interface_id)
     }
+    
+    /// 添加操作员
+    pub fn add_operator(ctx: Context<ManageOperator>, operator: Pubkey) -> Result<()> {
+        let access_registry = &mut ctx.accounts.access_registry;
+        require!(access_registry.initialized, WusdError::AccessRegistryNotInitialized);
+        
+        // 确保调用者是管理员
+        require!(
+            ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
+            WusdError::Unauthorized
+        );
+        
+        // 检查操作员数量限制
+        require!(
+            access_registry.operator_count < 10,
+            WusdError::TooManyOperators
+        );
+        
+        // 添加操作员
+        let current_count = access_registry.operator_count as usize;
+        access_registry.operators[current_count] = operator;
+        access_registry.operator_count += 1;
+        
+        Ok(())
+    }
+    
 
     /// 暂停合约
     /// * `ctx` - 上下文
