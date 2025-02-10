@@ -12,6 +12,8 @@ import {
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountInstruction,
 } from "@solana/spl-token";
+const crypto = require('crypto');
+const nacl = require('tweetnacl');
 
 describe("WUSD Token Mint Test", () => {
   // 1. 首先定义所有变量
@@ -341,7 +343,7 @@ describe("WUSD Token Mint Test", () => {
       const accessRegistry = await program.account.accessRegistryState.fetch(
         accessRegistryPda
       );
-      
+
       // 如果操作员列表已满，移除第一个操作员
       if (accessRegistry.operatorCount >= 10) {
         const removeOperatorTx = await program.methods
@@ -355,7 +357,10 @@ describe("WUSD Token Mint Test", () => {
           .rpc();
 
         await provider.connection.confirmTransaction(removeOperatorTx);
-        console.log("Removed operator:", accessRegistry.operators[0].toString());
+        console.log(
+          "Removed operator:",
+          accessRegistry.operators[0].toString()
+        );
         await sleep(1000);
       }
 
@@ -375,10 +380,11 @@ describe("WUSD Token Mint Test", () => {
 
       // 创建新的接收账户
       const newRecipient = Keypair.generate();
-      const newRecipientTokenAccount = await anchor.utils.token.associatedAddress({
-        mint: mintKeypair.publicKey,
-        owner: newRecipient.publicKey,
-      });
+      const newRecipientTokenAccount =
+        await anchor.utils.token.associatedAddress({
+          mint: mintKeypair.publicKey,
+          owner: newRecipient.publicKey,
+        });
 
       // 创建接收账户的代币账户
       const createTokenAccountIx = createAssociatedTokenAccountInstruction(
@@ -396,7 +402,10 @@ describe("WUSD Token Mint Test", () => {
       const balanceBefore = await provider.connection.getTokenAccountBalance(
         recipientTokenAccount
       );
-      console.log("Sender balance before transfer:", balanceBefore.value.uiAmount);
+      console.log(
+        "Sender balance before transfer:",
+        balanceBefore.value.uiAmount
+      );
 
       // 执行转账操作
       const transferAmount = new anchor.BN(20000000); // 20 WUSD
@@ -417,18 +426,21 @@ describe("WUSD Token Mint Test", () => {
       await provider.connection.confirmTransaction(transferTx, "confirmed");
 
       // 验证转账结果
-      const senderBalanceAfter = await provider.connection.getTokenAccountBalance(
-        recipientTokenAccount
-      );
+      const senderBalanceAfter =
+        await provider.connection.getTokenAccountBalance(recipientTokenAccount);
       const receiverBalance = await provider.connection.getTokenAccountBalance(
         newRecipientTokenAccount
       );
 
-      console.log("Sender balance after transfer:", senderBalanceAfter.value.uiAmount);
+      console.log(
+        "Sender balance after transfer:",
+        senderBalanceAfter.value.uiAmount
+      );
       console.log("Receiver balance:", receiverBalance.value.uiAmount);
 
       // 验证余额变化
-      const expectedSenderBalance = balanceBefore.value.uiAmount - transferAmount.toNumber() / 1000000;
+      const expectedSenderBalance =
+        balanceBefore.value.uiAmount - transferAmount.toNumber() / 1000000;
       assert.approximately(
         senderBalanceAfter.value.uiAmount,
         expectedSenderBalance,
@@ -454,6 +466,18 @@ describe("WUSD Token Mint Test", () => {
     try {
       // 创建新的接收账户
       const spender = Keypair.generate();
+
+      // 为 recipientKeypair 请求空投
+      const airdropSignature = await provider.connection.requestAirdrop(
+        recipientKeypair.publicKey,
+        10 * LAMPORTS_PER_SOL // 空投 10 SOL
+      );
+      await provider.connection.confirmTransaction(
+        airdropSignature,
+        "confirmed"
+      );
+      console.log("Airdropped SOL to recipient");
+
       const spenderTokenAccount = await anchor.utils.token.associatedAddress({
         mint: mintKeypair.publicKey,
         owner: spender.publicKey,
@@ -478,7 +502,9 @@ describe("WUSD Token Mint Test", () => {
       );
       console.log("Current operators:", {
         operatorCount: accessRegistry.operatorCount,
-        operators: accessRegistry.operators.slice(0, accessRegistry.operatorCount).map(op => op.toString())
+        operators: accessRegistry.operators
+          .slice(0, accessRegistry.operatorCount)
+          .map((op) => op.toString()),
       });
 
       // 如果操作员列表已满，移除前两个操作员
@@ -516,56 +542,117 @@ describe("WUSD Token Mint Test", () => {
       console.log("Added spender as operator");
       await sleep(1000);
 
-      // 创建授权
+      // 创建 permit 状态账户的 PDA
+      const [permitStatePda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("permit"), recipientKeypair.publicKey.toBuffer()],
+        program.programId
+      );
+
+      // 创建 allowance 状态账户的 PDA
+      const [allowanceStatePda] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("allowance"),
+          recipientKeypair.publicKey.toBuffer(),
+          spender.publicKey.toBuffer(),
+        ],
+        program.programId
+      );
+
+      // 执行 permit 操作
+      // 构建许可消息
+      const message = {
+        contract: TOKEN_PROGRAM_ID,
+        domain_separator: new Uint8Array(32),
+        owner: recipientKeypair.publicKey,
+        spender: spender.publicKey,
+        amount: new anchor.BN(10000000),
+        nonce: new anchor.BN(0),
+        deadline: new anchor.BN(Math.floor(Date.now() / 1000) + 3600),
+        scope: { transfer: {} },
+        chain_id: new anchor.BN(1),
+        version: program.programId.toBytes()
+      };
+      
+      // 序列化消息
+      const messageBytes = Buffer.from(anchor.utils.bytes.utf8.encode(JSON.stringify(message)));
+      const prefix = Buffer.from('\x19Solana Signed Message:\n32');
+      const messageBuffer = Buffer.concat([prefix, messageBytes]);
+      
+      // 生成签名
+      const messageHash = crypto.createHash('sha256').update(messageBuffer).digest();
+      // 调用permit方法
       const permitTx = await program.methods
-        .permit(new anchor.BN(10000000))
-        .accounts({
-          authority: recipientKeypair.publicKey,
-          spender: spender.publicKey,
-          permit: permitStatePda,
-          systemProgram: SystemProgram.programId,
-          mintState: mintStatePda
+        .permit({
+          amount: new anchor.BN(10000000),
+          deadline: new anchor.BN(Math.floor(Date.now() / 1000) + 3600),
+          nonce: null,
+          scope: { transfer: {} }
         })
+        .accounts({
+          owner: recipientKeypair.publicKey,
+          spender: spender.publicKey,
+          allowance: allowanceStatePda,
+          permitState: permitStatePda,
+          mintState: mintStatePda,
+          systemProgram: SystemProgram.programId,
+          ed25519Program: new PublicKey('Ed25519SigVerify111111111111111111111111111')
+        })
+        .remainingAccounts([
+          {
+            pubkey: recipientKeypair.publicKey,
+            isWritable: false,
+            isSigner: true
+          }
+        ])
         .signers([recipientKeypair])
         .rpc();
 
-      await provider.connection.confirmTransaction(permitTx, "confirmed");
-      console.log("Permit granted to spender");
+      await provider.connection.confirmTransaction(permitTx);
+      console.log("Permit granted successfully");
       await sleep(1000);
+
+      // 添加调试日志
+      console.log("Debug transfer_from setup:", {
+        spender: spender.publicKey.toString(),
+        from: recipientKeypair.publicKey.toString(),
+        allowance: permitStatePda.toString(),
+      });
 
       // 执行 transfer_from 操作
       const transferFromTx = await program.methods
         .transferFrom(new anchor.BN(10000000))
         .accounts({
+          spender: spender.publicKey,
           from: recipientKeypair.publicKey,
           to: spender.publicKey,
           fromToken: recipientTokenAccount,
           toToken: spenderTokenAccount,
-          spender: spender.publicKey,
+          allowance: allowanceStatePda,
           tokenProgram: TOKEN_PROGRAM_ID,
           pauseState: pauseStatePda,
           accessRegistry: accessRegistryPda,
-          mintState: mintStatePda,
-          allowance: permitStatePda
+          mintState: mintStatePda, // 确保添加 mintState
         })
-        .signers([spender, recipientKeypair])
+        .signers([spender])
         .rpc();
 
-      await provider.connection.confirmTransaction(transferFromTx, "confirmed");
-      console.log("TransferFrom executed successfully");
-
-      // 验证转账结果
-      const fromBalance = await provider.connection.getTokenAccountBalance(
+      // 添加余额检查
+      const beforeBalance = await provider.connection.getTokenAccountBalance(
         recipientTokenAccount
       );
-      const spenderBalance = await provider.connection.getTokenAccountBalance(
-        spenderTokenAccount
+      console.log(
+        "Before transfer_from balance:",
+        beforeBalance.value.uiAmount
       );
 
-      console.log("From account balance after transfer:", fromBalance.value.uiAmount);
-      console.log("Spender account balance:", spenderBalance.value.uiAmount);
+      // 执行转账
+      await provider.connection.confirmTransaction(transferFromTx);
 
-      console.log("TransferFrom operation successful");
+      // 检查转账后的余额
+      const afterBalance = await provider.connection.getTokenAccountBalance(
+        recipientTokenAccount
+      );
+      console.log("After transfer_from balance:", afterBalance.value.uiAmount);
     } catch (error) {
       console.error("TransferFrom operation failed:", error);
       throw error;
@@ -604,7 +691,7 @@ describe("WUSD Token Mint Test", () => {
       console.log("Balance before burn:", balanceBefore.value.uiAmount);
 
       // 2. 执行销毁操作，销毁50个WUSD代币
-      const burnAmount = new anchor.BN(50000000);   
+      const burnAmount = new anchor.BN(50000000);
 
       // 直接使用 program.methods 的 rpc() 方法发送交易
       const tx = await program.methods

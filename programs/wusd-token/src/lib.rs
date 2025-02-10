@@ -25,6 +25,7 @@ use error::WusdError;
 const AUTHORITY_STATE_SIZE: usize = 8 + 32 * 3;   // discriminator + admin + minter + pauser
 const MINT_STATE_SIZE: usize = 8 + 32 + 1;        // discriminator + mint + decimals
 const PAUSE_STATE_SIZE: usize = 8 + 1;            // discriminator + paused
+const PERMIT_SIZE: usize = 8 + 32 + 8;            // discriminator + owner + spender + nonce
 const ALLOWANCE_SIZE: usize = 8 + 32 + 32 + 8;    // discriminator + owner + spender + amount
 const ACCESS_REGISTRY_SIZE: usize = 8 + 32 + 1 + (32 * 10) + 1;  // discriminator + authority + initialized + operators + operator_count
 
@@ -431,6 +432,20 @@ pub mod wusd_token {
     /// * `ctx` - 转账上下文
     /// * `amount` - 转账数量
     pub fn transfer_from(ctx: Context<TransferFrom>, amount: u64) -> Result<()> {
+        require!(
+            ctx.accounts.from.is_signer || ctx.accounts.spender.is_signer,
+            WusdError::Unauthorized
+        ); 
+
+        // 检查 spender 是否有权限操作 from 账户
+        require!(
+            ctx.accounts.access_registry.has_access(
+                ctx.accounts.spender.key(),
+                AccessLevel::Debit
+            ),
+            WusdError::AccessDenied
+        );
+
         require_has_access(
             ctx.accounts.from_token.owner,
             true,
@@ -825,7 +840,7 @@ pub struct InitializeAccessRegistry<'info> {
 pub struct TransferFrom<'info> {
     #[account(mut)]
     pub spender: Signer<'info>,
-    /// CHECK: This account is not read or written to
+    /// CHECK: This is the from account
     #[account(mut)]
     pub from: AccountInfo<'info>,
     /// CHECK: This account is not read or written to
@@ -851,21 +866,25 @@ pub struct TransferFrom<'info> {
 #[instruction(params: PermitParams)]
 pub struct Permit<'info> {
     #[account(mut, signer)]
-    pub owner: Account<'info, TokenAccount>,
+    pub owner: Signer<'info>, 
 
     /// CHECK: This is the spender account that will be granted permission
     #[account(mut)]
-    pub spender: UncheckedAccount<'info>,
+    pub spender: AccountInfo<'info>,
 
     #[account(
-        mut,
+        init_if_needed,  // 添加 init_if_needed
+        payer = owner,
+        space = ALLOWANCE_SIZE,  
         seeds = [b"allowance", owner.key().as_ref(), spender.key().as_ref()],
         bump
     )]
     pub allowance: Box<Account<'info, AllowanceState>>,
 
     #[account(
-        mut,
+        init_if_needed,  // 添加 init_if_needed
+        payer = owner,
+        space = PERMIT_SIZE,  // discriminator + owner + nonce
         seeds = [b"permit", owner.key().as_ref()],
         bump
     )]
@@ -876,7 +895,7 @@ pub struct Permit<'info> {
 
     #[account(address = token::ID)]
     pub token_program: Program<'info, Token>,
-    
+    pub system_program: Program<'info, System>, 
     pub clock: Sysvar<'info, Clock>,
 } 
 

@@ -549,6 +549,10 @@ export type WusdToken = {
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
           "name": "clock",
           "address": "SysvarC1ock11111111111111111111111111111111"
         }
