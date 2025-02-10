@@ -1,5 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
+import { assert } from "chai";
 import { WusdToken } from "../../target/types/wusd_token";
 import {
   PublicKey,
@@ -129,7 +130,7 @@ describe("WUSD Token Mint Test", () => {
         const mintInfo = await provider.connection.getAccountInfo(
           mintKeypair.publicKey
         );
-        console.log("Mint account info:", mintInfo);
+        //console.log("Mint account info:", mintInfo);
 
         const authorityState = await program.account.authorityState.fetch(
           authorityPda
@@ -139,11 +140,11 @@ describe("WUSD Token Mint Test", () => {
           pauseStatePda
         );
 
-        console.log("Verification results:", {
-          authorityState,
-          mintState,
-          pauseState,
-        });
+        // console.log("Verification results:", {
+        //   authorityState,
+        //   mintState,
+        //   pauseState,
+        // });
       } catch (error) {
         console.error("Contract initialization failed:", error);
         throw error;
@@ -293,10 +294,10 @@ describe("WUSD Token Mint Test", () => {
       const accessRegistry = await program.account.accessRegistryState.fetch(
         accessRegistryPda
       );
-      console.log("Access Registry Status:", {
-        operatorCount: accessRegistry.operatorCount,
-        operators: accessRegistry.operators.map((op) => op.toString()),
-      });
+      // console.log("Access Registry Status:", {
+      //   operatorCount: accessRegistry.operatorCount,
+      //   operators: accessRegistry.operators.map((op) => op.toString()),
+      // });
 
       // 执行铸币操作
       const tx = await program.methods
@@ -324,6 +325,84 @@ describe("WUSD Token Mint Test", () => {
       console.log("Token balance:", tokenAccount.value.uiAmount);
     } catch (error) {
       console.error("Minting failed:", error);
+      throw error;
+    }
+  });
+
+  it("Set burn access", async () => {
+    try {
+      // 添加销毁权限
+      const tx = await program.methods
+        .addOperator(recipientKeypair.publicKey) // 为recipientKeypair添加操作员权限
+        .accounts({
+          authority: provider.wallet.publicKey,
+          authorityState: authorityPda,
+          accessRegistry: accessRegistryPda,
+          operator: recipientKeypair.publicKey,
+        })
+        .rpc();
+
+      await provider.connection.confirmTransaction(tx);
+      console.log("Burn access granted");
+    } catch (error) {
+      console.error("Failed to set burn access:", error);
+      throw error;
+    }
+  });
+
+  it("Burn WUSD tokens", async () => {
+    try {
+      console.log("Starting burn test...");
+
+      // 1. 获取销毁前的余额
+      const balanceBefore = await provider.connection.getTokenAccountBalance(
+        recipientTokenAccount
+      );
+      console.log("Balance before burn:", balanceBefore.value.uiAmount);
+
+      // 2. 执行销毁操作
+      const burnAmount = new anchor.BN(50000000); // 销毁0.5个代币
+
+      // 直接使用 program.methods 的 rpc() 方法发送交易
+      const tx = await program.methods
+        .burn(burnAmount)
+        .accounts({
+          authorityState: authorityPda,
+          authority: recipientKeypair.publicKey,
+          mint: mintKeypair.publicKey,
+          tokenAccount: recipientTokenAccount,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          mintState: mintStatePda,
+          pauseState: pauseStatePda,
+          accessRegistry: accessRegistryPda,
+          mintAuthority: recipientKeypair.publicKey,
+        })
+        .signers([recipientKeypair])
+        .rpc();
+
+      // 3. 等待交易确认
+      await provider.connection.confirmTransaction(tx, "confirmed");
+      console.log("Transaction confirmed:", tx);
+
+      // 4. 验证销毁结果
+      const balanceAfter = await provider.connection.getTokenAccountBalance(
+        recipientTokenAccount
+      );
+      console.log("Balance after burn:", balanceAfter.value.uiAmount);
+
+      // 5. 验证余额变化
+      const expectedBalance =
+        balanceBefore.value.uiAmount - burnAmount.toNumber() / 1000000;
+      assert.approximately(
+        balanceAfter.value.uiAmount,
+        expectedBalance,
+        0.000001,
+        "Burn amount not correctly deducted"
+      );
+
+      console.log("Burn operation successful");
+    } catch (error) {
+      console.error("Burn operation failed:", error);
       throw error;
     }
   });

@@ -88,29 +88,8 @@ export type WusdToken = {
         },
         {
           "name": "mintAuthority",
-          "signer": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109,
-                  105,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "authorityState"
-              }
-            ]
-          }
+          "writable": true,
+          "signer": true
         },
         {
           "name": "authority",
@@ -1029,6 +1008,11 @@ export type WusdToken = {
       "code": 6015,
       "name": "accessRegistryNotInitialized",
       "msg": "Access registry not initialized"
+    },
+    {
+      "code": 6016,
+      "name": "invalidOwner",
+      "msg": "Invalid owner"
     }
   ],
   "types": [

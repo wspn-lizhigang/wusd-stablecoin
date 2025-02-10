@@ -34,4 +34,6 @@ pub enum WusdError {
     InsufficientFunds,
     #[msg("Access registry not initialized")]
     AccessRegistryNotInitialized,
+    #[msg("Invalid owner")]
+    InvalidOwner,
 }

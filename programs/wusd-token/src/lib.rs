@@ -318,29 +318,37 @@ pub mod wusd_token {
     /// * `ctx` - 销毁上下文
     /// * `amount` - 销毁数量
     pub fn burn(ctx: Context<Burn>, amount: u64) -> Result<()> {
+        // 验证合约未暂停
+        ctx.accounts.pause_state.validate_not_paused()?;
+    
+        // 验证调用者权限
         require!(
             ctx.accounts.authority.is_signer,
             WusdError::Unauthorized
         );
-
+    
+        // 验证 token account 的所有者
         require!(
-            ctx.accounts.authority_state.is_burner(ctx.accounts.authority.key()),
-            WusdError::NotBurner
+            ctx.accounts.token_account.owner == ctx.accounts.authority.key(),
+            WusdError::InvalidOwner
         );
-
-        require_has_access(
-            ctx.accounts.token_account.owner,
-            true,
-            None,
-            &ctx.accounts.pause_state,
-            Some(&ctx.accounts.access_registry) 
-        )?;
-
+    
+        // 验证访问权限
+        require!(
+            ctx.accounts.access_registry.has_access(
+                ctx.accounts.authority.key(),
+                AccessLevel::Debit
+            ),
+            WusdError::AccessDenied
+        );
+    
+        // 验证余额充足
         require!(
             ctx.accounts.token_account.amount >= amount,
             WusdError::InsufficientBalance
         );
-
+    
+        // 执行销毁操作
         token::burn(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -352,14 +360,14 @@ pub mod wusd_token {
             ),
             amount,
         )?;
-
+    
         emit!(BurnEvent {
             burner: ctx.accounts.authority.key(),
-            amount: amount
+            amount
         });
-
+    
         Ok(())
-    }
+    } 
 
     /// 转账WUSD代币
     /// * `ctx` - 转账上下文
@@ -551,6 +559,13 @@ pub mod wusd_token {
             WusdError::Unauthorized
         );
         
+        // 检查操作员是否已存在
+        for i in 0..access_registry.operator_count as usize {
+            if access_registry.operators[i] == operator {
+                return Ok(());  // 操作员已存在，直接返回
+            }
+        }
+        
         // 检查操作员数量限制
         require!(
             access_registry.operator_count < 10,
@@ -677,15 +692,9 @@ pub struct MintAccounts<'info> {
 
 #[derive(Accounts)]
 pub struct Burn<'info> {
-    #[account(
-        mut 
-    )]
+    #[account(mut)]
     pub authority_state: Account<'info, AuthorityState>, 
-    #[account(
-        seeds = [b"mint_auth", authority_state.key().as_ref()],
-        bump,
-        constraint = mint_authority.is_signer @ WusdError::InvalidSignature
-    )]
+    #[account(mut)]
     pub mint_authority: Signer<'info>,
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -696,7 +705,7 @@ pub struct Burn<'info> {
     pub token_program: Program<'info, Token>, 
     pub mint_state: Account<'info, MintState>,
     pub pause_state: Account<'info, PauseState>,
-    pub access_registry: Account<'info, AccessRegistryState>,
+    pub access_registry: Account<'info, AccessRegistryState>, 
 } 
 
 #[derive(Accounts)]

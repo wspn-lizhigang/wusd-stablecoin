@@ -199,14 +199,13 @@ impl AccessRegistryState {
             return true;
         }
 
-        // 对于 Debit 操作（转出、销毁等），检查是否是操作员
-        if matches!(level, AccessLevel::Debit) {
-            for i in 0..self.operator_count as usize {
-                if self.operators[i] == user {
-                    return true;
-                }
+        // 检查是否是操作员
+        for i in 0..self.operator_count as usize {
+            if self.operators[i] == user {
+                return true;
             }
-        } 
+        }
+
         false
     }
 } 
