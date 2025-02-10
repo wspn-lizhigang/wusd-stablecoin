@@ -329,6 +329,100 @@ describe("WUSD Token Mint Test", () => {
     }
   });
 
+  it("Transfer WUSD tokens", async () => {
+    try {
+      // 为发送方账户添加转账权限
+      const addOperatorTx = await program.methods
+        .addOperator(recipientKeypair.publicKey)
+        .accounts({
+          authority: provider.wallet.publicKey,
+          authorityState: authorityPda,
+          accessRegistry: accessRegistryPda,
+          operator: recipientKeypair.publicKey,
+        })
+        .rpc();
+
+      await provider.connection.confirmTransaction(addOperatorTx);
+      console.log("Transfer access granted to sender");
+
+      // 创建新的接收账户
+      const newRecipient = Keypair.generate();
+      const newRecipientTokenAccount = await anchor.utils.token.associatedAddress({
+        mint: mintKeypair.publicKey,
+        owner: newRecipient.publicKey,
+      });
+
+      // 创建接收账户的代币账户
+      const createTokenAccountIx = createAssociatedTokenAccountInstruction(
+        provider.wallet.publicKey,
+        newRecipientTokenAccount,
+        newRecipient.publicKey,
+        mintKeypair.publicKey
+      );
+
+      const tx = new anchor.web3.Transaction().add(createTokenAccountIx);
+      const signature = await provider.sendAndConfirm(tx);
+      await provider.connection.confirmTransaction(signature, "confirmed");
+
+      // 获取转账前的余额
+      const balanceBefore = await provider.connection.getTokenAccountBalance(
+        recipientTokenAccount
+      );
+      console.log("Sender balance before transfer:", balanceBefore.value.uiAmount);
+
+      // 执行转账操作，转账20个WUSD代币
+      const transferAmount = new anchor.BN(20000000); 
+      const transferTx = await program.methods
+        .transfer(transferAmount)
+        .accounts({
+          from: recipientKeypair.publicKey,
+          to: newRecipient.publicKey,
+          fromToken: recipientTokenAccount,
+          toToken: newRecipientTokenAccount,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          owner: recipientKeypair.publicKey,
+          pauseState: pauseStatePda,
+          accessRegistry: accessRegistryPda,
+        })
+        .signers([recipientKeypair])
+        .rpc();
+
+      await provider.connection.confirmTransaction(transferTx, "confirmed");
+
+      // 验证转账结果
+      const senderBalanceAfter = await provider.connection.getTokenAccountBalance(
+        recipientTokenAccount
+      );
+      const receiverBalance = await provider.connection.getTokenAccountBalance(
+        newRecipientTokenAccount
+      );
+
+      console.log("Sender balance after transfer:", senderBalanceAfter.value.uiAmount);
+      console.log("Receiver balance:", receiverBalance.value.uiAmount);
+
+      // 验证余额变化
+      const expectedSenderBalance = balanceBefore.value.uiAmount - transferAmount.toNumber() / 1000000;
+      assert.approximately(
+        senderBalanceAfter.value.uiAmount,
+        expectedSenderBalance,
+        0.000001,
+        "Transfer amount not correctly deducted from sender"
+      );
+
+      assert.approximately(
+        receiverBalance.value.uiAmount,
+        transferAmount.toNumber() / 1000000,
+        0.000001,
+        "Transfer amount not correctly added to receiver"
+      );
+
+      console.log("Transfer operation successful");
+    } catch (error) {
+      console.error("Transfer operation failed:", error);
+      throw error;
+    }
+  });
+
   it("Set burn access", async () => {
     try {
       // 添加销毁权限
@@ -360,8 +454,8 @@ describe("WUSD Token Mint Test", () => {
       );
       console.log("Balance before burn:", balanceBefore.value.uiAmount);
 
-      // 2. 执行销毁操作
-      const burnAmount = new anchor.BN(50000000); // 销毁0.5个代币
+      // 2. 执行销毁操作，销毁50个WUSD代币
+      const burnAmount = new anchor.BN(50000000);   
 
       // 直接使用 program.methods 的 rpc() 方法发送交易
       const tx = await program.methods
