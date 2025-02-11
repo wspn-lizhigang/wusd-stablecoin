@@ -11,7 +11,9 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Mint};
 use anchor_lang::solana_program::instruction::Instruction;
-use anchor_lang::solana_program::hash::{hash};
+use anchor_lang::solana_program::program::invoke;
+use anchor_lang::solana_program::hash::hash;
+use anchor_lang::solana_program::ed25519_program;
 #[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
 
@@ -178,22 +180,20 @@ fn verify_signature(
     signature: &[u8; 64],
     public_key: &[u8; 32]
 ) -> Result<()> {
-    let mut data = vec![0u8];
-    data.extend_from_slice(public_key);
-    data.extend_from_slice(message);
-    data.extend_from_slice(signature);
-    
-    let instruction = Instruction::new_with_bytes(
-        anchor_lang::solana_program::ed25519_program::id(),
-        &data,
-        vec![]
-    );
-    
-    anchor_lang::solana_program::program::invoke(
-        &instruction,
-        &[]
-    ).map_err(|_| WusdError::InvalidSignature.into())
-}
+    // 正确的Ed25519指令格式：签名(64) + 消息(n) + 公钥(32)
+    let mut instruction_data = Vec::with_capacity(64 + message.len() + 32);
+    instruction_data.extend_from_slice(signature);
+    instruction_data.extend_from_slice(message);
+    instruction_data.extend_from_slice(public_key);
+
+    let ed25519_instruction = Instruction {
+        program_id: ed25519_program::id(),
+        accounts: vec![],
+        data: instruction_data,
+    };
+
+    invoke(&ed25519_instruction, &[]).map_err(|_| WusdError::InvalidSignature.into())
+} 
 
 // 实现费用计算函数
 fn calculate_transfer_fee(amount: u64) -> u64 {
@@ -488,70 +488,74 @@ pub mod wusd_token {
     /// 
     /// # 返回值
     /// * `Result<()>` - 操作成功返回Ok(()), 失败返回错误
-    pub fn permit(ctx: Context<Permit>, params: PermitParams) -> Result<()> {
-            // 获取当前时间戳
-            let clock = Clock::get()?;
-            // 验证许可是否过期
-            require!(clock.unix_timestamp <= params.deadline, WusdError::ExpiredPermit);
-            // 验证授权金额是否有效
-            require!(params.amount > 0, WusdError::InvalidAmount);
-        
-            // 获取nonce值，如果未提供则使用当前状态的nonce
-            let nonce = params.nonce.unwrap_or(ctx.accounts.permit_state.nonce);
-        
-            // 构建许可消息结构
-            let message = PermitMessage {
-                contract: ctx.accounts.token_program.key(),
-                domain_separator: [0u8; 32],
-                owner: ctx.accounts.owner.key(),
-                spender: ctx.accounts.spender.key(),
-                amount: params.amount,
-                nonce,
-                deadline: params.deadline,
-                scope: params.scope.clone(),
-                chain_id: CHAIN_ID,
-                version: ctx.program_id.to_bytes(),
-            };
-        
-            // 计算消息哈希
-            let message_bytes = message.try_to_vec().map_err(|_| WusdError::InvalidSignature)?;
-            let prefix = b"\x19Solana Signed Message:\n32";
-            let mut hash_input = Vec::with_capacity(prefix.len() + message_bytes.len());
-            hash_input.extend_from_slice(prefix);
-            hash_input.extend_from_slice(&message_bytes);
-            let message_hash = hash(&hash_input).to_bytes();
+    pub fn permit(ctx: Context<Permit>, params: PermitParams) -> Result<()> { 
+        msg!("Public key: {:?}", params.public_key.iter().take(8).collect::<Vec<_>>()); // 显示前8字节
+        msg!("Signature: {:?}", params.signature.iter().take(8).collect::<Vec<_>>()); // 显示前8字节
 
-            // 验证签名
-            verify_signature(
-                &message_hash,
-                &params.signature,
-                &params.public_key
-            )?;
-        
-            // 根据授权范围处理
-            match params.scope {
-                // 如果是转账授权，设置授权金额
-                PermitScope::Transfer => {
-                    ctx.accounts.allowance.amount = params.amount;
-                }
-                // 其他授权范围暂不支持
-                _ => return Err(WusdError::InvalidScope.into())
+        // 获取当前时间戳
+        let clock = Clock::get()?;
+        // 验证许可是否过期
+        require!(clock.unix_timestamp <= params.deadline, WusdError::ExpiredPermit);
+        // 验证授权金额是否有效
+        require!(params.amount > 0, WusdError::InvalidAmount);
+    
+        // 获取nonce值，如果未提供则使用当前状态的nonce
+        let nonce = params.nonce.unwrap_or(ctx.accounts.permit_state.nonce);
+    
+        // 构建许可消息结构
+        let message = PermitMessage {
+            contract: ctx.accounts.token_program.key(),
+            domain_separator: [0u8; 32],
+            owner: ctx.accounts.owner.key(),
+            spender: ctx.accounts.spender.key(),
+            amount: params.amount,
+            nonce,
+            deadline: params.deadline,
+            scope: params.scope.clone(),
+            chain_id: CHAIN_ID,
+            version: ctx.program_id.to_bytes(),
+        };
+    
+        // 计算消息哈希
+        let message_bytes = message.try_to_vec().map_err(|_| WusdError::InvalidSignature)?;
+        let prefix = b"\x19Solana Signed Message:\n32";
+        let mut hash_input = Vec::with_capacity(prefix.len() + message_bytes.len());
+        hash_input.extend_from_slice(prefix);
+        hash_input.extend_from_slice(&message_bytes);
+        let message_hash = hash(&hash_input).to_bytes(); 
+        msg!("Expected Message Hash: {:?}", message_hash);
+
+        // 验证签名
+        verify_signature(
+            &message_hash,
+            &params.signature,
+            &params.public_key
+        )?;
+    
+        // 根据授权范围处理
+        match params.scope {
+            // 如果是转账授权，设置授权金额
+            PermitScope::Transfer => {
+                ctx.accounts.allowance.amount = params.amount;
             }
-        
-            // 如果没有提供nonce，增加当前nonce值
-            if params.nonce.is_none() {
-                ctx.accounts.permit_state.nonce = nonce.checked_add(1).unwrap();
-            }
-        
-            // 发出授权许可事件
-            emit!(PermitGranted { 
-                owner: ctx.accounts.owner.key(),
-                spender: ctx.accounts.spender.key(),
-                amount: params.amount,
-                scope: params.scope
-            });
-            Ok(())
+            // 其他授权范围暂不支持
+            _ => return Err(WusdError::InvalidScope.into())
         }
+    
+        // 如果没有提供nonce，增加当前nonce值
+        if params.nonce.is_none() {
+            ctx.accounts.permit_state.nonce = nonce.checked_add(1).unwrap();
+        }
+    
+        // 发出授权许可事件
+        emit!(PermitGranted { 
+            owner: ctx.accounts.owner.key(),
+            spender: ctx.accounts.spender.key(),
+            amount: params.amount,
+            scope: params.scope
+        });
+        Ok(())
+    }
 
     /// 检查合约是否支持指定接口
     /// * `_ctx` - 上下文
@@ -897,6 +901,10 @@ pub struct Permit<'info> {
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>, 
     pub clock: Sysvar<'info, Clock>,
+    /// CHECK: 这是Solana系统的Ed25519程序账户，用于验证Ed25519签名。
+    /// 由于这是一个系统程序，我们通过account约束确保其地址正确，不需要额外的安全检查。
+    #[account(address = anchor_lang::solana_program::ed25519_program::ID)]
+    pub ed25519_program: AccountInfo<'info>,
 } 
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]

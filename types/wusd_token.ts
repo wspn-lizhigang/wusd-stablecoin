@@ -555,6 +555,13 @@ export type WusdToken = {
         {
           "name": "clock",
           "address": "SysvarC1ock11111111111111111111111111111111"
+        },
+        {
+          "name": "ed25519Program",
+          "docs": [
+            "由于这是一个系统程序，我们通过account约束确保其地址正确，不需要额外的安全检查。"
+          ],
+          "address": "Ed25519SigVerify111111111111111111111111111"
         }
       ],
       "args": [

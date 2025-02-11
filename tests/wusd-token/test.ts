@@ -1,19 +1,11 @@
+import * as nacl from "tweetnacl";
+import { LAMPORTS_PER_SOL, SystemProgram, PublicKey, Keypair } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { assert } from "chai";
+import { TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
 import { WusdToken } from "../../target/types/wusd_token";
-import {
-  PublicKey,
-  SystemProgram,
-  Keypair,
-  LAMPORTS_PER_SOL,
-} from "@solana/web3.js";
-import {
-  TOKEN_PROGRAM_ID,
-  createAssociatedTokenAccountInstruction,
-} from "@solana/spl-token";
-const crypto = require('crypto');
-const nacl = require('tweetnacl');
+import * as crypto from "crypto";
+import { assert } from "chai"; 
 
 describe("WUSD Token Mint Test", () => {
   // 1. 首先定义所有变量
@@ -559,9 +551,8 @@ describe("WUSD Token Mint Test", () => {
       );
 
       // 执行 permit 操作
-      // 构建许可消息
       const message = {
-        contract: TOKEN_PROGRAM_ID,
+        contract: program.programId, // 使用程序ID代替TOKEN_PROGRAM_ID
         domain_separator: new Uint8Array(32),
         owner: recipientKeypair.publicKey,
         spender: spender.publicKey,
@@ -570,23 +561,49 @@ describe("WUSD Token Mint Test", () => {
         deadline: new anchor.BN(Math.floor(Date.now() / 1000) + 3600),
         scope: { transfer: {} },
         chain_id: new anchor.BN(1),
-        version: program.programId.toBytes()
+        version: program.programId.toBytes(), // 确保使用正确的版本字节
       };
-      
-      // 序列化消息
-      const messageBytes = Buffer.from(anchor.utils.bytes.utf8.encode(JSON.stringify(message)));
-      const prefix = Buffer.from('\x19Solana Signed Message:\n32');
-      const messageBuffer = Buffer.concat([prefix, messageBytes]);
-      
-      // 生成签名
-      const messageHash = crypto.createHash('sha256').update(messageBuffer).digest();
-      // 调用permit方法
+
+      // 使用手动序列化代替类型编码
+      const messageBytes = Buffer.concat([
+        new PublicKey(message.contract).toBuffer(),
+        Buffer.from(message.domain_separator),
+        new PublicKey(message.owner).toBuffer(),
+        new PublicKey(message.spender).toBuffer(),
+        Buffer.from(message.amount.toArrayLike(Buffer, "le", 8)),
+        Buffer.from(message.nonce.toArrayLike(Buffer, "le", 8)),
+        Buffer.from(message.deadline.toArrayLike(Buffer, "le", 8)),
+        Buffer.from([0]), // PermitScope.Transfer
+        Buffer.from(message.chain_id.toArrayLike(Buffer, "le", 8)),
+        Buffer.from(message.version),
+      ]);
+
+      const prefix = Buffer.from("\x19Solana Signed Message:\n32");
+      const hashInput = Buffer.concat([prefix, messageBytes]);
+      const messageHash = crypto
+        .createHash("sha256")
+        .update(hashInput)
+        .digest();
+
+      // 使用正确的密钥对生成签名
+      const keypair = anchor.web3.Keypair.fromSecretKey(recipientKeypair.secretKey);
+      const signatureBytes = nacl.sign.detached(messageHash, keypair.secretKey);
+      const signatureArray = Array.from(signatureBytes);
+      const publicKeyArray = Array.from(keypair.publicKey.toBytes());
+
+      // 调用permit方法时传入正确的参数
+      const computeIx = anchor.web3.ComputeBudgetProgram.setComputeUnitLimit({
+        units: 400_000,
+      });
+
       const permitTx = await program.methods
         .permit({
           amount: new anchor.BN(10000000),
           deadline: new anchor.BN(Math.floor(Date.now() / 1000) + 3600),
           nonce: null,
-          scope: { transfer: {} }
+          scope: { transfer: {} },
+          signature: signatureArray,
+          public_key: publicKeyArray,
         })
         .accounts({
           owner: recipientKeypair.publicKey,
@@ -595,14 +612,17 @@ describe("WUSD Token Mint Test", () => {
           permitState: permitStatePda,
           mintState: mintStatePda,
           systemProgram: SystemProgram.programId,
-          ed25519Program: new PublicKey('Ed25519SigVerify111111111111111111111111111')
+          ed25519Program: new anchor.web3.PublicKey(
+            "Ed25519SigVerify111111111111111111111111111"
+          ),
         })
+        .preInstructions([computeIx])
         .remainingAccounts([
           {
             pubkey: recipientKeypair.publicKey,
             isWritable: false,
-            isSigner: true
-          }
+            isSigner: true,
+          },
         ])
         .signers([recipientKeypair])
         .rpc();
