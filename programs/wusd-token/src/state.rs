@@ -55,17 +55,29 @@ impl AllowanceState {
 pub struct PermitState {
     /// 所有者地址
     pub owner: Pubkey,
+    /// 被授权者地址
+    pub spender: Pubkey,
     /// 随机数，用于防止重放攻击
     pub nonce: u64,
+    /// 授权额度
+    pub amount: u64,
+    /// 过期时间
+    pub expiration: i64,
+    /// PDA bump
+    pub bump: u8,
 }
 
 impl PermitState {
     /// 初始化签名许可状态
     /// * `owner` - 所有者地址
-    pub fn initialize(owner: Pubkey) -> Self {
+    pub fn initialize(owner: Pubkey, spender: Pubkey, amount: u64, expiration: i64, bump: u8) -> Self {
         Self {
             owner,
+            spender,
             nonce: 0,
+            amount,
+            expiration,
+            bump,
         }
     }
 

@@ -9,13 +9,7 @@
 //! - EIP-2612兼容的签名许可
 
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Mint};
-use anchor_lang::solana_program::instruction::Instruction;
-use anchor_lang::solana_program::program::invoke;
-use anchor_lang::solana_program::hash::hash;
-use anchor_lang::solana_program::ed25519_program;
-#[cfg(feature = "serde")]
-use serde::{Serialize, Deserialize};
+use anchor_spl::token::{self, Token, TokenAccount, Mint}; 
 
 mod error;
 mod state;
@@ -27,16 +21,9 @@ use error::WusdError;
 const AUTHORITY_STATE_SIZE: usize = 8 + 32 * 3;   // discriminator + admin + minter + pauser
 const MINT_STATE_SIZE: usize = 8 + 32 + 1;        // discriminator + mint + decimals
 const PAUSE_STATE_SIZE: usize = 8 + 1;            // discriminator + paused
-const PERMIT_SIZE: usize = 8 + 32 + 8;            // discriminator + owner + spender + nonce
+const PERMIT_SIZE: usize = 8 + 32 + 32 + 8 +  8 +  8 +  1;   
 const ALLOWANCE_SIZE: usize = 8 + 32 + 32 + 8;    // discriminator + owner + spender + amount
 const ACCESS_REGISTRY_SIZE: usize = 8 + 32 + 1 + (32 * 10) + 1;  // discriminator + authority + initialized + operators + operator_count
-
-// 根据部署环境选择链ID
-#[cfg(not(feature = "devnet"))]
-const CHAIN_ID: u64 = 1; // 主网链ID
-
-#[cfg(feature = "devnet")]
-const CHAIN_ID: u64 = 2; // 开发网链ID
 
 declare_id!("43eXSSqZGLVkn9sTkMoR7nm9oKzc1R8DhAVBkPgUbCyc");
 
@@ -157,43 +144,7 @@ pub fn require_has_access(
     Ok(())
 } 
 
-/// 验证Ed25519数字签名
-/// 
-/// # 参数
-/// * `message` - 待验证的消息字节数组
-/// * `signature` - Ed25519签名字节数组，固定长度64字节
-/// * `public_key` - Ed25519公钥字节数组，固定长度32字节
-/// 
-/// # 返回值
-/// * `Result<()>` - 验证成功返回Ok(()), 失败返回Err包含WusdError::InvalidSignature错误
-/// 
-/// # 实现说明
-/// 1. 构造验证数据，按顺序拼接:
-///    - 1字节的前缀(0)
-///    - 32字节的公钥
-///    - 消息内容
-///    - 64字节的签名
-/// 2. 通过Solana的ed25519_program进行签名验证
-/// 3. 验证失败时返回InvalidSignature错误
-fn verify_signature(
-    message: &[u8],
-    signature: &[u8; 64],
-    public_key: &[u8; 32]
-) -> Result<()> {
-    // 正确的Ed25519指令格式：签名(64) + 消息(n) + 公钥(32)
-    let mut instruction_data = Vec::with_capacity(64 + message.len() + 32);
-    instruction_data.extend_from_slice(signature);
-    instruction_data.extend_from_slice(message);
-    instruction_data.extend_from_slice(public_key);
-
-    let ed25519_instruction = Instruction {
-        program_id: ed25519_program::id(),
-        accounts: vec![],
-        data: instruction_data,
-    };
-
-    invoke(&ed25519_instruction, &[]).map_err(|_| WusdError::InvalidSignature.into())
-} 
+ 
 
 // 实现费用计算函数
 fn calculate_transfer_fee(amount: u64) -> u64 {
@@ -432,53 +383,57 @@ pub mod wusd_token {
     /// * `ctx` - 转账上下文
     /// * `amount` - 转账数量
     pub fn transfer_from(ctx: Context<TransferFrom>, amount: u64) -> Result<()> {
+        // 验证合约未暂停
+        ctx.accounts.pause_state.validate_not_paused()?;
+        
+        // 验证授权有效性
+        let current_time = Clock::get()?.unix_timestamp;
         require!(
-            ctx.accounts.from.is_signer || ctx.accounts.spender.is_signer,
-            WusdError::Unauthorized
-        ); 
-
-        // 检查 spender 是否有权限操作 from 账户
-        require!(
-            ctx.accounts.access_registry.has_access(
-                ctx.accounts.spender.key(),
-                AccessLevel::Debit
-            ),
-            WusdError::AccessDenied
+            ctx.accounts.permit.expiration > current_time,
+            WusdError::ExpiredPermit
         );
-
-        require_has_access(
-            ctx.accounts.from_token.owner,
-            true,
-            Some(amount),
-            &ctx.accounts.pause_state,
-            Some(&ctx.accounts.access_registry) 
+        require!(
+            ctx.accounts.permit.amount >= amount,
+            WusdError::InsufficientAllowance
+        );
+    
+        // 验证 token account 所有权
+        require!(
+            ctx.accounts.from_token.owner == ctx.accounts.owner.key(),
+            WusdError::InvalidOwner
+        );
+    
+        // 生成 PDA 签名
+        let owner_key = ctx.accounts.owner.key();
+        let spender_key = ctx.accounts.spender.key();
+        let seeds = &[
+            b"permit",
+            owner_key.as_ref(),
+            spender_key.as_ref(),
+            &[ctx.accounts.permit.bump],
+        ];
+        
+        // 执行代币转账
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                token::Transfer {
+                    from: ctx.accounts.from_token.to_account_info(),
+                    to: ctx.accounts.to_token.to_account_info(),
+                    authority: ctx.accounts.permit.to_account_info(), // 使用permit PDA作为authority
+                },
+                &[&seeds[..]]
+            ),
+            amount
         )?;
-
-        require_has_access(
-            ctx.accounts.to_token.owner,
-            false,
-            None,
-            &ctx.accounts.pause_state,
-            Some(&ctx.accounts.access_registry) 
-        )?;
-
-        let allowance = &mut ctx.accounts.allowance;
-        allowance.validate_allowance(amount)?;
-        allowance.decrease_allowance(amount)?;
-
-        let cpi_accounts = token::Transfer {
-            from: ctx.accounts.from_token.to_account_info(),
-            to: ctx.accounts.to_token.to_account_info(),
-            authority: ctx.accounts.from.to_account_info(),
-        };
-
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-
-        token::transfer(cpi_ctx, amount)?;
-
+    
+        // 更新授权额度
+        ctx.accounts.permit.amount = ctx.accounts.permit.amount
+            .checked_sub(amount)
+            .ok_or(WusdError::InsufficientAllowance)?;
+        
         Ok(())
-    }
+    } 
    
     /// 处理授权许可请求，允许代币持有者授权其他账户使用其代币
     /// 
@@ -489,73 +444,31 @@ pub mod wusd_token {
     /// # 返回值
     /// * `Result<()>` - 操作成功返回Ok(()), 失败返回错误
     pub fn permit(ctx: Context<Permit>, params: PermitParams) -> Result<()> { 
-        msg!("Public key: {:?}", params.public_key.iter().take(8).collect::<Vec<_>>()); // 显示前8字节
-        msg!("Signature: {:?}", params.signature.iter().take(8).collect::<Vec<_>>()); // 显示前8字节
-
-        // 获取当前时间戳
-        let clock = Clock::get()?;
-        // 验证许可是否过期
-        require!(clock.unix_timestamp <= params.deadline, WusdError::ExpiredPermit);
-        // 验证授权金额是否有效
+        // 验证基本参数
         require!(params.amount > 0, WusdError::InvalidAmount);
-    
-        // 获取nonce值，如果未提供则使用当前状态的nonce
-        let nonce = params.nonce.unwrap_or(ctx.accounts.permit_state.nonce);
-    
-        // 构建许可消息结构
-        let message = PermitMessage {
-            contract: ctx.accounts.token_program.key(),
-            domain_separator: [0u8; 32],
-            owner: ctx.accounts.owner.key(),
-            spender: ctx.accounts.spender.key(),
-            amount: params.amount,
-            nonce,
-            deadline: params.deadline,
-            scope: params.scope.clone(),
-            chain_id: CHAIN_ID,
-            version: ctx.program_id.to_bytes(),
-        };
-    
-        // 计算消息哈希
-        let message_bytes = message.try_to_vec().map_err(|_| WusdError::InvalidSignature)?;
-        let prefix = b"\x19Solana Signed Message:\n32";
-        let mut hash_input = Vec::with_capacity(prefix.len() + message_bytes.len());
-        hash_input.extend_from_slice(prefix);
-        hash_input.extend_from_slice(&message_bytes);
-        let message_hash = hash(&hash_input).to_bytes(); 
-        msg!("Expected Message Hash: {:?}", message_hash);
-
-        // 验证签名
-        verify_signature(
-            &message_hash,
-            &params.signature,
-            &params.public_key
-        )?;
-    
-        // 根据授权范围处理
-        match params.scope {
-            // 如果是转账授权，设置授权金额
-            PermitScope::Transfer => {
-                ctx.accounts.allowance.amount = params.amount;
-            }
-            // 其他授权范围暂不支持
-            _ => return Err(WusdError::InvalidScope.into())
-        }
-    
-        // 如果没有提供nonce，增加当前nonce值
-        if params.nonce.is_none() {
-            ctx.accounts.permit_state.nonce = nonce.checked_add(1).unwrap();
-        }
-    
+        
+        // 初始化 permit_state
+        ctx.accounts.permit_state.set_inner(PermitState::initialize(
+            ctx.accounts.owner.key(),
+            ctx.accounts.spender.key(),
+            params.amount,
+            params.deadline,
+            ctx.bumps.permit_state
+        ));
+        
+        // 设置授权额度
+        ctx.accounts.allowance.amount = params.amount;
+        
         // 发出授权许可事件
         emit!(PermitGranted { 
             owner: ctx.accounts.owner.key(),
             spender: ctx.accounts.spender.key(),
             amount: params.amount,
-            scope: params.scope
+            scope: PermitScope::Transfer
         });
+        
         Ok(())
-    }
+    } 
 
     /// 检查合约是否支持指定接口
     /// * `_ctx` - 上下文
@@ -843,28 +756,34 @@ pub struct InitializeAccessRegistry<'info> {
 #[derive(Accounts)]
 pub struct TransferFrom<'info> {
     #[account(mut)]
-    pub spender: Signer<'info>,
-    /// CHECK: This is the from account
-    #[account(mut)]
-    pub from: AccountInfo<'info>,
-    /// CHECK: This account is not read or written to
-    #[account(mut)]
-    pub to: AccountInfo<'info>,
-    #[account(mut)]
-    pub from_token: Account<'info, TokenAccount>,
-    #[account(mut)]
-    pub to_token: Account<'info, TokenAccount>,
+    pub spender: Signer<'info>, 
+    /// CHECK: 这是一个已验证的所有者地址
+    pub owner: AccountInfo<'info>, 
     #[account(
         mut,
-        seeds = [b"allowance", from.key().as_ref(), spender.key().as_ref()],
-        bump
+        constraint = from_token.owner == owner.key()
     )]
-    pub allowance: Account<'info, AllowanceState>,
-    pub token_program: Program<'info, Token>,
+    pub from_token: Account<'info, TokenAccount>, 
     #[account(mut)]
-    pub pause_state: Account<'info, PauseState>,
-    pub access_registry: Account<'info, AccessRegistryState>,
+    pub to_token: Account<'info, TokenAccount>, 
+    #[account(
+        seeds = [
+            b"permit",
+            owner.key().as_ref(),
+            spender.key().as_ref()
+        ],
+        bump = permit.bump,
+        has_one = owner,
+        has_one = spender,
+    )]
+    pub permit: Account<'info, PermitState>, 
+    #[account(mut)]
+    pub mint_state: Box<Account<'info, MintState>>, 
+    pub pause_state: Account<'info, PauseState>, 
+    pub access_registry: Account<'info, AccessRegistryState>, 
+    pub token_program: Program<'info, Token>,
 }
+
 
 #[derive(Accounts)]
 #[instruction(params: PermitParams)]
@@ -877,7 +796,7 @@ pub struct Permit<'info> {
     pub spender: AccountInfo<'info>,
 
     #[account(
-        init_if_needed,  // 添加 init_if_needed
+        init_if_needed,
         payer = owner,
         space = ALLOWANCE_SIZE,  
         seeds = [b"allowance", owner.key().as_ref(), spender.key().as_ref()],
@@ -886,25 +805,24 @@ pub struct Permit<'info> {
     pub allowance: Box<Account<'info, AllowanceState>>,
 
     #[account(
-        init_if_needed,  // 添加 init_if_needed
+        init_if_needed,
         payer = owner,
-        space = PERMIT_SIZE,  // discriminator + owner + nonce
-        seeds = [b"permit", owner.key().as_ref()],
-        bump
+        space = PERMIT_SIZE,
+        seeds = [
+            b"permit",
+            owner.key().as_ref(),
+            spender.key().as_ref()
+        ],
+        bump,
     )]
     pub permit_state: Box<Account<'info, PermitState>>,
 
     #[account(mut)]
     pub mint_state: Box<Account<'info, MintState>>,
 
-    #[account(address = token::ID)]
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>, 
-    pub clock: Sysvar<'info, Clock>,
-    /// CHECK: 这是Solana系统的Ed25519程序账户，用于验证Ed25519签名。
-    /// 由于这是一个系统程序，我们通过account约束确保其地址正确，不需要额外的安全检查。
-    #[account(address = anchor_lang::solana_program::ed25519_program::ID)]
-    pub ed25519_program: AccountInfo<'info>,
+    pub clock: Sysvar<'info, Clock>, 
 } 
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -917,11 +835,11 @@ pub struct PermitParams {
     pub public_key: [u8; 32],
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PermitScope {
     Transfer,
-    Mint,
     Burn,
+    All
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]

@@ -36,4 +36,6 @@ pub enum WusdError {
     AccessRegistryNotInitialized,
     #[msg("Invalid owner")]
     InvalidOwner,
+    #[msg("Insufficient allowance")]
+    InsufficientAllowance,
 }

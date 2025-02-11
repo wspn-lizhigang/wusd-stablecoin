@@ -536,6 +536,10 @@ export type WusdToken = {
               {
                 "kind": "account",
                 "path": "owner"
+              },
+              {
+                "kind": "account",
+                "path": "spender"
               }
             ]
           }
@@ -555,13 +559,6 @@ export type WusdToken = {
         {
           "name": "clock",
           "address": "SysvarC1ock11111111111111111111111111111111"
-        },
-        {
-          "name": "ed25519Program",
-          "docs": [
-            "由于这是一个系统程序，我们通过account约束确保其地址正确，不需要额外的安全检查。"
-          ],
-          "address": "Ed25519SigVerify111111111111111111111111111"
         }
       ],
       "args": [
@@ -744,15 +741,16 @@ export type WusdToken = {
         {
           "name": "spender",
           "writable": true,
-          "signer": true
+          "signer": true,
+          "relations": [
+            "permit"
+          ]
         },
         {
-          "name": "from",
-          "writable": true
-        },
-        {
-          "name": "to",
-          "writable": true
+          "name": "owner",
+          "relations": [
+            "permit"
+          ]
         },
         {
           "name": "fromToken",
@@ -763,27 +761,23 @@ export type WusdToken = {
           "writable": true
         },
         {
-          "name": "allowance",
-          "writable": true,
+          "name": "permit",
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  97,
-                  108,
-                  108,
-                  111,
-                  119,
-                  97,
-                  110,
-                  99,
-                  101
+                  112,
+                  101,
+                  114,
+                  109,
+                  105,
+                  116
                 ]
               },
               {
                 "kind": "account",
-                "path": "from"
+                "path": "owner"
               },
               {
                 "kind": "account",
@@ -793,15 +787,18 @@ export type WusdToken = {
           }
         },
         {
-          "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "pauseState",
+          "name": "mintState",
           "writable": true
         },
         {
+          "name": "pauseState"
+        },
+        {
           "name": "accessRegistry"
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": [
@@ -1075,6 +1072,11 @@ export type WusdToken = {
       "code": 6016,
       "name": "invalidOwner",
       "msg": "Invalid owner"
+    },
+    {
+      "code": 6017,
+      "name": "insufficientAllowance",
+      "msg": "Insufficient allowance"
     }
   ],
   "types": [
@@ -1412,10 +1414,10 @@ export type WusdToken = {
             "name": "transfer"
           },
           {
-            "name": "mint"
+            "name": "burn"
           },
           {
-            "name": "burn"
+            "name": "all"
           }
         ]
       }
@@ -1436,11 +1438,39 @@ export type WusdToken = {
             "type": "pubkey"
           },
           {
+            "name": "spender",
+            "docs": [
+              "被授权者地址"
+            ],
+            "type": "pubkey"
+          },
+          {
             "name": "nonce",
             "docs": [
               "随机数，用于防止重放攻击"
             ],
             "type": "u64"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "授权额度"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "expiration",
+            "docs": [
+              "过期时间"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump"
+            ],
+            "type": "u8"
           }
         ]
       }

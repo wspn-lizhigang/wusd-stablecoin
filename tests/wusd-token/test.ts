@@ -1,11 +1,19 @@
 import * as nacl from "tweetnacl";
-import { LAMPORTS_PER_SOL, SystemProgram, PublicKey, Keypair } from "@solana/web3.js";
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  PublicKey,
+  Keypair,
+} from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
+import {
+  TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+} from "@solana/spl-token";
 import { WusdToken } from "../../target/types/wusd_token";
 import * as crypto from "crypto";
-import { assert } from "chai"; 
+import { assert } from "chai";
 
 describe("WUSD Token Mint Test", () => {
   // 1. 首先定义所有变量
@@ -23,7 +31,6 @@ describe("WUSD Token Mint Test", () => {
   let mintStatePda: PublicKey;
   let pauseStatePda: PublicKey;
   let accessRegistryPda: PublicKey;
-  let permitStatePda: PublicKey;
   let authorityBump: number;
 
   // 定义代币账户
@@ -59,11 +66,6 @@ describe("WUSD Token Mint Test", () => {
 
       [accessRegistryPda] = PublicKey.findProgramAddressSync(
         [Buffer.from("access_registry")],
-        program.programId
-      );
-
-      [permitStatePda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("permit"), provider.wallet.publicKey.toBuffer()],
         program.programId
       );
 
@@ -130,7 +132,6 @@ describe("WUSD Token Mint Test", () => {
         const mintInfo = await provider.connection.getAccountInfo(
           mintKeypair.publicKey
         );
-        //console.log("Mint account info:", mintInfo);
 
         const authorityState = await program.account.authorityState.fetch(
           authorityPda
@@ -139,12 +140,6 @@ describe("WUSD Token Mint Test", () => {
         const pauseState = await program.account.pauseState.fetch(
           pauseStatePda
         );
-
-        // console.log("Verification results:", {
-        //   authorityState,
-        //   mintState,
-        //   pauseState,
-        // });
       } catch (error) {
         console.error("Contract initialization failed:", error);
         throw error;
@@ -294,10 +289,6 @@ describe("WUSD Token Mint Test", () => {
       const accessRegistry = await program.account.accessRegistryState.fetch(
         accessRegistryPda
       );
-      // console.log("Access Registry Status:", {
-      //   operatorCount: accessRegistry.operatorCount,
-      //   operators: accessRegistry.operators.map((op) => op.toString()),
-      // });
 
       // 执行铸币操作
       const tx = await program.methods
@@ -534,12 +525,6 @@ describe("WUSD Token Mint Test", () => {
       console.log("Added spender as operator");
       await sleep(1000);
 
-      // 创建 permit 状态账户的 PDA
-      const [permitStatePda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("permit"), recipientKeypair.publicKey.toBuffer()],
-        program.programId
-      );
-
       // 创建 allowance 状态账户的 PDA
       const [allowanceStatePda] = PublicKey.findProgramAddressSync(
         [
@@ -550,110 +535,73 @@ describe("WUSD Token Mint Test", () => {
         program.programId
       );
 
-      // 执行 permit 操作
-      const message = {
-        contract: program.programId, // 使用程序ID代替TOKEN_PROGRAM_ID
-        domain_separator: new Uint8Array(32),
-        owner: recipientKeypair.publicKey,
-        spender: spender.publicKey,
-        amount: new anchor.BN(10000000),
-        nonce: new anchor.BN(0),
-        deadline: new anchor.BN(Math.floor(Date.now() / 1000) + 3600),
-        scope: { transfer: {} },
-        chain_id: new anchor.BN(1),
-        version: program.programId.toBytes(), // 确保使用正确的版本字节
-      };
+      const [permitPda] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("permit"),
+          recipientKeypair.publicKey.toBuffer(),
+          spender.publicKey.toBuffer(),
+        ],
+        program.programId
+      );
 
-      // 使用手动序列化代替类型编码
-      const messageBytes = Buffer.concat([
-        new PublicKey(message.contract).toBuffer(),
-        Buffer.from(message.domain_separator),
-        new PublicKey(message.owner).toBuffer(),
-        new PublicKey(message.spender).toBuffer(),
-        Buffer.from(message.amount.toArrayLike(Buffer, "le", 8)),
-        Buffer.from(message.nonce.toArrayLike(Buffer, "le", 8)),
-        Buffer.from(message.deadline.toArrayLike(Buffer, "le", 8)),
-        Buffer.from([0]), // PermitScope.Transfer
-        Buffer.from(message.chain_id.toArrayLike(Buffer, "le", 8)),
-        Buffer.from(message.version),
-      ]);
-
-      const prefix = Buffer.from("\x19Solana Signed Message:\n32");
-      const hashInput = Buffer.concat([prefix, messageBytes]);
-      const messageHash = crypto
-        .createHash("sha256")
-        .update(hashInput)
-        .digest();
-
-      // 使用正确的密钥对生成签名
-      const keypair = anchor.web3.Keypair.fromSecretKey(recipientKeypair.secretKey);
-      const signatureBytes = nacl.sign.detached(messageHash, keypair.secretKey);
-      const signatureArray = Array.from(signatureBytes);
-      const publicKeyArray = Array.from(keypair.publicKey.toBytes());
-
-      // 调用permit方法时传入正确的参数
-      const computeIx = anchor.web3.ComputeBudgetProgram.setComputeUnitLimit({
-        units: 400_000,
-      });
-
-      const permitTx = await program.methods
-        .permit({
-          amount: new anchor.BN(10000000),
-          deadline: new anchor.BN(Math.floor(Date.now() / 1000) + 3600),
-          nonce: null,
-          scope: { transfer: {} },
-          signature: signatureArray,
-          public_key: publicKeyArray,
-        })
-        .accounts({
-          owner: recipientKeypair.publicKey,
-          spender: spender.publicKey,
-          allowance: allowanceStatePda,
-          permitState: permitStatePda,
-          mintState: mintStatePda,
-          systemProgram: SystemProgram.programId,
-          ed25519Program: new anchor.web3.PublicKey(
-            "Ed25519SigVerify111111111111111111111111111"
-          ),
-        })
-        .preInstructions([computeIx])
-        .remainingAccounts([
-          {
-            pubkey: recipientKeypair.publicKey,
-            isWritable: false,
-            isSigner: true,
-          },
-        ])
-        .signers([recipientKeypair])
-        .rpc();
-
-      await provider.connection.confirmTransaction(permitTx);
-      console.log("Permit granted successfully");
-      await sleep(1000);
-
-      // 添加调试日志
-      console.log("Debug transfer_from setup:", {
+      console.log("Debug PDA addresses:", {
+        allowanceStatePda: allowanceStatePda.toString(),
+        permitPda: permitPda.toString(),
+        owner: recipientKeypair.publicKey.toString(),
         spender: spender.publicKey.toString(),
-        from: recipientKeypair.publicKey.toString(),
-        allowance: permitStatePda.toString(),
       });
+
+      try {
+        // 在 test.ts 中修改
+        const permitTx = await program.methods
+          .permit({
+            amount: new anchor.BN(10000000),
+            deadline: new anchor.BN(Math.floor(Date.now() / 1000) + 3600),
+            nonce: new anchor.BN(0), // 修改为 BN 类型
+            scope: { transfer: {} },
+            signature: new Uint8Array(64),
+            public_key: new Uint8Array(32),
+          })
+          .accounts({
+            owner: recipientKeypair.publicKey,
+            spender: spender.publicKey,
+            allowance: allowanceStatePda,
+            permitState: permitPda,
+            mintState: mintStatePda,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+            clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
+          })
+          .signers([recipientKeypair])
+          .rpc();
+
+        await provider.connection.confirmTransaction(permitTx);
+        console.log("Permit granted successfully");
+        await sleep(1000);
+      } catch (error) {
+        console.error("Permit transaction failed:", error);
+        // 打印详细的错误信息
+        if (error.logs) {
+          console.error("Transaction logs:", error.logs);
+        }
+        throw error;
+      }
 
       // 执行 transfer_from 操作
       const transferFromTx = await program.methods
         .transferFrom(new anchor.BN(10000000))
         .accounts({
+          owner: recipientKeypair.publicKey,
           spender: spender.publicKey,
-          from: recipientKeypair.publicKey,
-          to: spender.publicKey,
           fromToken: recipientTokenAccount,
           toToken: spenderTokenAccount,
-          allowance: allowanceStatePda,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          permit: permitPda, // 移除 permit_signer，直接使用 permit
+          mintState: mintStatePda,
           pauseState: pauseStatePda,
           accessRegistry: accessRegistryPda,
-          mintState: mintStatePda, // 确保添加 mintState
+          tokenProgram: TOKEN_PROGRAM_ID,
         })
-        .signers([spender])
+        .signers([spender]) // 只需要 spender 作为签名者
         .rpc();
 
       // 添加余额检查
@@ -674,7 +622,13 @@ describe("WUSD Token Mint Test", () => {
       );
       console.log("After transfer_from balance:", afterBalance.value.uiAmount);
     } catch (error) {
-      console.error("TransferFrom operation failed:", error);
+      console.error("Transaction failed with error:", error);
+      if (error.logs) {
+        console.error("Transaction logs:");
+        error.logs.forEach((log: string, index: number) => {
+          console.error(`${index}: ${log}`);
+        });
+      }
       throw error;
     }
   });
