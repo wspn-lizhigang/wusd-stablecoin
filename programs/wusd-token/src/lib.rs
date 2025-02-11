@@ -25,7 +25,7 @@ const PERMIT_SIZE: usize = 8 + 32 + 32 + 8 +  8 +  8 +  1;
 const ALLOWANCE_SIZE: usize = 8 + 32 + 32 + 8;    // discriminator + owner + spender + amount
 const ACCESS_REGISTRY_SIZE: usize = 8 + 32 + 1 + (32 * 10) + 1;  // discriminator + authority + initialized + operators + operator_count
 
-declare_id!("43eXSSqZGLVkn9sTkMoR7nm9oKzc1R8DhAVBkPgUbCyc");
+declare_id!("3aRTkTTdwnE6RGTnZjde8wAgt3HGzKEZFbmkFvv9pY1Q");
 
 /// 初始化事件，记录代币初始化的关键信息
 #[event]
@@ -420,7 +420,7 @@ pub mod wusd_token {
                 token::Transfer {
                     from: ctx.accounts.from_token.to_account_info(),
                     to: ctx.accounts.to_token.to_account_info(),
-                    authority: ctx.accounts.permit.to_account_info(), // 使用permit PDA作为authority
+                    authority: ctx.accounts.owner.to_account_info(), 
                 },
                 &[&seeds[..]]
             ),
@@ -758,6 +758,7 @@ pub struct TransferFrom<'info> {
     #[account(mut)]
     pub spender: Signer<'info>, 
     /// CHECK: 这是一个已验证的所有者地址
+    #[account(mut, signer)]  
     pub owner: AccountInfo<'info>, 
     #[account(
         mut,

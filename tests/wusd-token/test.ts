@@ -595,13 +595,13 @@ describe("WUSD Token Mint Test", () => {
           spender: spender.publicKey,
           fromToken: recipientTokenAccount,
           toToken: spenderTokenAccount,
-          permit: permitPda, // 移除 permit_signer，直接使用 permit
+          permit: permitPda,
           mintState: mintStatePda,
           pauseState: pauseStatePda,
           accessRegistry: accessRegistryPda,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
-        .signers([spender]) // 只需要 spender 作为签名者
+        .signers([spender, recipientKeypair]) // 添加 owner 作为签名者
         .rpc();
 
       // 添加余额检查
