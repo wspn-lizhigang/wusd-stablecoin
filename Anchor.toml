@@ -5,7 +5,7 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-wusd_application = "3JmdookeJY96JsRnnN1C68qLiKmqrw6LuEhK9yhdKfWJ"
+wusd_application = "9VBdBHsx836ER2ejyetGvG7MWmpNwRg5Kc9FBfixCzCf"
 wusd_token = "3aRTkTTdwnE6RGTnZjde8wAgt3HGzKEZFbmkFvv9pY1Q"
 
 [registry]

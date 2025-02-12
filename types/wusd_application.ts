@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/wusd_application.json`.
  */
 export type WusdApplication = {
-  "address": "3JmdookeJY96JsRnnN1C68qLiKmqrw6LuEhK9yhdKfWJ",
+  "address": "9VBdBHsx836ER2ejyetGvG7MWmpNwRg5Kc9FBfixCzCf",
   "metadata": {
     "name": "wusdApplication",
     "version": "1.0.0",
