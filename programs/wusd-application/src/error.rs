@@ -69,4 +69,22 @@ pub enum WUSDError {
     /// 无效的地址
     #[msg("Invalid address")]
     InvalidAddress,
+    /// 金库余额不足
+    #[msg("Insufficient treasury balance")]
+    InsufficientTreasuryBalance,
+    /// 无可用的白名单槽位
+    #[msg("No available whitelist slot")]
+    NoAvailableWhitelistSlot,
+    /// 无效的输入
+    #[msg("Invalid input")]
+    InvalidInput,
+    /// 代币数量过多
+    #[msg("Too many tokens")]
+    TooManyTokens,
+    /// 没有代币被更新
+    #[msg("No tokens updated")]
+    NoTokensUpdated,
+    /// 金额太小
+    #[msg("Amount too small")]
+    AmountTooSmall,
 }

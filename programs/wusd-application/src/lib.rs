@@ -14,37 +14,27 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
-/// 模块导入
 mod instructions;
 mod state;
 mod error;
 mod base;
 pub use base::{Base, roles};
 
-/// 使用内部模块
-use crate::instructions::*;
 use state::*;
 use error::*;
-use crate::instructions::stake::{StakingStatus, ClaimType};
-use crate::instructions::softstake::{SoftStake, SoftClaim};
-use crate::instructions::swap::Rate;
+use instructions::stake::*;
+use instructions::withdraw::*;
+use instructions::swap::*;
+use instructions::softstake::*;
 
 declare_id!("9VBdBHsx836ER2ejyetGvG7MWmpNwRg5Kc9FBfixCzCf");
 
-/// WUSD稳定币程序入口
 #[program]
 pub mod wusd_application {
     use super::*;
+    use crate::error::WUSDError;
 
     /// 初始化质押账户
-    /// 
-    /// # 参数
-    /// * `ctx` - 初始化上下文，包含用户账户和质押账户信息
-    /// 
-    /// # 功能
-    /// - 创建新的质押账户
-    /// - 设置初始状态和参数
-    /// - 记录质押开始时间
     pub fn initialize_stake_account(ctx: Context<InitializeStakeAccount>) -> Result<()> {
         let stake_account = &mut ctx.accounts.stake_account;
         stake_account.owner = ctx.accounts.user.key();
@@ -63,17 +53,6 @@ pub mod wusd_application {
     }
 
     /// 初始化WUSD稳定币系统
-    /// 
-    /// # 参数
-    /// * `ctx` - 初始化上下文
-    /// * `decimals` - 代币精度
-    /// 
-    /// # 功能
-    /// - 设置系统管理员
-    /// - 初始化代币参数
-    /// - 配置质押奖励机制
-    /// - 设置紧急提现规则
-    /// - 初始化代币白名单
     pub fn initialize(
         ctx: Context<Initialize>,
         decimals: u8,
@@ -106,16 +85,6 @@ pub mod wusd_application {
     }
 
     /// 质押WUSD代币
-    /// 
-    /// # 参数
-    /// * `ctx` - 质押上下文，包含用户账户和质押账户信息
-    /// * `amount` - 质押金额
-    /// * `staking_pool_id` - 质押池ID，用于确定APY和锁定期
-    /// 
-    /// # 功能
-    /// - 验证质押金额和用户余额
-    /// - 更新质押状态和奖励计算
-    /// - 锁定用户代币
     pub fn stake(
         ctx: Context<Stake>,
         amount: u64,
@@ -125,22 +94,11 @@ pub mod wusd_application {
     }
 
     /// 领取质押奖励
-    /// 
-    /// # 参数
-    /// * `ctx` - 领取奖励的上下文，包含质押账户和奖励接收账户
-    /// 
-    /// # 功能
-    /// - 计算可领取的奖励金额
-    /// - 验证领取条件
-    /// - 转移奖励代币
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         instructions::stake::claim(ctx)
     }
 
     /// 提取质押的代币
-    /// * `ctx` - 提取上下文
-    /// * `amount` - 提取金额
-    /// * `is_emergency` - 是否为紧急提现
     pub fn withdraw(
         ctx: Context<Withdraw>,
         amount: u64,
@@ -149,10 +107,15 @@ pub mod wusd_application {
         instructions::withdraw::withdraw(ctx, amount, is_emergency)
     }
 
+    /// 设置交易池地址
+    pub fn set_pool_address(
+        ctx: Context<PoolAddress>,
+        new_pool_address: Pubkey,
+    ) -> Result<()> {
+        instructions::swap::set_pool_address(ctx, new_pool_address)
+    }
+
     /// 代币兑换功能
-    /// * `ctx` - 兑换上下文
-    /// * `amount_in` - 输入金额
-    /// * `min_amount_out` - 最小输出金额（滑点保护）
     pub fn swap(
         ctx: Context<Swap>,
         amount_in: u64,
@@ -184,9 +147,6 @@ pub mod wusd_application {
     }
 
     /// 设置代币兑换配置
-    /// * `ctx` - 设置配置的上下文
-    /// * `token_mint` - 代币铸币权地址
-    /// * `decimals` - 代币精度
     pub fn set_config(
         ctx: Context<SetConfig>,
         token_mint: Pubkey,
@@ -196,10 +156,6 @@ pub mod wusd_application {
     }
 
     /// 设置代币兑换汇率
-    /// * `ctx` - 设置汇率的上下文
-    /// * `token_in_mint` - 输入代币的铸币权地址
-    /// * `token_out_mint` - 输出代币的铸币权地址
-    /// * `rate` - 兑换汇率
     pub fn set_rate(
         ctx: Context<SetRate>,
         token_in_mint: Pubkey,
@@ -210,10 +166,6 @@ pub mod wusd_application {
     }
 
     /// 软质押WUSD代币
-    /// * `ctx` - 软质押上下文
-    /// * `amount` - 质押金额
-    /// * `staking_pool_id` - 质押池ID
-    /// * `access_key` - 访问密钥
     pub fn soft_stake(
         ctx: Context<SoftStake>,
         amount: u64,
@@ -224,9 +176,31 @@ pub mod wusd_application {
     }
 
     /// 领取软质押奖励
-    /// * `ctx` - 领取奖励的上下文
     pub fn soft_claim(ctx: Context<SoftClaim>) -> Result<()> {
         instructions::softstake::soft_claim(ctx)
+    }
+
+    /// 设置代币白名单状态
+    pub fn set_whitelist_token(
+        ctx: Context<SetWhitelistToken>,
+        token_mint: Pubkey,
+        status: bool,
+    ) -> Result<()> {
+        instructions::swap::set_whitelist_token(ctx, token_mint, status)
+    }
+
+    /// 批量设置代币白名单状态
+    pub fn set_whitelist_tokens(
+        ctx: Context<SetWhitelistToken>,
+        token_mints: Vec<Pubkey>,
+        status: bool,
+    ) -> Result<()> {
+        instructions::swap::set_whitelist_tokens(ctx, token_mints, status)
+    }
+
+    /// 获取交易池地址
+    pub fn get_pool_address(ctx: Context<PoolAddress>) -> Result<Pubkey> {
+        Ok(instructions::swap::get_pool_address(&ctx.accounts.state))
     }
 }
 

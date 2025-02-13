@@ -326,7 +326,7 @@ pub mod wusd_token {
     /// * `amount` - 转账数量
     pub fn transfer(ctx: Context<Transfer>, amount: u64) -> Result<()> {
         require!(amount > 0, WusdError::InvalidAmount);
-        let fee = calculate_transfer_fee(amount); // 需要实现费用计算函数 
+        let fee = calculate_transfer_fee(amount);  
         require!(
             ctx.accounts.from_token.amount >= amount.saturating_add(fee),
             WusdError::InsufficientFunds
@@ -371,9 +371,9 @@ pub mod wusd_token {
             from: from.owner,
             to: to.owner,
             amount,
-            fee,  // 添加缺失的fee字段
+            fee,   
             timestamp: Clock::get()?.unix_timestamp,
-            memo: None  // 添加默认memo
+            memo: None   
         });
 
         Ok(())

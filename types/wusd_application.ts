@@ -12,22 +12,11 @@ export type WusdApplication = {
     "spec": "0.1.0",
     "description": "Created with WSPN"
   },
-  "docs": [
-    "WUSD稳定币程序入口"
-  ],
   "instructions": [
     {
       "name": "claim",
       "docs": [
-        "领取质押奖励",
-        "",
-        "# 参数",
-        "* `ctx` - 领取奖励的上下文，包含质押账户和奖励接收账户",
-        "",
-        "# 功能",
-        "- 计算可领取的奖励金额",
-        "- 验证领取条件",
-        "- 转移奖励代币"
+        "领取质押奖励"
       ],
       "discriminator": [
         62,
@@ -108,20 +97,52 @@ export type WusdApplication = {
       "args": []
     },
     {
+      "name": "getPoolAddress",
+      "docs": [
+        "获取交易池地址"
+      ],
+      "discriminator": [
+        254,
+        255,
+        180,
+        179,
+        16,
+        69,
+        86,
+        223
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [],
+      "returns": "pubkey"
+    },
+    {
       "name": "initialize",
       "docs": [
-        "初始化WUSD稳定币系统",
-        "",
-        "# 参数",
-        "* `ctx` - 初始化上下文",
-        "* `decimals` - 代币精度",
-        "",
-        "# 功能",
-        "- 设置系统管理员",
-        "- 初始化代币参数",
-        "- 配置质押奖励机制",
-        "- 设置紧急提现规则",
-        "- 初始化代币白名单"
+        "初始化WUSD稳定币系统"
       ],
       "discriminator": [
         175,
@@ -189,15 +210,7 @@ export type WusdApplication = {
     {
       "name": "initializeStakeAccount",
       "docs": [
-        "初始化质押账户",
-        "",
-        "# 参数",
-        "* `ctx` - 初始化上下文，包含用户账户和质押账户信息",
-        "",
-        "# 功能",
-        "- 创建新的质押账户",
-        "- 设置初始状态和参数",
-        "- 记录质押开始时间"
+        "初始化质押账户"
       ],
       "discriminator": [
         184,
@@ -314,10 +327,7 @@ export type WusdApplication = {
     {
       "name": "setConfig",
       "docs": [
-        "设置代币兑换配置",
-        "* `ctx` - 设置配置的上下文",
-        "* `token_mint` - 代币铸币权地址",
-        "* `decimals` - 代币精度"
+        "设置代币兑换配置"
       ],
       "discriminator": [
         108,
@@ -366,13 +376,56 @@ export type WusdApplication = {
       ]
     },
     {
+      "name": "setPoolAddress",
+      "docs": [
+        "设置交易池地址"
+      ],
+      "discriminator": [
+        50,
+        20,
+        119,
+        215,
+        227,
+        162,
+        76,
+        98
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "newPoolAddress",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
       "name": "setRate",
       "docs": [
-        "设置代币兑换汇率",
-        "* `ctx` - 设置汇率的上下文",
-        "* `token_in_mint` - 输入代币的铸币权地址",
-        "* `token_out_mint` - 输出代币的铸币权地址",
-        "* `rate` - 兑换汇率"
+        "设置代币兑换汇率"
       ],
       "discriminator": [
         99,
@@ -429,10 +482,113 @@ export type WusdApplication = {
       ]
     },
     {
+      "name": "setWhitelistToken",
+      "docs": [
+        "设置代币白名单状态"
+      ],
+      "discriminator": [
+        169,
+        74,
+        92,
+        154,
+        58,
+        48,
+        112,
+        222
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "tokenMint",
+          "type": "pubkey"
+        },
+        {
+          "name": "status",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "setWhitelistTokens",
+      "docs": [
+        "批量设置代币白名单状态"
+      ],
+      "discriminator": [
+        197,
+        137,
+        162,
+        162,
+        127,
+        153,
+        111,
+        107
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "tokenMints",
+          "type": {
+            "vec": "pubkey"
+          }
+        },
+        {
+          "name": "status",
+          "type": "bool"
+        }
+      ]
+    },
+    {
       "name": "softClaim",
       "docs": [
-        "领取软质押奖励",
-        "* `ctx` - 领取奖励的上下文"
+        "领取软质押奖励"
       ],
       "discriminator": [
         32,
@@ -520,11 +676,7 @@ export type WusdApplication = {
     {
       "name": "softStake",
       "docs": [
-        "软质押WUSD代币",
-        "* `ctx` - 软质押上下文",
-        "* `amount` - 质押金额",
-        "* `staking_pool_id` - 质押池ID",
-        "* `access_key` - 访问密钥"
+        "软质押WUSD代币"
       ],
       "discriminator": [
         182,
@@ -635,17 +787,7 @@ export type WusdApplication = {
     {
       "name": "stake",
       "docs": [
-        "质押WUSD代币",
-        "",
-        "# 参数",
-        "* `ctx` - 质押上下文，包含用户账户和质押账户信息",
-        "* `amount` - 质押金额",
-        "* `staking_pool_id` - 质押池ID，用于确定APY和锁定期",
-        "",
-        "# 功能",
-        "- 验证质押金额和用户余额",
-        "- 更新质押状态和奖励计算",
-        "- 锁定用户代币"
+        "质押WUSD代币"
       ],
       "discriminator": [
         206,
@@ -742,10 +884,7 @@ export type WusdApplication = {
     {
       "name": "swap",
       "docs": [
-        "代币兑换功能",
-        "* `ctx` - 兑换上下文",
-        "* `amount_in` - 输入金额",
-        "* `min_amount_out` - 最小输出金额（滑点保护）"
+        "代币兑换功能"
       ],
       "discriminator": [
         248,
@@ -791,12 +930,6 @@ export type WusdApplication = {
               }
             ]
           }
-        },
-        {
-          "name": "wusdMint"
-        },
-        {
-          "name": "usdcMint"
         },
         {
           "name": "treasury",
@@ -858,10 +991,7 @@ export type WusdApplication = {
     {
       "name": "withdraw",
       "docs": [
-        "提取质押的代币",
-        "* `ctx` - 提取上下文",
-        "* `amount` - 提取金额",
-        "* `is_emergency` - 是否为紧急提现"
+        "提取质押的代币"
       ],
       "discriminator": [
         183,
@@ -987,6 +1117,19 @@ export type WusdApplication = {
       ]
     },
     {
+      "name": "configSetEvent",
+      "discriminator": [
+        155,
+        157,
+        251,
+        153,
+        203,
+        112,
+        80,
+        35
+      ]
+    },
+    {
       "name": "pauseEvent",
       "discriminator": [
         32,
@@ -997,6 +1140,32 @@ export type WusdApplication = {
         104,
         130,
         43
+      ]
+    },
+    {
+      "name": "poolAddressSetEvent",
+      "discriminator": [
+        188,
+        177,
+        17,
+        222,
+        5,
+        25,
+        225,
+        193
+      ]
+    },
+    {
+      "name": "rateSetEvent",
+      "discriminator": [
+        246,
+        167,
+        109,
+        54,
+        215,
+        222,
+        183,
+        175
       ]
     },
     {
@@ -1049,6 +1218,19 @@ export type WusdApplication = {
         8,
         113,
         226
+      ]
+    },
+    {
+      "name": "tokenWhitelistUpdatedEvent",
+      "discriminator": [
+        156,
+        192,
+        173,
+        131,
+        71,
+        67,
+        9,
+        241
       ]
     },
     {
@@ -1188,6 +1370,36 @@ export type WusdApplication = {
       "code": 6021,
       "name": "invalidAddress",
       "msg": "Invalid address"
+    },
+    {
+      "code": 6022,
+      "name": "insufficientTreasuryBalance",
+      "msg": "Insufficient treasury balance"
+    },
+    {
+      "code": 6023,
+      "name": "noAvailableWhitelistSlot",
+      "msg": "No available whitelist slot"
+    },
+    {
+      "code": 6024,
+      "name": "invalidInput",
+      "msg": "Invalid input"
+    },
+    {
+      "code": 6025,
+      "name": "tooManyTokens",
+      "msg": "Too many tokens"
+    },
+    {
+      "code": 6026,
+      "name": "noTokensUpdated",
+      "msg": "No tokens updated"
+    },
+    {
+      "code": 6027,
+      "name": "amountTooSmall",
+      "msg": "Amount too small"
     }
   ],
   "types": [
@@ -1231,6 +1443,33 @@ export type WusdApplication = {
       }
     },
     {
+      "name": "configSetEvent",
+      "docs": [
+        "代币配置更新事件"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "caller",
+            "type": "pubkey"
+          },
+          {
+            "name": "tokenMint",
+            "type": "pubkey"
+          },
+          {
+            "name": "decimals",
+            "type": "u8"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
       "name": "pauseEvent",
       "docs": [
         "合约暂停事件"
@@ -1238,6 +1477,33 @@ export type WusdApplication = {
       "type": {
         "kind": "struct",
         "fields": []
+      }
+    },
+    {
+      "name": "poolAddressSetEvent",
+      "docs": [
+        "交易池地址更新事件"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "caller",
+            "type": "pubkey"
+          },
+          {
+            "name": "oldPoolAddress",
+            "type": "pubkey"
+          },
+          {
+            "name": "newPoolAddress",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
       }
     },
     {
@@ -1255,6 +1521,49 @@ export type WusdApplication = {
           {
             "name": "output",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rateSetEvent",
+      "docs": [
+        "汇率设置事件"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "caller",
+            "type": "pubkey"
+          },
+          {
+            "name": "tokenIn",
+            "type": "pubkey"
+          },
+          {
+            "name": "tokenOut",
+            "type": "pubkey"
+          },
+          {
+            "name": "oldRate",
+            "type": {
+              "defined": {
+                "name": "rate"
+              }
+            }
+          },
+          {
+            "name": "newRate",
+            "type": {
+              "defined": {
+                "name": "rate"
+              }
+            }
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
           }
         ]
       }
@@ -1552,7 +1861,7 @@ export type WusdApplication = {
     {
       "name": "swapEvent",
       "docs": [
-        "代币兑换事件，记录兑换的详细信息"
+        "代币兑换事件"
       ],
       "type": {
         "kind": "struct",
@@ -1580,6 +1889,33 @@ export type WusdApplication = {
           {
             "name": "treasury",
             "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "tokenWhitelistUpdatedEvent",
+      "docs": [
+        "代币白名单更新事件"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "caller",
+            "type": "pubkey"
+          },
+          {
+            "name": "token",
+            "type": "pubkey"
+          },
+          {
+            "name": "status",
+            "type": "bool"
           },
           {
             "name": "timestamp",

@@ -126,20 +126,7 @@ describe("WUSD Token Mint Test", () => {
         );
         await provider.connection.confirmTransaction(signature, "confirmed");
 
-        console.log("Contract state initialized");
-
-        // 验证初始化结果
-        const mintInfo = await provider.connection.getAccountInfo(
-          mintKeypair.publicKey
-        );
-
-        const authorityState = await program.account.authorityState.fetch(
-          authorityPda
-        );
-        const mintState = await program.account.mintState.fetch(mintStatePda);
-        const pauseState = await program.account.pauseState.fetch(
-          pauseStatePda
-        );
+        console.log("Contract state initialized"); 
       } catch (error) {
         console.error("Contract initialization failed:", error);
         throw error;

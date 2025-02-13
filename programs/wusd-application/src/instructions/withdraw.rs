@@ -4,8 +4,7 @@ use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 use crate::state::StateAccount;
 use crate::error::WUSDError;
 use crate::instructions::stake::StakeAccount;
-use crate::StakingStatus;
-use crate::ClaimType;
+use crate::instructions::stake::{StakingStatus, ClaimType};
 
 /// 提现指令的账户参数
 #[derive(Accounts)]

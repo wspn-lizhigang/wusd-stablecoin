@@ -73,7 +73,7 @@ describe("WUSD Application Tests", () => {
 
   before(async () => {
     try {
-      console.log("Starting initialization...");
+      console.log("Starting initialization..."); 
 
       // 生成所需的密钥对
       wusdMint = Keypair.generate();
