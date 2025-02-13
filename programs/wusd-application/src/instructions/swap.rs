@@ -168,14 +168,6 @@ pub fn swap(
     require!(ctx.accounts.user_token_in.owner == ctx.accounts.user.key(), WUSDError::InvalidOwner);
     require!(ctx.accounts.user_token_out.owner == ctx.accounts.user.key(), WUSDError::InvalidOwner);
     
-    // 验证代币地址和白名单状态
-    require!(
-        StateAccount::is_token_whitelisted(ctx.accounts.user_token_in.mint, &ctx.accounts.state.token_whitelist) &&
-        StateAccount::is_token_whitelisted(ctx.accounts.user_token_out.mint, &ctx.accounts.state.token_whitelist),
-        WUSDError::TokenNotWhitelisted
-    );
-    require!(ctx.accounts.user_token_in.mint != ctx.accounts.user_token_out.mint, WUSDError::SameTokenAddresses);
-
     // 计算输出金额
     let amount_out = calculate_output_amount(
         amount_in,
