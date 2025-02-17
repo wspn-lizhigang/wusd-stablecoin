@@ -9,6 +9,12 @@ pub enum WUSDError {
     /// 无效的金额输入
     #[msg("Invalid amount")]
     InvalidAmount,
+    /// 无效的签名
+    #[msg("Invalid signature")]
+    InvalidSignatureError,
+    /// 无效的访问密钥
+    #[msg("Invalid access key")]
+    InvalidAccessKey,
     /// 供应量不足
     #[msg("Insufficient supply")]
     InsufficientSupply,
@@ -87,4 +93,34 @@ pub enum WUSDError {
     /// 金额太小
     #[msg("Amount too small")]
     AmountTooSmall,
+    /// 算术溢出
+    #[msg("Arithmetic overflow")]
+    ArithmeticOverflow,
+    /// 质押已被领取
+    #[msg("Claim already claimed")]
+    ClaimAlreadyClaimed,
+    /// 未到可领取时间
+    #[msg("Claimable timestamp not reached")]
+    ClaimableTimestampNotReached,
+    /// 空签名
+    #[msg("Empty signatures")]
+    EmptySignatures,
+    /// 无效的签名者数量
+    #[msg("Invalid number of signers")]
+    InvalidNumberOfSigners,
+    /// 未授权的签名者
+    #[msg("Unauthorized signer")]
+    UnauthorizedSigner,
+    /// 无效的选择器
+    #[msg("Invalid selector")]
+    InvalidSelector,
+    /// 未找到质押
+    #[msg("Claim not found")]
+    ClaimNotFound,
+    /// 无效的质押计划
+    #[msg("Invalid staking plan")]
+    InvalidStakingPlan,
+    /// 非所有者
+    #[msg("Not an owner")]
+    NotAnOwner,
 }

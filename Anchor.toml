@@ -1,4 +1,5 @@
 [toolchain]
+anchor_version = "0.28.0"
 
 [features]
 seeds = false
@@ -6,20 +7,23 @@ skip-lint = false
 
 [programs.localnet]
 wusd_application = "9VBdBHsx836ER2ejyetGvG7MWmpNwRg5Kc9FBfixCzCf"
-wusd_token = "3aRTkTTdwnE6RGTnZjde8wAgt3HGzKEZFbmkFvv9pY1Q"
+wusd_token = "9VBdBHsx836ER2ejyetGvG7MWmpNwRg5Kc9FBfixCzCf"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
 cluster = "localnet"
-wallet = "deploy-keypair.json"
+wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 
 [workspace]
-members = ["programs/*"]
+members = [
+  "programs/wusd-application",
+  "programs/wusd-token"
+]
 types = "types/"
 
 [test.validator]

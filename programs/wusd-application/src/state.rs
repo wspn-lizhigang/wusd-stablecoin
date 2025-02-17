@@ -1,13 +1,15 @@
 use anchor_lang::prelude::*;
 use crate::error::WUSDError;
 use crate::instructions::swap::Rate;
+use crate::instructions::softstake::SoftStakeAccount;
 
 /// 质押池状态枚举
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum PoolStatus {
-    Active,
-    Paused,
-    Closed
+    Active = 0,
+    Paused = 1,
+    Closed = 2
 }
 
 /// 质押池配置结构体
@@ -20,7 +22,12 @@ pub struct StakingPool {
     pub status: PoolStatus,
 }
 
-/// 全局状态账户，存储系统的核心配置和状态
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
+pub struct ExchangeRate {
+    pub input: u64,
+    pub output: u64,
+}
+
 #[account]
 pub struct StateAccount {
     pub authority: Pubkey,
@@ -40,13 +47,11 @@ pub struct StateAccount {
     pub token_whitelist: [(Pubkey, bool); 3],
     pub exchange_rates: [(Pubkey, Pubkey, Rate); 3],
     pub total_staking_plans: u64,
-}
-
-/// 代币兑换汇率结构体
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
-pub struct ExchangeRate {
-    pub input: u64,
-    pub output: u64,
+    pub owners: [Pubkey; 10],
+    pub pool_address: Pubkey,
+    pub claims: [(Pubkey, SoftStakeAccount); 32],
+    pub claims_count: u32,
+    pub staking_pools: [StakingPool; 32],
 }
 
 impl StateAccount {
@@ -64,9 +69,14 @@ impl StateAccount {
         8 + // emergency_cooldown_duration
         1 + // collateral_decimals
         1 + // wusd_decimals
-        (32 + 1) * 3 + // token_whitelist (3 entries)
-        (32 + 32 + 16) * 3 + // exchange_rates (3 entries)
-        8; // total_staking_plans
+        (32 + 1) * 3 + // token_whitelist
+        (32 + 32 + 16) * 3 + // exchange_rates
+        8 + // total_staking_plans
+        32 * 10 + // owners
+        32 + // pool_address
+        (32 + 128) * 32 + // claims
+        4 + // claims_count
+        (8 + 8 + 8 + 8 + 1) * 32; // staking_pools
 
     pub fn has_role(_role: &[u8], authority: &Pubkey, state_authority: &Pubkey) -> bool {
         authority == state_authority
@@ -77,11 +87,7 @@ impl StateAccount {
         Ok(())
     }
 
-    /// 根据池ID获取质押池信息
-    /// * `pool_id` - 质押池ID
-    /// * 返回质押池配置信息
     pub fn get_staking_pool(pool_id: u64) -> Result<StakingPool> {
-        // 这里简化实现，实际应该从存储中获取质押池信息
         Ok(StakingPool {
             id: pool_id,
             apy: 500_000_000, // 5% APY
@@ -91,9 +97,6 @@ impl StateAccount {
         })
     }
 
-    /// 检查代币是否在白名单中
-    /// * `mint` - 代币铸币权地址
-    /// * 返回代币是否被允许使用
     pub fn is_token_whitelisted(mint: Pubkey, token_whitelist: &[(Pubkey, bool)]) -> bool {
         if let Some((_token, status)) = token_whitelist.iter().find(|(token, _)| *token == mint) {
             *status
@@ -102,11 +105,8 @@ impl StateAccount {
         }
     }
 
-    /// 获取代币精度
-    /// * `mint` - 代币铸币权地址
-    /// * 返回代币精度
     pub fn get_token_decimals(mint: Pubkey, state: &StateAccount) -> Result<u8> {
-        if !Self::is_token_whitelisted(mint, &state.token_whitelist) {
+        if !StateAccount::is_token_whitelisted(mint, &state.token_whitelist) {
             return err!(WUSDError::TokenNotWhitelisted);
         }
 
@@ -119,12 +119,8 @@ impl StateAccount {
         }
     }
 
-    /// 获取两个代币之间的兑换汇率
-    /// * `token_in_mint` - 输入代币的铸币权地址
-    /// * `token_out_mint` - 输出代币的铸币权地址
-    /// * 返回兑换汇率
     pub fn get_exchange_rate(token_in_mint: Pubkey, token_out_mint: Pubkey, state: &StateAccount) -> Result<ExchangeRate> {
-        if !Self::is_token_whitelisted(token_in_mint, &state.token_whitelist) || !Self::is_token_whitelisted(token_out_mint, &state.token_whitelist) {
+        if !StateAccount::is_token_whitelisted(token_in_mint, &state.token_whitelist) || !StateAccount::is_token_whitelisted(token_out_mint, &state.token_whitelist) {
             return err!(WUSDError::TokenNotWhitelisted);
         }
 
@@ -135,7 +131,6 @@ impl StateAccount {
                 output: rate.output,
             })
         } else {
-            // 默认1:1汇率
             Ok(ExchangeRate {
                 input: 1_000_000_000,
                 output: 1_000_000_000,

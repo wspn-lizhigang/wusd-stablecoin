@@ -194,7 +194,7 @@ pub fn swap(
     // 将代币从金库转移到用户
     let seeds = &[
         b"state".as_ref(),
-        &[ctx.bumps.state],
+        &[ctx.bumps["state"]],
     ];
     let signer = &[&seeds[..]];
 
@@ -420,7 +420,6 @@ pub(crate) fn calculate_output_amount(
 
     Ok(amount_out as u64)
 } 
-
 
 /// 检查代币是否在白名单中
 pub(crate) fn is_token_whitelisted(token_mint: Pubkey, state: &StateAccount) -> bool {

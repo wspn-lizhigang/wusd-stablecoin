@@ -1,203 +1,81 @@
-/**
- * Program IDL in camelCase format in order to be used in JS/TS.
- *
- * Note that this is only a type helper and is not the actual IDL. The original
- * IDL can be found at `target/idl/wusd_application.json`.
- */
 export type WusdApplication = {
-  "address": "9VBdBHsx836ER2ejyetGvG7MWmpNwRg5Kc9FBfixCzCf",
-  "metadata": {
-    "name": "wusdApplication",
-    "version": "1.0.0",
-    "spec": "0.1.0",
-    "description": "Created with WSPN"
-  },
+  "version": "0.1.0",
+  "name": "wusd_application",
   "instructions": [
     {
-      "name": "claim",
+      "name": "initializeStakeAccount",
       "docs": [
-        "领取质押奖励"
-      ],
-      "discriminator": [
-        62,
-        198,
-        214,
-        193,
-        213,
-        159,
-        108,
-        210
+        "初始化质押账户"
       ],
       "accounts": [
         {
           "name": "user",
-          "signer": true
+          "isMut": true,
+          "isSigner": true
         },
         {
           "name": "stakeAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  107,
-                  101,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "user"
-              }
-            ]
-          }
-        },
-        {
-          "name": "userWusd",
-          "writable": true
-        },
-        {
-          "name": "wusdMint",
-          "writable": true
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
+          "isMut": true,
+          "isSigner": false
         },
         {
-          "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
-    },
-    {
-      "name": "getPoolAddress",
-      "docs": [
-        "获取交易池地址"
-      ],
-      "discriminator": [
-        254,
-        255,
-        180,
-        179,
-        16,
-        69,
-        86,
-        223
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
-        }
-      ],
-      "args": [],
-      "returns": "pubkey"
     },
     {
       "name": "initialize",
       "docs": [
         "初始化WUSD稳定币系统"
       ],
-      "discriminator": [
-        175,
-        175,
-        109,
-        31,
-        13,
-        152,
-        155,
-        237
-      ],
       "accounts": [
         {
           "name": "authority",
-          "writable": true,
-          "signer": true
+          "isMut": true,
+          "isSigner": true
         },
         {
           "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
+          "isMut": true,
+          "isSigner": false
         },
         {
-          "name": "wusdMint"
+          "name": "wusdMint",
+          "isMut": false,
+          "isSigner": false
         },
         {
-          "name": "collateralMint"
+          "name": "collateralMint",
+          "isMut": false,
+          "isSigner": false
         },
         {
-          "name": "treasury"
+          "name": "treasury",
+          "isMut": false,
+          "isSigner": false
         },
         {
           "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
+          "isMut": false,
+          "isSigner": false
         },
         {
           "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "isMut": false,
+          "isSigner": false
         },
         {
           "name": "rent",
-          "address": "SysvarRent111111111111111111111111111111111"
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -208,118 +86,188 @@ export type WusdApplication = {
       ]
     },
     {
-      "name": "initializeStakeAccount",
+      "name": "stake",
       "docs": [
-        "初始化质押账户"
-      ],
-      "discriminator": [
-        184,
-        7,
-        155,
-        82,
-        149,
-        217,
-        185,
-        196
+        "质押WUSD代币"
       ],
       "accounts": [
         {
           "name": "user",
-          "writable": true,
-          "signer": true
+          "isMut": true,
+          "isSigner": true
         },
         {
           "name": "stakeAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  107,
-                  101,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "user"
-              }
-            ]
-          }
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "stakingPoolId",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "claim",
+      "docs": [
+        "领取质押奖励"
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "stakeAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userWusd",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "wusdMint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
+    },
+    {
+      "name": "setPoolAddress",
+      "docs": [
+        "设置交易池地址"
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "newPoolAddress",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "swap",
+      "docs": [
+        "代币兑换功能"
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "userTokenIn",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenOut",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "treasury",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amountIn",
+          "type": "u64"
+        },
+        {
+          "name": "minAmountOut",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "pause",
       "docs": [
         "暂停合约"
       ],
-      "discriminator": [
-        211,
-        22,
-        221,
-        251,
-        74,
-        121,
-        193,
-        47
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unpause",
+      "docs": [
+        "恢复合约"
       ],
       "accounts": [
         {
           "name": "authority",
-          "signer": true
+          "isMut": false,
+          "isSigner": true
         },
         {
           "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
+          "isMut": true,
+          "isSigner": false
         }
       ],
       "args": []
@@ -329,45 +277,22 @@ export type WusdApplication = {
       "docs": [
         "设置代币兑换配置"
       ],
-      "discriminator": [
-        108,
-        158,
-        154,
-        175,
-        212,
-        98,
-        52,
-        66
-      ],
       "accounts": [
         {
           "name": "authority",
-          "writable": true,
-          "signer": true
+          "isMut": true,
+          "isSigner": true
         },
         {
           "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
+          "isMut": true,
+          "isSigner": false
         }
       ],
       "args": [
         {
           "name": "tokenMint",
-          "type": "pubkey"
+          "type": "publicKey"
         },
         {
           "name": "decimals",
@@ -376,392 +301,79 @@ export type WusdApplication = {
       ]
     },
     {
-      "name": "setPoolAddress",
-      "docs": [
-        "设置交易池地址"
-      ],
-      "discriminator": [
-        50,
-        20,
-        119,
-        215,
-        227,
-        162,
-        76,
-        98
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
-        }
-      ],
-      "args": [
-        {
-          "name": "newPoolAddress",
-          "type": "pubkey"
-        }
-      ]
-    },
-    {
       "name": "setRate",
       "docs": [
         "设置代币兑换汇率"
       ],
-      "discriminator": [
-        99,
-        58,
-        170,
-        238,
-        160,
-        120,
-        74,
-        11
-      ],
       "accounts": [
         {
           "name": "authority",
-          "writable": true,
-          "signer": true
+          "isMut": true,
+          "isSigner": true
         },
         {
           "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
+          "isMut": true,
+          "isSigner": false
         }
       ],
       "args": [
         {
           "name": "tokenInMint",
-          "type": "pubkey"
+          "type": "publicKey"
         },
         {
           "name": "tokenOutMint",
-          "type": "pubkey"
+          "type": "publicKey"
         },
         {
           "name": "rate",
           "type": {
-            "defined": {
-              "name": "rate"
-            }
+            "defined": "Rate"
           }
         }
       ]
-    },
-    {
-      "name": "setWhitelistToken",
-      "docs": [
-        "设置代币白名单状态"
-      ],
-      "discriminator": [
-        169,
-        74,
-        92,
-        154,
-        58,
-        48,
-        112,
-        222
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
-        }
-      ],
-      "args": [
-        {
-          "name": "tokenMint",
-          "type": "pubkey"
-        },
-        {
-          "name": "status",
-          "type": "bool"
-        }
-      ]
-    },
-    {
-      "name": "setWhitelistTokens",
-      "docs": [
-        "批量设置代币白名单状态"
-      ],
-      "discriminator": [
-        197,
-        137,
-        162,
-        162,
-        127,
-        153,
-        111,
-        107
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
-        }
-      ],
-      "args": [
-        {
-          "name": "tokenMints",
-          "type": {
-            "vec": "pubkey"
-          }
-        },
-        {
-          "name": "status",
-          "type": "bool"
-        }
-      ]
-    },
-    {
-      "name": "softClaim",
-      "docs": [
-        "领取软质押奖励"
-      ],
-      "discriminator": [
-        32,
-        153,
-        36,
-        86,
-        240,
-        221,
-        130,
-        125
-      ],
-      "accounts": [
-        {
-          "name": "user",
-          "signer": true
-        },
-        {
-          "name": "stakeAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  111,
-                  102,
-                  116,
-                  95,
-                  115,
-                  116,
-                  97,
-                  107,
-                  101,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "user"
-              }
-            ]
-          }
-        },
-        {
-          "name": "userWusd",
-          "writable": true
-        },
-        {
-          "name": "wusdMint",
-          "writable": true
-        },
-        {
-          "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": []
     },
     {
       "name": "softStake",
       "docs": [
         "软质押WUSD代币"
       ],
-      "discriminator": [
-        182,
-        175,
-        208,
-        41,
-        24,
-        31,
-        208,
-        32
-      ],
       "accounts": [
         {
           "name": "user",
-          "writable": true,
-          "signer": true
+          "isMut": true,
+          "isSigner": true
         },
         {
           "name": "userWusd",
-          "writable": true
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "stakeAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  111,
-                  102,
-                  116,
-                  95,
-                  115,
-                  116,
-                  97,
-                  107,
-                  101,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "user"
-              }
-            ]
-          }
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "stakeVault",
-          "writable": true
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
+          "isMut": false,
+          "isSigner": false
         },
         {
           "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": [
@@ -785,729 +397,506 @@ export type WusdApplication = {
       ]
     },
     {
-      "name": "stake",
-      "docs": [
-        "质押WUSD代币"
-      ],
-      "discriminator": [
-        206,
-        176,
-        202,
-        18,
-        200,
-        209,
-        179,
-        108
-      ],
+      "name": "softClaim",
       "accounts": [
         {
           "name": "user",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "userWusd",
-          "writable": true
+          "isMut": false,
+          "isSigner": true
         },
         {
           "name": "stakeAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  107,
-                  101,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "user"
-              }
-            ]
-          }
+          "isMut": true,
+          "isSigner": false
         },
         {
-          "name": "stakeVault",
-          "writable": true
+          "name": "userWusd",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "wusdMint",
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "amount",
-          "type": "u64"
-        },
-        {
-          "name": "stakingPoolId",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "swap",
-      "docs": [
-        "代币兑换功能"
-      ],
-      "discriminator": [
-        248,
-        198,
-        158,
-        145,
-        225,
-        117,
-        135,
-        200
-      ],
-      "accounts": [
-        {
-          "name": "user",
-          "signer": true
-        },
-        {
-          "name": "userTokenIn",
-          "writable": true
-        },
-        {
-          "name": "userTokenOut",
-          "writable": true
-        },
-        {
-          "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "treasury",
-          "writable": true
-        }
-      ],
-      "args": [
-        {
-          "name": "amountIn",
-          "type": "u64"
-        },
-        {
-          "name": "minAmountOut",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "unpause",
-      "docs": [
-        "恢复合约"
-      ],
-      "discriminator": [
-        169,
-        144,
-        4,
-        38,
-        10,
-        141,
-        188,
-        255
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "signer": true
-        },
-        {
-          "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
+          "isMut": false,
+          "isSigner": false
         }
       ],
       "args": []
     },
     {
-      "name": "withdraw",
+      "name": "setWhitelistToken",
       "docs": [
-        "提取质押的代币"
-      ],
-      "discriminator": [
-        183,
-        18,
-        70,
-        156,
-        148,
-        109,
-        161,
-        34
+        "设置代币白名单状态"
       ],
       "accounts": [
         {
-          "name": "user",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "userWusd",
-          "writable": true
-        },
-        {
-          "name": "stakeVault",
-          "writable": true
-        },
-        {
-          "name": "stakeAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  107,
-                  101
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "user"
-              }
-            ]
-          }
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
         },
         {
           "name": "state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  97,
-                  116,
-                  101
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          "isMut": true,
+          "isSigner": false
         }
       ],
       "args": [
         {
-          "name": "amount",
-          "type": "u64"
+          "name": "tokenMint",
+          "type": "publicKey"
         },
         {
-          "name": "isEmergency",
+          "name": "status",
           "type": "bool"
         }
       ]
+    },
+    {
+      "name": "setWhitelistTokens",
+      "docs": [
+        "批量设置代币白名单状态"
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "tokenMints",
+          "type": {
+            "vec": "publicKey"
+          }
+        },
+        {
+          "name": "status",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "getPoolAddress",
+      "docs": [
+        "获取交易池地址"
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [],
+      "returns": "publicKey"
     }
   ],
   "accounts": [
     {
       "name": "softStakeAccount",
-      "discriminator": [
-        101,
-        165,
-        7,
-        10,
-        40,
-        166,
-        251,
-        159
-      ]
-    },
-    {
-      "name": "stakeAccount",
-      "discriminator": [
-        80,
-        158,
-        67,
-        124,
-        50,
-        189,
-        192,
-        255
-      ]
-    }
-  ],
-  "events": [
-    {
-      "name": "claimEvent",
-      "discriminator": [
-        93,
-        15,
-        70,
-        170,
-        48,
-        140,
-        212,
-        219
-      ]
-    },
-    {
-      "name": "configSetEvent",
-      "discriminator": [
-        155,
-        157,
-        251,
-        153,
-        203,
-        112,
-        80,
-        35
-      ]
-    },
-    {
-      "name": "pauseEvent",
-      "discriminator": [
-        32,
-        51,
-        61,
-        169,
-        156,
-        104,
-        130,
-        43
-      ]
-    },
-    {
-      "name": "poolAddressSetEvent",
-      "discriminator": [
-        188,
-        177,
-        17,
-        222,
-        5,
-        25,
-        225,
-        193
-      ]
-    },
-    {
-      "name": "rateSetEvent",
-      "discriminator": [
-        246,
-        167,
-        109,
-        54,
-        215,
-        222,
-        183,
-        175
-      ]
-    },
-    {
-      "name": "softClaimEvent",
-      "discriminator": [
-        56,
-        91,
-        118,
-        177,
-        67,
-        193,
-        100,
-        18
-      ]
-    },
-    {
-      "name": "softStakeEvent",
-      "discriminator": [
-        248,
-        55,
-        34,
-        87,
-        214,
-        222,
-        106,
-        7
-      ]
-    },
-    {
-      "name": "stakeEvent",
-      "discriminator": [
-        226,
-        134,
-        188,
-        173,
-        19,
-        33,
-        75,
-        175
-      ]
-    },
-    {
-      "name": "swapEvent",
-      "discriminator": [
-        64,
-        198,
-        205,
-        232,
-        38,
-        8,
-        113,
-        226
-      ]
-    },
-    {
-      "name": "tokenWhitelistUpdatedEvent",
-      "discriminator": [
-        156,
-        192,
-        173,
-        131,
-        71,
-        67,
-        9,
-        241
-      ]
-    },
-    {
-      "name": "unpauseEvent",
-      "discriminator": [
-        134,
-        156,
-        8,
-        215,
-        185,
-        128,
-        192,
-        217
-      ]
-    },
-    {
-      "name": "withdrawEvent",
-      "discriminator": [
-        22,
-        9,
-        133,
-        26,
-        160,
-        44,
-        71,
-        192
-      ]
-    }
-  ],
-  "errors": [
-    {
-      "code": 6000,
-      "name": "contractPaused",
-      "msg": "Contract is paused"
-    },
-    {
-      "code": 6001,
-      "name": "invalidAmount",
-      "msg": "Invalid amount"
-    },
-    {
-      "code": 6002,
-      "name": "insufficientSupply",
-      "msg": "Insufficient supply"
-    },
-    {
-      "code": 6003,
-      "name": "unauthorized",
-      "msg": "unauthorized"
-    },
-    {
-      "code": 6004,
-      "name": "slippageExceeded",
-      "msg": "Slippage exceeded"
-    },
-    {
-      "code": 6005,
-      "name": "noRewardsToClaim",
-      "msg": "No rewards to claim"
-    },
-    {
-      "code": 6006,
-      "name": "invalidLockDuration",
-      "msg": "Invalid lock duration"
-    },
-    {
-      "code": 6007,
-      "name": "invalidStakingStatus",
-      "msg": "Invalid staking status"
-    },
-    {
-      "code": 6008,
-      "name": "emergencyWithdrawCooldown",
-      "msg": "Emergency withdraw cooldown"
-    },
-    {
-      "code": 6009,
-      "name": "stakeLocked",
-      "msg": "Stake is locked"
-    },
-    {
-      "code": 6010,
-      "name": "tokenNotWhitelisted",
-      "msg": "Token not whitelisted"
-    },
-    {
-      "code": 6011,
-      "name": "mathOverflow",
-      "msg": "Math overflow"
-    },
-    {
-      "code": 6012,
-      "name": "invalidPoolId",
-      "msg": "Invalid pool ID"
-    },
-    {
-      "code": 6013,
-      "name": "invalidPoolStatus",
-      "msg": "Invalid pool status"
-    },
-    {
-      "code": 6014,
-      "name": "stakingAmountTooLow",
-      "msg": "Staking amount too low"
-    },
-    {
-      "code": 6015,
-      "name": "sameTokenAddresses",
-      "msg": "Cannot swap same token"
-    },
-    {
-      "code": 6016,
-      "name": "insufficientBalance",
-      "msg": "Insufficient balance"
-    },
-    {
-      "code": 6017,
-      "name": "invalidOwner",
-      "msg": "Invalid owner"
-    },
-    {
-      "code": 6018,
-      "name": "invalidDecimals",
-      "msg": "Invalid decimals"
-    },
-    {
-      "code": 6019,
-      "name": "invalidExchangeRate",
-      "msg": "Invalid exchange rate"
-    },
-    {
-      "code": 6020,
-      "name": "invalidOutputAmount",
-      "msg": "Invalid output amount"
-    },
-    {
-      "code": 6021,
-      "name": "invalidAddress",
-      "msg": "Invalid address"
-    },
-    {
-      "code": 6022,
-      "name": "insufficientTreasuryBalance",
-      "msg": "Insufficient treasury balance"
-    },
-    {
-      "code": 6023,
-      "name": "noAvailableWhitelistSlot",
-      "msg": "No available whitelist slot"
-    },
-    {
-      "code": 6024,
-      "name": "invalidInput",
-      "msg": "Invalid input"
-    },
-    {
-      "code": 6025,
-      "name": "tooManyTokens",
-      "msg": "Too many tokens"
-    },
-    {
-      "code": 6026,
-      "name": "noTokensUpdated",
-      "msg": "No tokens updated"
-    },
-    {
-      "code": 6027,
-      "name": "amountTooSmall",
-      "msg": "Amount too small"
-    }
-  ],
-  "types": [
-    {
-      "name": "claimEvent",
       "docs": [
-        "领取奖励事件，记录领取操作的详细信息"
+        "软质押账户结构体，存储用户的软质押信息"
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "user",
-            "type": "pubkey"
+            "name": "owner",
+            "type": "publicKey"
+          },
+          {
+            "name": "stakingPoolId",
+            "type": "u64"
           },
           {
             "name": "amount",
             "type": "u64"
+          },
+          {
+            "name": "apy",
+            "type": "u64"
+          },
+          {
+            "name": "startTime",
+            "type": "i64"
+          },
+          {
+            "name": "endTime",
+            "type": "i64"
+          },
+          {
+            "name": "claimableTimestamp",
+            "type": "i64"
+          },
+          {
+            "name": "rewardsEarned",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": "SoftStakingStatus"
+            }
+          },
+          {
+            "name": "accessKey",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "lastUpdateTime",
+            "type": "i64"
           }
         ]
       }
     },
     {
-      "name": "claimType",
+      "name": "stakeAccount",
       "docs": [
-        "领取类型枚举"
-      ],
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "unclaimed"
-          },
-          {
-            "name": "prematured"
-          },
-          {
-            "name": "matured"
-          }
-        ]
-      }
-    },
-    {
-      "name": "configSetEvent",
-      "docs": [
-        "代币配置更新事件"
+        "质押账户结构体，存储用户的质押信息"
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "caller",
-            "type": "pubkey"
+            "name": "owner",
+            "type": "publicKey"
           },
           {
-            "name": "tokenMint",
-            "type": "pubkey"
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "stakingPoolId",
+            "type": "u64"
+          },
+          {
+            "name": "apy",
+            "type": "u64"
+          },
+          {
+            "name": "startTime",
+            "type": "i64"
+          },
+          {
+            "name": "endTime",
+            "type": "i64"
+          },
+          {
+            "name": "claimableTimestamp",
+            "type": "i64"
+          },
+          {
+            "name": "rewardsEarned",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": "StakingStatus"
+            }
+          },
+          {
+            "name": "claimType",
+            "type": {
+              "defined": "ClaimType"
+            }
+          },
+          {
+            "name": "apyTier",
+            "type": "u8"
+          },
+          {
+            "name": "emergencyCooldown",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "stateAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "wusdMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "collateralMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "treasury",
+            "type": "publicKey"
+          },
+          {
+            "name": "totalSupply",
+            "type": "u64"
           },
           {
             "name": "decimals",
             "type": "u8"
           },
           {
-            "name": "timestamp",
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "totalStaked",
+            "type": "u64"
+          },
+          {
+            "name": "rewardRate",
+            "type": "u64"
+          },
+          {
+            "name": "lastUpdateTime",
             "type": "i64"
+          },
+          {
+            "name": "emergencyWithdrawPenalty",
+            "type": "u64"
+          },
+          {
+            "name": "emergencyCooldownDuration",
+            "type": "i64"
+          },
+          {
+            "name": "collateralDecimals",
+            "type": "u8"
+          },
+          {
+            "name": "wusdDecimals",
+            "type": "u8"
+          },
+          {
+            "name": "tokenWhitelist",
+            "type": {
+              "array": [
+                {
+                  "defined": "(Pubkey,bool)"
+                },
+                3
+              ]
+            }
+          },
+          {
+            "name": "exchangeRates",
+            "type": {
+              "array": [
+                {
+                  "defined": "(Pubkey,Pubkey,Rate)"
+                },
+                3
+              ]
+            }
+          },
+          {
+            "name": "totalStakingPlans",
+            "type": "u64"
+          },
+          {
+            "name": "owners",
+            "type": {
+              "array": [
+                "publicKey",
+                10
+              ]
+            }
+          },
+          {
+            "name": "poolAddress",
+            "type": "publicKey"
+          },
+          {
+            "name": "claims",
+            "type": {
+              "array": [
+                {
+                  "defined": "(Pubkey,SoftStakeAccount)"
+                },
+                32
+              ]
+            }
+          },
+          {
+            "name": "claimsCount",
+            "type": "u32"
+          },
+          {
+            "name": "stakingPools",
+            "type": {
+              "array": [
+                {
+                  "defined": "StakingPool"
+                },
+                32
+              ]
+            }
           }
         ]
       }
-    },
+    }
+  ],
+  "types": [
     {
-      "name": "pauseEvent",
+      "name": "ClaimDataInput",
       "docs": [
-        "合约暂停事件"
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": []
-      }
-    },
-    {
-      "name": "poolAddressSetEvent",
-      "docs": [
-        "交易池地址更新事件"
+        "质押数据输入结构体"
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "caller",
-            "type": "pubkey"
+            "name": "account",
+            "type": "publicKey"
           },
           {
-            "name": "oldPoolAddress",
-            "type": "pubkey"
+            "name": "claimableTimestamp",
+            "type": "i64"
           },
           {
-            "name": "newPoolAddress",
-            "type": "pubkey"
+            "name": "amount",
+            "type": "u64"
           },
           {
-            "name": "timestamp",
+            "name": "accessKey",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SoftStakeRewards",
+      "docs": [
+        "软质押奖励计算结构体"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "baseRewards",
+            "type": "u64"
+          },
+          {
+            "name": "bonusRewards",
+            "type": "u64"
+          },
+          {
+            "name": "totalRewards",
+            "type": "u64"
+          },
+          {
+            "name": "lastUpdateTime",
             "type": "i64"
           }
         ]
       }
     },
     {
-      "name": "rate",
+      "name": "StakingPoolDetail",
+      "docs": [
+        "质押池详情结构体"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "stakingPoolId",
+            "type": "u64"
+          },
+          {
+            "name": "stakingPool",
+            "type": {
+              "defined": "StakingPool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "StakingPlan",
+      "docs": [
+        "质押计划详情结构体"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "minStakeAmount",
+            "type": "u64"
+          },
+          {
+            "name": "apy",
+            "type": "u64"
+          },
+          {
+            "name": "duration",
+            "type": "i64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": "PoolStatus"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "StakingPlanDetail",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "stakingPlanId",
+            "type": "u64"
+          },
+          {
+            "name": "stakingPlan",
+            "type": {
+              "defined": "StakingPlan"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Rate",
       "docs": [
         "汇率结构体，定义代币兑换比率"
       ],
@@ -1526,76 +915,1334 @@ export type WusdApplication = {
       }
     },
     {
-      "name": "rateSetEvent",
+      "name": "StakingPool",
       "docs": [
-        "汇率设置事件"
+        "质押池配置结构体"
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "caller",
-            "type": "pubkey"
+            "name": "id",
+            "type": "u64"
           },
           {
-            "name": "tokenIn",
-            "type": "pubkey"
+            "name": "apy",
+            "type": "u64"
           },
           {
-            "name": "tokenOut",
-            "type": "pubkey"
-          },
-          {
-            "name": "oldRate",
-            "type": {
-              "defined": {
-                "name": "rate"
-              }
-            }
-          },
-          {
-            "name": "newRate",
-            "type": {
-              "defined": {
-                "name": "rate"
-              }
-            }
-          },
-          {
-            "name": "timestamp",
+            "name": "duration",
             "type": "i64"
+          },
+          {
+            "name": "minStakeAmount",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": "PoolStatus"
+            }
           }
         ]
       }
     },
     {
-      "name": "softClaimEvent",
-      "docs": [
-        "软质押奖励领取事件，记录领取操作的详细信息"
-      ],
+      "name": "ExchangeRate",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "user",
-            "type": "pubkey"
-          },
-          {
-            "name": "amount",
+            "name": "input",
             "type": "u64"
           },
           {
-            "name": "accessKey",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            "name": "output",
+            "type": "u64"
           }
         ]
       }
     },
+    {
+      "name": "SoftStakingStatus",
+      "docs": [
+        "软质押状态枚举"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Claimable"
+          },
+          {
+            "name": "Claimed"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StakingStatus",
+      "docs": [
+        "质押状态枚举"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Locked"
+          },
+          {
+            "name": "Unlocked"
+          },
+          {
+            "name": "Claimed"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClaimType",
+      "docs": [
+        "领取类型枚举"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Unclaimed"
+          },
+          {
+            "name": "Claimed"
+          },
+          {
+            "name": "Emergency"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolStatus",
+      "docs": [
+        "质押池状态枚举"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Paused"
+          },
+          {
+            "name": "Closed"
+          }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "ClaimDataCreated",
+      "fields": [
+        {
+          "name": "account",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "claimableTimestamp",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "accessKey",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "OwnerChanged",
+      "fields": [
+        {
+          "name": "oldOwner",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newOwner",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "PoolAddressSet",
+      "fields": [
+        {
+          "name": "oldAddress",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newAddress",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SoftStakeEvent",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakingPoolId",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "apy",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "startTime",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "endTime",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "accessKey",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SoftClaimEvent",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "accessKey",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SoftStakeStatusUpdated",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakingPoolId",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "oldStatus",
+          "type": {
+            "defined": "SoftStakingStatus"
+          },
+          "index": false
+        },
+        {
+          "name": "newStatus",
+          "type": {
+            "defined": "SoftStakingStatus"
+          },
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SoftStakeRewardsUpdated",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "oldRewards",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "newRewards",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SoftStakeRewardsCalculated",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "baseRewards",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "bonusRewards",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "totalRewards",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "WithdrawEvent",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakingPoolId",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "rewards",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "withdrawTime",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "isEmergency",
+          "type": "bool",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "StakeEvent",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakingPlanId",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "stakingPoolId",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "apy",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "startTime",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "endTime",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "stakedAt",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ClaimEvent",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SwapEvent",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "tokenIn",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "tokenOut",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "amountIn",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "amountOut",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "treasury",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "RateSetEvent",
+      "fields": [
+        {
+          "name": "caller",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "tokenIn",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "tokenOut",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "oldRate",
+          "type": {
+            "defined": "Rate"
+          },
+          "index": false
+        },
+        {
+          "name": "newRate",
+          "type": {
+            "defined": "Rate"
+          },
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "PoolAddressSetEvent",
+      "fields": [
+        {
+          "name": "caller",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "oldPoolAddress",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newPoolAddress",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "TokenWhitelistUpdatedEvent",
+      "fields": [
+        {
+          "name": "caller",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "token",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "status",
+          "type": "bool",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ConfigSetEvent",
+      "fields": [
+        {
+          "name": "caller",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "tokenMint",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "decimals",
+          "type": "u8",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "PauseEvent",
+      "fields": []
+    },
+    {
+      "name": "UnpauseEvent",
+      "fields": []
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "ContractPaused",
+      "msg": "Contract is paused"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidAmount",
+      "msg": "Invalid amount"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidSignatureError",
+      "msg": "Invalid signature"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidAccessKey",
+      "msg": "Invalid access key"
+    },
+    {
+      "code": 6004,
+      "name": "InsufficientSupply",
+      "msg": "Insufficient supply"
+    },
+    {
+      "code": 6005,
+      "name": "Unauthorized",
+      "msg": "Unauthorized"
+    },
+    {
+      "code": 6006,
+      "name": "SlippageExceeded",
+      "msg": "Slippage exceeded"
+    },
+    {
+      "code": 6007,
+      "name": "NoRewardsToClaim",
+      "msg": "No rewards to claim"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidLockDuration",
+      "msg": "Invalid lock duration"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidStakingStatus",
+      "msg": "Invalid staking status"
+    },
+    {
+      "code": 6010,
+      "name": "EmergencyWithdrawCooldown",
+      "msg": "Emergency withdraw cooldown"
+    },
+    {
+      "code": 6011,
+      "name": "StakeLocked",
+      "msg": "Stake is locked"
+    },
+    {
+      "code": 6012,
+      "name": "TokenNotWhitelisted",
+      "msg": "Token not whitelisted"
+    },
+    {
+      "code": 6013,
+      "name": "MathOverflow",
+      "msg": "Math overflow"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidPoolId",
+      "msg": "Invalid pool ID"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidPoolStatus",
+      "msg": "Invalid pool status"
+    },
+    {
+      "code": 6016,
+      "name": "StakingAmountTooLow",
+      "msg": "Staking amount too low"
+    },
+    {
+      "code": 6017,
+      "name": "SameTokenAddresses",
+      "msg": "Cannot swap same token"
+    },
+    {
+      "code": 6018,
+      "name": "InsufficientBalance",
+      "msg": "Insufficient balance"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidOwner",
+      "msg": "Invalid owner"
+    },
+    {
+      "code": 6020,
+      "name": "InvalidDecimals",
+      "msg": "Invalid decimals"
+    },
+    {
+      "code": 6021,
+      "name": "InvalidExchangeRate",
+      "msg": "Invalid exchange rate"
+    },
+    {
+      "code": 6022,
+      "name": "InvalidOutputAmount",
+      "msg": "Invalid output amount"
+    },
+    {
+      "code": 6023,
+      "name": "InvalidAddress",
+      "msg": "Invalid address"
+    },
+    {
+      "code": 6024,
+      "name": "InsufficientTreasuryBalance",
+      "msg": "Insufficient treasury balance"
+    },
+    {
+      "code": 6025,
+      "name": "NoAvailableWhitelistSlot",
+      "msg": "No available whitelist slot"
+    },
+    {
+      "code": 6026,
+      "name": "InvalidInput",
+      "msg": "Invalid input"
+    },
+    {
+      "code": 6027,
+      "name": "TooManyTokens",
+      "msg": "Too many tokens"
+    },
+    {
+      "code": 6028,
+      "name": "NoTokensUpdated",
+      "msg": "No tokens updated"
+    },
+    {
+      "code": 6029,
+      "name": "AmountTooSmall",
+      "msg": "Amount too small"
+    },
+    {
+      "code": 6030,
+      "name": "ArithmeticOverflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6031,
+      "name": "ClaimAlreadyClaimed",
+      "msg": "Claim already claimed"
+    },
+    {
+      "code": 6032,
+      "name": "ClaimableTimestampNotReached",
+      "msg": "Claimable timestamp not reached"
+    },
+    {
+      "code": 6033,
+      "name": "EmptySignatures",
+      "msg": "Empty signatures"
+    },
+    {
+      "code": 6034,
+      "name": "InvalidNumberOfSigners",
+      "msg": "Invalid number of signers"
+    },
+    {
+      "code": 6035,
+      "name": "UnauthorizedSigner",
+      "msg": "Unauthorized signer"
+    },
+    {
+      "code": 6036,
+      "name": "InvalidSelector",
+      "msg": "Invalid selector"
+    },
+    {
+      "code": 6037,
+      "name": "ClaimNotFound",
+      "msg": "Claim not found"
+    },
+    {
+      "code": 6038,
+      "name": "InvalidStakingPlan",
+      "msg": "Invalid staking plan"
+    },
+    {
+      "code": 6039,
+      "name": "NotAnOwner",
+      "msg": "Not an owner"
+    }
+  ]
+};
+
+export const IDL: WusdApplication = {
+  "version": "0.1.0",
+  "name": "wusd_application",
+  "instructions": [
+    {
+      "name": "initializeStakeAccount",
+      "docs": [
+        "初始化质押账户"
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "stakeAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "docs": [
+        "初始化WUSD稳定币系统"
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "wusdMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "collateralMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "treasury",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "decimals",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "stake",
+      "docs": [
+        "质押WUSD代币"
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "stakeAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "stakingPoolId",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "claim",
+      "docs": [
+        "领取质押奖励"
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "stakeAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userWusd",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "wusdMint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "setPoolAddress",
+      "docs": [
+        "设置交易池地址"
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "newPoolAddress",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "swap",
+      "docs": [
+        "代币兑换功能"
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "userTokenIn",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenOut",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "treasury",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amountIn",
+          "type": "u64"
+        },
+        {
+          "name": "minAmountOut",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "pause",
+      "docs": [
+        "暂停合约"
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unpause",
+      "docs": [
+        "恢复合约"
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "setConfig",
+      "docs": [
+        "设置代币兑换配置"
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "tokenMint",
+          "type": "publicKey"
+        },
+        {
+          "name": "decimals",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "setRate",
+      "docs": [
+        "设置代币兑换汇率"
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "tokenInMint",
+          "type": "publicKey"
+        },
+        {
+          "name": "tokenOutMint",
+          "type": "publicKey"
+        },
+        {
+          "name": "rate",
+          "type": {
+            "defined": "Rate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "softStake",
+      "docs": [
+        "软质押WUSD代币"
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "userWusd",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "stakeAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "stakeVault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "stakingPoolId",
+          "type": "u64"
+        },
+        {
+          "name": "accessKey",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "softClaim",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "stakeAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userWusd",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "wusdMint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "setWhitelistToken",
+      "docs": [
+        "设置代币白名单状态"
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "tokenMint",
+          "type": "publicKey"
+        },
+        {
+          "name": "status",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "setWhitelistTokens",
+      "docs": [
+        "批量设置代币白名单状态"
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "tokenMints",
+          "type": {
+            "vec": "publicKey"
+          }
+        },
+        {
+          "name": "status",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "getPoolAddress",
+      "docs": [
+        "获取交易池地址"
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [],
+      "returns": "publicKey"
+    }
+  ],
+  "accounts": [
     {
       "name": "softStakeAccount",
       "docs": [
@@ -1606,7 +2253,7 @@ export type WusdApplication = {
         "fields": [
           {
             "name": "owner",
-            "type": "pubkey"
+            "type": "publicKey"
           },
           {
             "name": "stakingPoolId",
@@ -1639,9 +2286,7 @@ export type WusdApplication = {
           {
             "name": "status",
             "type": {
-              "defined": {
-                "name": "softStakingStatus"
-              }
+              "defined": "SoftStakingStatus"
             }
           },
           {
@@ -1656,70 +2301,6 @@ export type WusdApplication = {
           {
             "name": "lastUpdateTime",
             "type": "i64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "softStakeEvent",
-      "docs": [
-        "软质押事件，记录软质押操作的详细信息"
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "user",
-            "type": "pubkey"
-          },
-          {
-            "name": "stakingPoolId",
-            "type": "u64"
-          },
-          {
-            "name": "amount",
-            "type": "u64"
-          },
-          {
-            "name": "apy",
-            "type": "u64"
-          },
-          {
-            "name": "startTime",
-            "type": "i64"
-          },
-          {
-            "name": "endTime",
-            "type": "i64"
-          },
-          {
-            "name": "accessKey",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "softStakingStatus",
-      "docs": [
-        "软质押状态枚举"
-      ],
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "active"
-          },
-          {
-            "name": "claimable"
-          },
-          {
-            "name": "claimed"
           }
         ]
       }
@@ -1734,14 +2315,14 @@ export type WusdApplication = {
         "fields": [
           {
             "name": "owner",
-            "type": "pubkey"
-          },
-          {
-            "name": "stakingPoolId",
-            "type": "u64"
+            "type": "publicKey"
           },
           {
             "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "stakingPoolId",
             "type": "u64"
           },
           {
@@ -1767,17 +2348,13 @@ export type WusdApplication = {
           {
             "name": "status",
             "type": {
-              "defined": {
-                "name": "stakingStatus"
-              }
+              "defined": "StakingStatus"
             }
           },
           {
             "name": "claimType",
             "type": {
-              "defined": {
-                "name": "claimType"
-              }
+              "defined": "ClaimType"
             }
           },
           {
@@ -1787,6 +2364,192 @@ export type WusdApplication = {
           {
             "name": "emergencyCooldown",
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "stateAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "publicKey"
+          },
+          {
+            "name": "wusdMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "collateralMint",
+            "type": "publicKey"
+          },
+          {
+            "name": "treasury",
+            "type": "publicKey"
+          },
+          {
+            "name": "totalSupply",
+            "type": "u64"
+          },
+          {
+            "name": "decimals",
+            "type": "u8"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "totalStaked",
+            "type": "u64"
+          },
+          {
+            "name": "rewardRate",
+            "type": "u64"
+          },
+          {
+            "name": "lastUpdateTime",
+            "type": "i64"
+          },
+          {
+            "name": "emergencyWithdrawPenalty",
+            "type": "u64"
+          },
+          {
+            "name": "emergencyCooldownDuration",
+            "type": "i64"
+          },
+          {
+            "name": "collateralDecimals",
+            "type": "u8"
+          },
+          {
+            "name": "wusdDecimals",
+            "type": "u8"
+          },
+          {
+            "name": "tokenWhitelist",
+            "type": {
+              "array": [
+                {
+                  "defined": "(Pubkey,bool)"
+                },
+                3
+              ]
+            }
+          },
+          {
+            "name": "exchangeRates",
+            "type": {
+              "array": [
+                {
+                  "defined": "(Pubkey,Pubkey,Rate)"
+                },
+                3
+              ]
+            }
+          },
+          {
+            "name": "totalStakingPlans",
+            "type": "u64"
+          },
+          {
+            "name": "owners",
+            "type": {
+              "array": [
+                "publicKey",
+                10
+              ]
+            }
+          },
+          {
+            "name": "poolAddress",
+            "type": "publicKey"
+          },
+          {
+            "name": "claims",
+            "type": {
+              "array": [
+                {
+                  "defined": "(Pubkey,SoftStakeAccount)"
+                },
+                32
+              ]
+            }
+          },
+          {
+            "name": "claimsCount",
+            "type": "u32"
+          },
+          {
+            "name": "stakingPools",
+            "type": {
+              "array": [
+                {
+                  "defined": "StakingPool"
+                },
+                32
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "ClaimDataInput",
+      "docs": [
+        "质押数据输入结构体"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "account",
+            "type": "publicKey"
+          },
+          {
+            "name": "claimableTimestamp",
+            "type": "i64"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "accessKey",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SoftStakeRewards",
+      "docs": [
+        "软质押奖励计算结构体"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "baseRewards",
+            "type": "u64"
+          },
+          {
+            "name": "bonusRewards",
+            "type": "u64"
+          },
+          {
+            "name": "totalRewards",
+            "type": "u64"
           },
           {
             "name": "lastUpdateTime",
@@ -1796,27 +2559,36 @@ export type WusdApplication = {
       }
     },
     {
-      "name": "stakeEvent",
+      "name": "StakingPoolDetail",
       "docs": [
-        "质押事件，记录质押操作的详细信息"
+        "质押池详情结构体"
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "user",
-            "type": "pubkey"
-          },
-          {
-            "name": "stakingPlanId",
-            "type": "u64"
-          },
-          {
             "name": "stakingPoolId",
             "type": "u64"
           },
           {
-            "name": "amount",
+            "name": "stakingPool",
+            "type": {
+              "defined": "StakingPool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "StakingPlan",
+      "docs": [
+        "质押计划详情结构体"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "minStakeAmount",
             "type": "u64"
           },
           {
@@ -1824,22 +2596,126 @@ export type WusdApplication = {
             "type": "u64"
           },
           {
-            "name": "startTime",
+            "name": "duration",
             "type": "i64"
           },
           {
-            "name": "endTime",
-            "type": "i64"
-          },
-          {
-            "name": "stakedAt",
-            "type": "i64"
+            "name": "status",
+            "type": {
+              "defined": "PoolStatus"
+            }
           }
         ]
       }
     },
     {
-      "name": "stakingStatus",
+      "name": "StakingPlanDetail",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "stakingPlanId",
+            "type": "u64"
+          },
+          {
+            "name": "stakingPlan",
+            "type": {
+              "defined": "StakingPlan"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Rate",
+      "docs": [
+        "汇率结构体，定义代币兑换比率"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "input",
+            "type": "u64"
+          },
+          {
+            "name": "output",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StakingPool",
+      "docs": [
+        "质押池配置结构体"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "apy",
+            "type": "u64"
+          },
+          {
+            "name": "duration",
+            "type": "i64"
+          },
+          {
+            "name": "minStakeAmount",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": "PoolStatus"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ExchangeRate",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "input",
+            "type": "u64"
+          },
+          {
+            "name": "output",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SoftStakingStatus",
+      "docs": [
+        "软质押状态枚举"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Claimable"
+          },
+          {
+            "name": "Claimed"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StakingStatus",
       "docs": [
         "质押状态枚举"
       ],
@@ -1847,123 +2723,739 @@ export type WusdApplication = {
         "kind": "enum",
         "variants": [
           {
-            "name": "active"
+            "name": "Active"
           },
           {
-            "name": "claimable"
+            "name": "Locked"
           },
           {
-            "name": "claimed"
+            "name": "Unlocked"
+          },
+          {
+            "name": "Claimed"
           }
         ]
       }
     },
     {
-      "name": "swapEvent",
+      "name": "ClaimType",
       "docs": [
-        "代币兑换事件"
+        "领取类型枚举"
       ],
       "type": {
-        "kind": "struct",
-        "fields": [
+        "kind": "enum",
+        "variants": [
           {
-            "name": "user",
-            "type": "pubkey"
+            "name": "Unclaimed"
           },
           {
-            "name": "tokenIn",
-            "type": "pubkey"
+            "name": "Claimed"
           },
           {
-            "name": "tokenOut",
-            "type": "pubkey"
-          },
-          {
-            "name": "amountIn",
-            "type": "u64"
-          },
-          {
-            "name": "amountOut",
-            "type": "u64"
-          },
-          {
-            "name": "treasury",
-            "type": "pubkey"
-          },
-          {
-            "name": "timestamp",
-            "type": "i64"
+            "name": "Emergency"
           }
         ]
       }
     },
     {
-      "name": "tokenWhitelistUpdatedEvent",
+      "name": "PoolStatus",
       "docs": [
-        "代币白名单更新事件"
+        "质押池状态枚举"
       ],
       "type": {
-        "kind": "struct",
-        "fields": [
+        "kind": "enum",
+        "variants": [
           {
-            "name": "caller",
-            "type": "pubkey"
+            "name": "Active"
           },
           {
-            "name": "token",
-            "type": "pubkey"
+            "name": "Paused"
           },
           {
-            "name": "status",
-            "type": "bool"
-          },
-          {
-            "name": "timestamp",
-            "type": "i64"
+            "name": "Closed"
           }
         ]
       }
+    }
+  ],
+  "events": [
+    {
+      "name": "ClaimDataCreated",
+      "fields": [
+        {
+          "name": "account",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "claimableTimestamp",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "accessKey",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        }
+      ]
     },
     {
-      "name": "unpauseEvent",
-      "docs": [
-        "合约恢复事件"
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": []
-      }
+      "name": "OwnerChanged",
+      "fields": [
+        {
+          "name": "oldOwner",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newOwner",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
     },
     {
-      "name": "withdrawEvent",
-      "docs": [
-        "提现事件，记录提现操作的详细信息"
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "user",
-            "type": "pubkey"
+      "name": "PoolAddressSet",
+      "fields": [
+        {
+          "name": "oldAddress",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newAddress",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SoftStakeEvent",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakingPoolId",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "apy",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "startTime",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "endTime",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "accessKey",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
           },
-          {
-            "name": "amount",
-            "type": "u64"
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SoftClaimEvent",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "accessKey",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
           },
-          {
-            "name": "penalty",
-            "type": "u64"
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SoftStakeStatusUpdated",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakingPoolId",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "oldStatus",
+          "type": {
+            "defined": "SoftStakingStatus"
           },
-          {
-            "name": "isEmergency",
-            "type": "bool"
+          "index": false
+        },
+        {
+          "name": "newStatus",
+          "type": {
+            "defined": "SoftStakingStatus"
           },
-          {
-            "name": "timestamp",
-            "type": "i64"
-          }
-        ]
-      }
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SoftStakeRewardsUpdated",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "oldRewards",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "newRewards",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SoftStakeRewardsCalculated",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "baseRewards",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "bonusRewards",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "totalRewards",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "WithdrawEvent",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakingPoolId",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "rewards",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "withdrawTime",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "isEmergency",
+          "type": "bool",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "StakeEvent",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "stakingPlanId",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "stakingPoolId",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "apy",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "startTime",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "endTime",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "stakedAt",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ClaimEvent",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SwapEvent",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "tokenIn",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "tokenOut",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "amountIn",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "amountOut",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "treasury",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "RateSetEvent",
+      "fields": [
+        {
+          "name": "caller",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "tokenIn",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "tokenOut",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "oldRate",
+          "type": {
+            "defined": "Rate"
+          },
+          "index": false
+        },
+        {
+          "name": "newRate",
+          "type": {
+            "defined": "Rate"
+          },
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "PoolAddressSetEvent",
+      "fields": [
+        {
+          "name": "caller",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "oldPoolAddress",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newPoolAddress",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "TokenWhitelistUpdatedEvent",
+      "fields": [
+        {
+          "name": "caller",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "token",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "status",
+          "type": "bool",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ConfigSetEvent",
+      "fields": [
+        {
+          "name": "caller",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "tokenMint",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "decimals",
+          "type": "u8",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "PauseEvent",
+      "fields": []
+    },
+    {
+      "name": "UnpauseEvent",
+      "fields": []
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "ContractPaused",
+      "msg": "Contract is paused"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidAmount",
+      "msg": "Invalid amount"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidSignatureError",
+      "msg": "Invalid signature"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidAccessKey",
+      "msg": "Invalid access key"
+    },
+    {
+      "code": 6004,
+      "name": "InsufficientSupply",
+      "msg": "Insufficient supply"
+    },
+    {
+      "code": 6005,
+      "name": "Unauthorized",
+      "msg": "Unauthorized"
+    },
+    {
+      "code": 6006,
+      "name": "SlippageExceeded",
+      "msg": "Slippage exceeded"
+    },
+    {
+      "code": 6007,
+      "name": "NoRewardsToClaim",
+      "msg": "No rewards to claim"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidLockDuration",
+      "msg": "Invalid lock duration"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidStakingStatus",
+      "msg": "Invalid staking status"
+    },
+    {
+      "code": 6010,
+      "name": "EmergencyWithdrawCooldown",
+      "msg": "Emergency withdraw cooldown"
+    },
+    {
+      "code": 6011,
+      "name": "StakeLocked",
+      "msg": "Stake is locked"
+    },
+    {
+      "code": 6012,
+      "name": "TokenNotWhitelisted",
+      "msg": "Token not whitelisted"
+    },
+    {
+      "code": 6013,
+      "name": "MathOverflow",
+      "msg": "Math overflow"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidPoolId",
+      "msg": "Invalid pool ID"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidPoolStatus",
+      "msg": "Invalid pool status"
+    },
+    {
+      "code": 6016,
+      "name": "StakingAmountTooLow",
+      "msg": "Staking amount too low"
+    },
+    {
+      "code": 6017,
+      "name": "SameTokenAddresses",
+      "msg": "Cannot swap same token"
+    },
+    {
+      "code": 6018,
+      "name": "InsufficientBalance",
+      "msg": "Insufficient balance"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidOwner",
+      "msg": "Invalid owner"
+    },
+    {
+      "code": 6020,
+      "name": "InvalidDecimals",
+      "msg": "Invalid decimals"
+    },
+    {
+      "code": 6021,
+      "name": "InvalidExchangeRate",
+      "msg": "Invalid exchange rate"
+    },
+    {
+      "code": 6022,
+      "name": "InvalidOutputAmount",
+      "msg": "Invalid output amount"
+    },
+    {
+      "code": 6023,
+      "name": "InvalidAddress",
+      "msg": "Invalid address"
+    },
+    {
+      "code": 6024,
+      "name": "InsufficientTreasuryBalance",
+      "msg": "Insufficient treasury balance"
+    },
+    {
+      "code": 6025,
+      "name": "NoAvailableWhitelistSlot",
+      "msg": "No available whitelist slot"
+    },
+    {
+      "code": 6026,
+      "name": "InvalidInput",
+      "msg": "Invalid input"
+    },
+    {
+      "code": 6027,
+      "name": "TooManyTokens",
+      "msg": "Too many tokens"
+    },
+    {
+      "code": 6028,
+      "name": "NoTokensUpdated",
+      "msg": "No tokens updated"
+    },
+    {
+      "code": 6029,
+      "name": "AmountTooSmall",
+      "msg": "Amount too small"
+    },
+    {
+      "code": 6030,
+      "name": "ArithmeticOverflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6031,
+      "name": "ClaimAlreadyClaimed",
+      "msg": "Claim already claimed"
+    },
+    {
+      "code": 6032,
+      "name": "ClaimableTimestampNotReached",
+      "msg": "Claimable timestamp not reached"
+    },
+    {
+      "code": 6033,
+      "name": "EmptySignatures",
+      "msg": "Empty signatures"
+    },
+    {
+      "code": 6034,
+      "name": "InvalidNumberOfSigners",
+      "msg": "Invalid number of signers"
+    },
+    {
+      "code": 6035,
+      "name": "UnauthorizedSigner",
+      "msg": "Unauthorized signer"
+    },
+    {
+      "code": 6036,
+      "name": "InvalidSelector",
+      "msg": "Invalid selector"
+    },
+    {
+      "code": 6037,
+      "name": "ClaimNotFound",
+      "msg": "Claim not found"
+    },
+    {
+      "code": 6038,
+      "name": "InvalidStakingPlan",
+      "msg": "Invalid staking plan"
+    },
+    {
+      "code": 6039,
+      "name": "NotAnOwner",
+      "msg": "Not an owner"
     }
   ]
 };

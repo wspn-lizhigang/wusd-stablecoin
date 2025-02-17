@@ -13,17 +13,16 @@
 /// 引入必要的依赖
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
+use crate::error::WUSDError;
 
 mod instructions;
 mod state;
 mod error;
-mod base;
+mod base; 
 pub use base::{Base, roles};
 
 use state::*;
-use error::*;
-use instructions::stake::*;
-use instructions::withdraw::*;
+use instructions::stake::*; 
 use instructions::swap::*;
 use instructions::softstake::*;
 
@@ -32,7 +31,6 @@ declare_id!("9VBdBHsx836ER2ejyetGvG7MWmpNwRg5Kc9FBfixCzCf");
 #[program]
 pub mod wusd_application {
     use super::*;
-    use crate::error::WUSDError;
 
     /// 初始化质押账户
     pub fn initialize_stake_account(ctx: Context<InitializeStakeAccount>) -> Result<()> {
@@ -48,7 +46,6 @@ pub mod wusd_application {
         stake_account.status = StakingStatus::Active;
         stake_account.claim_type = ClaimType::Unclaimed;
         stake_account.apy_tier = 0;
-        stake_account.emergency_cooldown = 0;
         Ok(())
     }
 
@@ -96,16 +93,7 @@ pub mod wusd_application {
     /// 领取质押奖励
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         instructions::stake::claim(ctx)
-    }
-
-    /// 提取质押的代币
-    pub fn withdraw(
-        ctx: Context<Withdraw>,
-        amount: u64,
-        is_emergency: bool,
-    ) -> Result<()> {
-        instructions::withdraw::withdraw(ctx, amount, is_emergency)
-    }
+    } 
 
     /// 设置交易池地址
     pub fn set_pool_address(
@@ -166,18 +154,12 @@ pub mod wusd_application {
     }
 
     /// 软质押WUSD代币
-    pub fn soft_stake(
-        ctx: Context<SoftStake>,
-        amount: u64,
-        staking_pool_id: u64,
-        access_key: [u8; 32],
-    ) -> Result<()> {
-        instructions::softstake::soft_stake(ctx, amount, staking_pool_id, access_key)
+    pub fn soft_stake(ctx: Context<SoftStake>, amount: u64, staking_pool_id: u64, access_key: [u8; 32]) -> Result<()> {
+        instructions::softstake::soft_stake_handler(ctx, amount, staking_pool_id, access_key)
     }
 
-    /// 领取软质押奖励
     pub fn soft_claim(ctx: Context<SoftClaim>) -> Result<()> {
-        instructions::softstake::soft_claim(ctx)
+        instructions::softstake::soft_claim_handler(ctx)
     }
 
     /// 设置代币白名单状态
@@ -206,6 +188,7 @@ pub mod wusd_application {
 
 /// 初始化指令的账户参数
 #[derive(Accounts)]
+#[instruction(decimals: u8)]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -217,11 +200,11 @@ pub struct Initialize<'info> {
         seeds = [b"state"],
         bump
     )]
-    pub state: Account<'info, StateAccount>,
+    pub state: Box<Account<'info, StateAccount>>,
     
-    pub wusd_mint: Account<'info, Mint>,
-    pub collateral_mint: Account<'info, Mint>,
-    pub treasury: Account<'info, TokenAccount>,
+    pub wusd_mint: Box<Account<'info, Mint>>,
+    pub collateral_mint: Box<Account<'info, Mint>>,
+    pub treasury: Box<Account<'info, TokenAccount>>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
@@ -240,7 +223,7 @@ pub struct InitializeStakeAccount<'info> {
         seeds = [b"stake_account", user.key().as_ref()],
         bump
     )]
-    pub stake_account: Account<'info, StakeAccount>,
+    pub stake_account: Box<Account<'info, StakeAccount>>,
     
     #[account(
         mut,
@@ -248,7 +231,7 @@ pub struct InitializeStakeAccount<'info> {
         bump,
         constraint = !state.paused @ WUSDError::ContractPaused
     )]
-    pub state: Account<'info, StateAccount>,
+    pub state: Box<Account<'info, StateAccount>>,
     
     pub system_program: Program<'info, System>,
 }
@@ -263,7 +246,7 @@ pub struct AdminOnly<'info> {
         seeds = [b"state"],
         bump,
     )]
-    pub state: Account<'info, StateAccount>,
+    pub state: Box<Account<'info, StateAccount>>,
 }
 
 /// 合约暂停事件
