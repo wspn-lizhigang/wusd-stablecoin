@@ -13,6 +13,9 @@ pub struct AllowanceState {
 }
 
 impl AllowanceState {
+    /// 授权额度状态账户大小
+    pub const SIZE: usize = 8 + 32 + 32 + 8;
+
     /// 初始化授权状态
     /// * `owner` - 代币所有者
     /// * `spender` - 被授权者
@@ -68,6 +71,9 @@ pub struct PermitState {
 }
 
 impl PermitState {
+    /// 许可状态账户大小
+    pub const SIZE: usize = 8 + 32 + 32 + 8 + 8 + 8 + 1;
+
     /// 初始化签名许可状态
     /// * `owner` - 所有者地址
     pub fn initialize(owner: Pubkey, spender: Pubkey, amount: u64, expiration: i64, bump: u8) -> Self {
@@ -106,6 +112,10 @@ pub struct AuthorityState {
 }
 
 impl AuthorityState {
+    /// 权限管理状态账户大小
+    /// discriminator + admin + minter + pauser
+    pub const SIZE: usize = 8 + 32 * 3;
+
     pub fn initialize(admin: Pubkey) -> Self {
         Self {
             admin: admin,
@@ -146,13 +156,18 @@ pub struct AccessRegistryState {
 }
 
 impl AccessRegistryState {
-    /// 创建新的访问注册表
+    pub const SIZE: usize = 8 + // discriminator
+        32 + // authority
+        4 + // operator_count
+        (32 * 10) + // operators array
+        1; // initialized
+
     pub fn new(authority: Pubkey) -> Self {
         Self {
             authority,
-            initialized: true,
-            operators: [Pubkey::default(); 10],
             operator_count: 0,
+            operators: [Pubkey::default(); 10],
+            initialized: false,
         }
     }
 
@@ -220,122 +235,82 @@ impl AccessRegistryState {
 
         false
     }
-} 
+}
 
+/// 铸币状态账户，存储代币铸造相关信息
 #[account]
 pub struct MintState {
-    /// 代币铸币权地址
+    /// 代币铸币账户地址
     pub mint: Pubkey,
     /// 代币精度
     pub decimals: u8,
 }
 
 impl MintState {
-    /// 初始化铸币状态
-    /// * `mint` - 代币铸币权地址
-    /// * `decimals` - 代币精度
-    pub fn initialize(mint: Pubkey, decimals: u8) -> Result<Self> {
-        require!(decimals <= 9, crate::error::WusdError::InvalidDecimals);
-        
-        Ok(Self {
-            mint,
-            decimals,
-        })
-    }
-    
-    /// 验证铸币权地址是否匹配
-    /// * `mint` - 待验证的铸币权地址
-    pub fn validate_mint(&self, mint: Pubkey) -> bool {
-        self.mint == mint
-    }
-    
-    /// 验证金额是否有效
-    /// * `amount` - 待验证的金额
-    pub fn validate_amount(&self, amount: u64) -> Result<()> {
-        require!(amount > 0, crate::error::WusdError::InvalidAmount);
-        Ok(())
-    }
+    pub const SIZE: usize = 8 + // discriminator
+        32 + // mint
+        1;  // decimals
 }
 
+/// 暂停状态账户，用于控制合约的暂停/恢复
 #[account]
 pub struct PauseState {
-    /// 合约暂停状态
+    /// 合约是否暂停
     pub paused: bool,
 }
 
 impl PauseState {
-    /// 初始化暂停状态
-    pub fn initialize() -> Self {
-        Self {
-            paused: false,
-        }
-    }
-    
+    pub const SIZE: usize = 8 + // discriminator
+        1;  // paused
+
     /// 设置暂停状态
-    /// * `paused` - 是否暂停
     pub fn set_paused(&mut self, paused: bool) {
         self.paused = paused;
     }
-    
-    /// 获取当前暂停状态
-    pub fn is_paused(&self) -> bool {
-        self.paused
-    }
-    
-    /// 验证合约是否未暂停
+
+    /// 验证合约未暂停
     pub fn validate_not_paused(&self) -> Result<()> {
-        require!(!self.paused, crate::error::WusdError::ContractPaused);
+        require!(!self.paused, WusdError::ContractPaused);
         Ok(())
     }
 }
 
-/// 账户冻结状态管理
+/// 账户冻结状态，用于控制账户的冻结/解冻
 #[account]
 pub struct FreezeState {
-    /// 被冻结的账户地址
-    pub account: Pubkey,
-    /// 冻结时间戳
-    pub frozen_time: i64,
-    /// 冻结操作执行者
-    pub frozen_by: Pubkey,
-    /// 是否处于冻结状态
+    /// 账户是否被冻结
     pub is_frozen: bool,
-    /// 冻结原因描述
+    /// 冻结原因
     pub reason: String,
+    /// 冻结时间
+    pub freeze_time: i64,
 }
 
 impl FreezeState {
-    /// 初始化冻结状态
-    pub fn initialize(account: Pubkey) -> Self {
-        Self {
-            account,
-            frozen_time: 0,
-            frozen_by: Pubkey::default(),
-            is_frozen: false,
-            reason: String::new(),
-        }
+    pub const SIZE: usize = 8 + // discriminator
+        1 + // frozen
+        4 + 256 + // reason (max 256 chars)
+        8;  // freeze_time
+
+    /// 检查账户是否被冻结
+    pub fn check_frozen(&self) -> Result<()> {
+        require!(!self.is_frozen, WusdError::AccountFrozen);
+        Ok(())
     }
 
     /// 冻结账户
-    pub fn freeze(&mut self, authority: Pubkey, reason: String) -> Result<()> {
+    pub fn freeze(&mut self, reason: String) -> Result<()> {
+        require!(!self.is_frozen, WusdError::AccountAlreadyFrozen);
         self.is_frozen = true;
-        self.frozen_time = Clock::get()?.unix_timestamp;
-        self.frozen_by = authority;
         self.reason = reason;
+        self.freeze_time = Clock::get()?.unix_timestamp;
         Ok(())
     }
 
     /// 解冻账户
     pub fn unfreeze(&mut self) {
         self.is_frozen = false;
-        self.frozen_time = 0;
-        self.frozen_by = Pubkey::default();
         self.reason = String::new();
-    }
-
-    /// 检查账户是否被冻结
-    pub fn check_frozen(&self) -> Result<()> {
-        require!(!self.is_frozen, WusdError::AccountFrozen);
-        Ok(())
+        self.freeze_time = 0;
     }
 }

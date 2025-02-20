@@ -4,9 +4,6 @@ use crate::error::WusdError;
 use crate::utils::require_has_access; 
 use crate::state::{FreezeState, PermitState, MintState, AccessRegistryState, PauseState};
 
-// discriminator + account + frozen_time + frozen_by + is_frozen + reason
-const FREEZE_STATE_SIZE: usize = 8 + 32 + 8 + 32 + 1 + 200;  
-
 #[derive(Accounts)]
 pub struct Transfer<'info> {
     #[account(mut)]
@@ -25,7 +22,7 @@ pub struct Transfer<'info> {
     #[account(
         init_if_needed,
         payer = from,
-        space = FREEZE_STATE_SIZE,
+        space = FreezeState::SIZE,
         seeds = [b"freeze", from_token.key().as_ref()],
         bump
     )]
@@ -34,7 +31,7 @@ pub struct Transfer<'info> {
     #[account(
         init_if_needed,
         payer = from,
-        space = FREEZE_STATE_SIZE,
+        space = FreezeState::SIZE,
         seeds = [b"freeze", to_token.key().as_ref()],
         bump
     )]
@@ -90,7 +87,26 @@ pub struct TransferFrom<'info> {
     pub mint_state: Box<Account<'info, MintState>>, 
     pub pause_state: Account<'info, PauseState>, 
     pub access_registry: Account<'info, AccessRegistryState>, 
+    /// CHECK: 这个账户的安全性由FreezeState结构和程序逻辑保证
+    #[account(
+        init_if_needed,
+        payer = spender,
+        space = FreezeState::SIZE,
+        seeds = [b"freeze", from_token.key().as_ref()],
+        bump
+    )]
+    pub from_freeze_state: Account<'info, FreezeState>,
+    /// CHECK: 这个账户的安全性由FreezeState结构和程序逻辑保证
+    #[account(
+        init_if_needed,
+        payer = spender,
+        space = FreezeState::SIZE,
+        seeds = [b"freeze", to_token.key().as_ref()],
+        bump
+    )]
+    pub to_freeze_state: Account<'info, FreezeState>,
     pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
 }
 
 /// 转账WUSD代币
@@ -161,6 +177,10 @@ pub fn transfer_from(ctx: Context<TransferFrom>, amount: u64) -> Result<()> {
         WusdError::InvalidOwner
     );
 
+    // 检查冻结状态
+    ctx.accounts.from_freeze_state.check_frozen()?;
+    ctx.accounts.to_freeze_state.check_frozen()?;
+
     // 生成 PDA 签名
     let owner_key = ctx.accounts.owner.key();
     let spender_key = ctx.accounts.spender.key();
@@ -191,7 +211,7 @@ pub fn transfer_from(ctx: Context<TransferFrom>, amount: u64) -> Result<()> {
         .ok_or(WusdError::InsufficientAllowance)?;
     
     Ok(())
-} 
+}
 
 // 实现费用计算函数
 fn calculate_transfer_fee(amount: u64) -> u64 {

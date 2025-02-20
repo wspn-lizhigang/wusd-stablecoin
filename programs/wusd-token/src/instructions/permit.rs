@@ -3,9 +3,6 @@ use anchor_spl::token::Token;
 use crate::error::WusdError;  
 use crate::state::{MintState, PermitState, AllowanceState};
  
-const PERMIT_SIZE: usize = 8 + 32 + 32 + 8 +  8 +  8 +  1;  
-const ALLOWANCE_SIZE: usize = 8 + 32 + 32 + 8;  
-
 /// 许可授权范围枚举
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct PermitScope {
@@ -33,7 +30,7 @@ pub struct Permit<'info> {
     #[account(
         init_if_needed,
         payer = owner,
-        space = ALLOWANCE_SIZE,
+        space = AllowanceState::SIZE,
         seeds = [b"allowance", owner.key().as_ref(), spender.key().as_ref()],
         bump
     )]
@@ -42,7 +39,7 @@ pub struct Permit<'info> {
     #[account(
         init_if_needed,
         payer = owner,
-        space = PERMIT_SIZE,
+        space = PermitState::SIZE,
         seeds = [
             b"permit",
             owner.key().as_ref(),
@@ -140,5 +137,5 @@ pub fn permit(ctx: Context<Permit>, params: PermitParams) -> Result<()> {
     });
     
     Ok(())
-} 
+}
  

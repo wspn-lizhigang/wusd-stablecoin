@@ -25,12 +25,6 @@ use instructions::operator::*;
 use instructions::pause::*;
 use instructions::freeze::*; 
 
-// Account sizes
-const AUTHORITY_STATE_SIZE: usize = 8 + 32 * 3;   // discriminator + admin + minter + pauser
-const MINT_STATE_SIZE: usize = 8 + 32 + 1;        // discriminator + mint + decimals
-const PAUSE_STATE_SIZE: usize = 8 + 1;            // discriminator + paused 
-const ACCESS_REGISTRY_SIZE: usize = 8 + 32 + 1 + (32 * 10) + 1;  // discriminator + authority + initialized + operators + operator_count
-
 declare_id!("3aRTkTTdwnE6RGTnZjde8wAgt3HGzKEZFbmkFvv9pY1Q");
 
 #[derive(Accounts)]
@@ -44,7 +38,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = authority, 
-        space = AUTHORITY_STATE_SIZE,
+        space = AuthorityState::SIZE,
         seeds = [b"authority", token_mint.key().as_ref()],
         bump
     )]
@@ -63,7 +57,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = authority, 
-        space = MINT_STATE_SIZE,
+        space = MintState::SIZE,
         seeds = [b"mint_state", token_mint.key().as_ref()],
         bump
     )]
@@ -73,7 +67,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = authority, 
-        space = PAUSE_STATE_SIZE,
+        space = PauseState::SIZE,
         seeds = [b"pause_state", token_mint.key().as_ref()],
         bump
     )]
@@ -91,7 +85,7 @@ pub struct InitializeAccessRegistry<'info> {
     #[account(
         init,
         payer = authority, 
-        space = ACCESS_REGISTRY_SIZE,
+        space = AccessRegistryState::SIZE,
         seeds = [b"access_registry"],
         bump
     )]

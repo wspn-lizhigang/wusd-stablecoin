@@ -1,9 +1,6 @@
 use anchor_lang::prelude::*; 
 use crate::error::WusdError;   
-use crate::state::{FreezeState, AuthorityState};
-
-// discriminator + account + frozen_time + frozen_by + is_frozen + reason
-const FREEZE_STATE_SIZE: usize = 8 + 32 + 8 + 32 + 1 + 200;  
+use crate::state::{FreezeState, AuthorityState}; 
 
 /// 操作员管理账户结构体
 #[derive(Accounts)]
@@ -14,7 +11,7 @@ pub struct FreezeAccount<'info> {
     #[account(
         init_if_needed,
         payer = authority,
-        space = FREEZE_STATE_SIZE,
+        space = FreezeState::SIZE,
         seeds = [b"freeze", account.key().as_ref()],
         bump
     )]
@@ -76,7 +73,7 @@ pub struct AccountUnfrozen {
  
 /// 冻结账户
 pub fn freeze_account(ctx: Context<FreezeAccount>, reason: String) -> Result<()> {
-    // 验证调用者权限
+    // 验证管理员权限
     require!(
         ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
         WusdError::Unauthorized
@@ -88,18 +85,15 @@ pub fn freeze_account(ctx: Context<FreezeAccount>, reason: String) -> Result<()>
         WusdError::AccountAlreadyFrozen
     );
 
-    // 执行冻结操作
-    ctx.accounts.freeze_state.freeze(
-        ctx.accounts.authority.key(),
-        reason.clone(),
-    )?;
+    // 冻结账户
+    ctx.accounts.freeze_state.freeze(reason)?;
 
     // 发出冻结事件
-    emit!(AccountFrozen {
-        account: ctx.accounts.freeze_state.account,
-        frozen_by: ctx.accounts.authority.key(),
-        reason,
-        frozen_time: Clock::get()?.unix_timestamp,
+    emit!(FreezeAccountEvent {
+        authority: ctx.accounts.authority.key(),
+        freeze_state: ctx.accounts.freeze_state.key(),
+        reason: ctx.accounts.freeze_state.reason.clone(),
+        timestamp: Clock::get()?.unix_timestamp,
     });
 
     Ok(())
@@ -107,7 +101,7 @@ pub fn freeze_account(ctx: Context<FreezeAccount>, reason: String) -> Result<()>
 
 /// 解冻账户
 pub fn unfreeze_account(ctx: Context<UnfreezeAccount>) -> Result<()> {
-    // 验证调用者权限
+    // 验证管理员权限
     require!(
         ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
         WusdError::Unauthorized
@@ -119,15 +113,30 @@ pub fn unfreeze_account(ctx: Context<UnfreezeAccount>) -> Result<()> {
         WusdError::AccountNotFrozen
     );
 
-    // 执行解冻操作
+    // 解冻账户
     ctx.accounts.freeze_state.unfreeze();
 
     // 发出解冻事件
-    emit!(AccountUnfrozen {
-        account: ctx.accounts.freeze_state.account,
-        unfrozen_by: ctx.accounts.authority.key(),
-        unfrozen_time: Clock::get()?.unix_timestamp,
+    emit!(UnfreezeAccountEvent {
+        authority: ctx.accounts.authority.key(),
+        freeze_state: ctx.accounts.freeze_state.key(),
+        timestamp: Clock::get()?.unix_timestamp,
     });
 
     Ok(())
+}
+
+#[event]
+pub struct FreezeAccountEvent {
+    pub authority: Pubkey,
+    pub freeze_state: Pubkey,
+    pub reason: String,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct UnfreezeAccountEvent {
+    pub authority: Pubkey,
+    pub freeze_state: Pubkey,
+    pub timestamp: i64,
 }

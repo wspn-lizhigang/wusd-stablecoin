@@ -314,7 +314,22 @@ export type WusdToken = {
           "isSigner": false
         },
         {
+          "name": "fromFreezeState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "toFreezeState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
           "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         }
@@ -750,13 +765,16 @@ export type WusdToken = {
     },
     {
       "name": "mintState",
+      "docs": [
+        "铸币状态账户，存储代币铸造相关信息"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "mint",
             "docs": [
-              "代币铸币权地址"
+              "代币铸币账户地址"
             ],
             "type": "publicKey"
           },
@@ -772,13 +790,16 @@ export type WusdToken = {
     },
     {
       "name": "pauseState",
+      "docs": [
+        "暂停状态账户，用于控制合约的暂停/恢复"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "paused",
             "docs": [
-              "合约暂停状态"
+              "合约是否暂停"
             ],
             "type": "bool"
           }
@@ -788,45 +809,31 @@ export type WusdToken = {
     {
       "name": "freezeState",
       "docs": [
-        "账户冻结状态管理"
+        "账户冻结状态，用于控制账户的冻结/解冻"
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "account",
-            "docs": [
-              "被冻结的账户地址"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "frozenTime",
-            "docs": [
-              "冻结时间戳"
-            ],
-            "type": "i64"
-          },
-          {
-            "name": "frozenBy",
-            "docs": [
-              "冻结操作执行者"
-            ],
-            "type": "publicKey"
-          },
-          {
             "name": "isFrozen",
             "docs": [
-              "是否处于冻结状态"
+              "账户是否被冻结"
             ],
             "type": "bool"
           },
           {
             "name": "reason",
             "docs": [
-              "冻结原因描述"
+              "冻结原因"
             ],
             "type": "string"
+          },
+          {
+            "name": "freezeTime",
+            "docs": [
+              "冻结时间"
+            ],
+            "type": "i64"
           }
         ]
       }
@@ -1065,6 +1072,51 @@ export type WusdToken = {
       ]
     },
     {
+      "name": "FreezeAccountEvent",
+      "fields": [
+        {
+          "name": "authority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "freezeState",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "UnfreezeAccountEvent",
+      "fields": [
+        {
+          "name": "authority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "freezeState",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
       "name": "PermitGranted",
       "fields": [
         {
@@ -1162,96 +1214,86 @@ export type WusdToken = {
     },
     {
       "code": 6002,
-      "name": "InvalidDecimals",
-      "msg": "Invalid decimals"
-    },
-    {
-      "code": 6003,
-      "name": "InvalidSignature",
-      "msg": "Invalid signature"
-    },
-    {
-      "code": 6004,
-      "name": "InvalidNonce",
-      "msg": "Invalid nonce"
-    },
-    {
-      "code": 6005,
-      "name": "InvalidScope",
-      "msg": "Invalid scope"
-    },
-    {
-      "code": 6006,
       "name": "ExpiredPermit",
       "msg": "Permit expired"
     },
     {
-      "code": 6007,
+      "code": 6003,
+      "name": "InvalidNonce",
+      "msg": "Invalid nonce"
+    },
+    {
+      "code": 6004,
       "name": "Unauthorized",
       "msg": "Unauthorized"
     },
     {
-      "code": 6008,
+      "code": 6005,
       "name": "NotMinter",
       "msg": "Not a minter"
     },
     {
-      "code": 6009,
+      "code": 6006,
       "name": "NotBurner",
       "msg": "Not a burner"
     },
     {
-      "code": 6010,
+      "code": 6007,
+      "name": "NotPauser",
+      "msg": "Not a pauser"
+    },
+    {
+      "code": 6008,
       "name": "InsufficientBalance",
       "msg": "Insufficient balance"
     },
     {
-      "code": 6011,
+      "code": 6009,
       "name": "TooManyOperators",
       "msg": "Too many operators"
     },
     {
-      "code": 6012,
+      "code": 6010,
       "name": "OperatorNotFound",
       "msg": "Operator not found"
     },
     {
-      "code": 6013,
+      "code": 6011,
       "name": "AccessDenied",
       "msg": "Access denied"
     },
     {
-      "code": 6014,
+      "code": 6012,
       "name": "InsufficientFunds",
       "msg": "Insufficient funds"
     },
     {
-      "code": 6015,
+      "code": 6013,
       "name": "AccessRegistryNotInitialized",
       "msg": "Access registry not initialized"
     },
     {
-      "code": 6016,
+      "code": 6014,
       "name": "InvalidOwner",
       "msg": "Invalid owner"
     },
     {
-      "code": 6017,
+      "code": 6015,
       "name": "InsufficientAllowance",
       "msg": "Insufficient allowance"
     },
     {
-      "code": 6018,
+      "code": 6016,
       "name": "AccountFrozen",
       "msg": "Account is frozen"
     },
     {
-      "code": 6019,
+      "code": 6017,
       "name": "AccountAlreadyFrozen",
       "msg": "Account is already frozen"
     },
     {
-      "code": 6020,
+      "code": 6018,
       "name": "AccountNotFrozen",
       "msg": "Account is not frozen"
     }
@@ -1574,7 +1616,22 @@ export const IDL: WusdToken = {
           "isSigner": false
         },
         {
+          "name": "fromFreezeState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "toFreezeState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
           "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         }
@@ -2010,13 +2067,16 @@ export const IDL: WusdToken = {
     },
     {
       "name": "mintState",
+      "docs": [
+        "铸币状态账户，存储代币铸造相关信息"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "mint",
             "docs": [
-              "代币铸币权地址"
+              "代币铸币账户地址"
             ],
             "type": "publicKey"
           },
@@ -2032,13 +2092,16 @@ export const IDL: WusdToken = {
     },
     {
       "name": "pauseState",
+      "docs": [
+        "暂停状态账户，用于控制合约的暂停/恢复"
+      ],
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "paused",
             "docs": [
-              "合约暂停状态"
+              "合约是否暂停"
             ],
             "type": "bool"
           }
@@ -2048,45 +2111,31 @@ export const IDL: WusdToken = {
     {
       "name": "freezeState",
       "docs": [
-        "账户冻结状态管理"
+        "账户冻结状态，用于控制账户的冻结/解冻"
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "account",
-            "docs": [
-              "被冻结的账户地址"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "frozenTime",
-            "docs": [
-              "冻结时间戳"
-            ],
-            "type": "i64"
-          },
-          {
-            "name": "frozenBy",
-            "docs": [
-              "冻结操作执行者"
-            ],
-            "type": "publicKey"
-          },
-          {
             "name": "isFrozen",
             "docs": [
-              "是否处于冻结状态"
+              "账户是否被冻结"
             ],
             "type": "bool"
           },
           {
             "name": "reason",
             "docs": [
-              "冻结原因描述"
+              "冻结原因"
             ],
             "type": "string"
+          },
+          {
+            "name": "freezeTime",
+            "docs": [
+              "冻结时间"
+            ],
+            "type": "i64"
           }
         ]
       }
@@ -2325,6 +2374,51 @@ export const IDL: WusdToken = {
       ]
     },
     {
+      "name": "FreezeAccountEvent",
+      "fields": [
+        {
+          "name": "authority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "freezeState",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "UnfreezeAccountEvent",
+      "fields": [
+        {
+          "name": "authority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "freezeState",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
       "name": "PermitGranted",
       "fields": [
         {
@@ -2422,96 +2516,86 @@ export const IDL: WusdToken = {
     },
     {
       "code": 6002,
-      "name": "InvalidDecimals",
-      "msg": "Invalid decimals"
-    },
-    {
-      "code": 6003,
-      "name": "InvalidSignature",
-      "msg": "Invalid signature"
-    },
-    {
-      "code": 6004,
-      "name": "InvalidNonce",
-      "msg": "Invalid nonce"
-    },
-    {
-      "code": 6005,
-      "name": "InvalidScope",
-      "msg": "Invalid scope"
-    },
-    {
-      "code": 6006,
       "name": "ExpiredPermit",
       "msg": "Permit expired"
     },
     {
-      "code": 6007,
+      "code": 6003,
+      "name": "InvalidNonce",
+      "msg": "Invalid nonce"
+    },
+    {
+      "code": 6004,
       "name": "Unauthorized",
       "msg": "Unauthorized"
     },
     {
-      "code": 6008,
+      "code": 6005,
       "name": "NotMinter",
       "msg": "Not a minter"
     },
     {
-      "code": 6009,
+      "code": 6006,
       "name": "NotBurner",
       "msg": "Not a burner"
     },
     {
-      "code": 6010,
+      "code": 6007,
+      "name": "NotPauser",
+      "msg": "Not a pauser"
+    },
+    {
+      "code": 6008,
       "name": "InsufficientBalance",
       "msg": "Insufficient balance"
     },
     {
-      "code": 6011,
+      "code": 6009,
       "name": "TooManyOperators",
       "msg": "Too many operators"
     },
     {
-      "code": 6012,
+      "code": 6010,
       "name": "OperatorNotFound",
       "msg": "Operator not found"
     },
     {
-      "code": 6013,
+      "code": 6011,
       "name": "AccessDenied",
       "msg": "Access denied"
     },
     {
-      "code": 6014,
+      "code": 6012,
       "name": "InsufficientFunds",
       "msg": "Insufficient funds"
     },
     {
-      "code": 6015,
+      "code": 6013,
       "name": "AccessRegistryNotInitialized",
       "msg": "Access registry not initialized"
     },
     {
-      "code": 6016,
+      "code": 6014,
       "name": "InvalidOwner",
       "msg": "Invalid owner"
     },
     {
-      "code": 6017,
+      "code": 6015,
       "name": "InsufficientAllowance",
       "msg": "Insufficient allowance"
     },
     {
-      "code": 6018,
+      "code": 6016,
       "name": "AccountFrozen",
       "msg": "Account is frozen"
     },
     {
-      "code": 6019,
+      "code": 6017,
       "name": "AccountAlreadyFrozen",
       "msg": "Account is already frozen"
     },
     {
-      "code": 6020,
+      "code": 6018,
       "name": "AccountNotFrozen",
       "msg": "Account is not frozen"
     }

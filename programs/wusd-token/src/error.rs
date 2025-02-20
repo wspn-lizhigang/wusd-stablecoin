@@ -5,23 +5,19 @@ pub enum WusdError {
     #[msg("Contract is paused")]
     ContractPaused,
     #[msg("Invalid amount")]
-    InvalidAmount,
-    #[msg("Invalid decimals")]
-    InvalidDecimals,
-    #[msg("Invalid signature")]
-    InvalidSignature,
+    InvalidAmount,   
+    #[msg("Permit expired")] 
+    ExpiredPermit,
     #[msg("Invalid nonce")]
     InvalidNonce,
-    #[msg("Invalid scope")]
-    InvalidScope,
-    #[msg("Permit expired")]
-    ExpiredPermit,
     #[msg("Unauthorized")]
     Unauthorized,
     #[msg("Not a minter")]
     NotMinter,
     #[msg("Not a burner")]
     NotBurner,
+    #[msg("Not a pauser")]
+    NotPauser,
     #[msg("Insufficient balance")]
     InsufficientBalance,
     #[msg("Too many operators")]

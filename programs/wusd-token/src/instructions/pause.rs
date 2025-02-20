@@ -22,8 +22,8 @@ pub struct Unpause<'info> {
 /// * `ctx` - 上下文
 pub fn pause(ctx: Context<Pause>) -> Result<()> {
     require!(
-        ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
-        WusdError::Unauthorized
+        ctx.accounts.authority_state.is_pauser(ctx.accounts.authority.key()),
+        WusdError::NotPauser
     );
     ctx.accounts.pause_state.set_paused(true);
     Ok(())
@@ -33,8 +33,8 @@ pub fn pause(ctx: Context<Pause>) -> Result<()> {
 /// * `ctx` - 上下文
 pub fn unpause(ctx: Context<Unpause>) -> Result<()> {
     require!(
-        ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
-        WusdError::Unauthorized
+        ctx.accounts.authority_state.is_pauser(ctx.accounts.authority.key()),
+        WusdError::NotPauser
     );
     ctx.accounts.pause_state.set_paused(false);
     Ok(())

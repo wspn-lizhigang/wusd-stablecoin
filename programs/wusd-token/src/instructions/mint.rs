@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use crate::error::WusdError;   
 use anchor_spl::token::{self, Token, TokenAccount};
 use crate::utils::require_has_access;
 use crate::state::{AuthorityState, MintState, PauseState, AccessRegistryState};
@@ -24,6 +25,11 @@ pub struct MintAccounts<'info> {
 }
 
 pub fn mint(ctx: Context<MintAccounts>, amount: u64, bump: u8) -> Result<()> {
+    // 验证Minter权限 
+    require!(
+        ctx.accounts.authority_state.is_minter(ctx.accounts.authority.key()), 
+        WusdError::NotMinter
+    );
     // 验证访问权限
     require_has_access(
         ctx.accounts.authority.key(),
