@@ -28,27 +28,10 @@ pub fn add_operator(ctx: Context<ManageOperator>, operator: Pubkey) -> Result<()
     require!(
         ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
         WusdError::Unauthorized
-    );
-    
-    // 检查操作员是否已存在
-    for i in 0..access_registry.operator_count as usize {
-        if access_registry.operators[i] == operator {
-            return Ok(());  // 操作员已存在，直接返回
-        }
-    }
-    
-    // 检查操作员数量限制
-    require!(
-        access_registry.operator_count < 10,
-        WusdError::TooManyOperators
-    );
+    ); 
     
     // 添加操作员
-    let current_count = access_registry.operator_count as usize;
-    access_registry.operators[current_count] = operator;
-    access_registry.operator_count += 1;
-    
-    Ok(())
+    access_registry.add_operator(operator) 
 }  
 
 /// 移除操作员
