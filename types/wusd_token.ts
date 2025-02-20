@@ -3,82 +3,6 @@ export type WusdToken = {
   "name": "wusd_token",
   "instructions": [
     {
-      "name": "freezeAccount",
-      "docs": [
-        "初始化访问注册表",
-        "* `ctx` - 初始化上下文",
-        "冻结账户"
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "freezeState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "account",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "要冻结的账户"
-          ]
-        },
-        {
-          "name": "authorityState",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "reason",
-          "type": "string"
-        }
-      ]
-    },
-    {
-      "name": "unfreezeAccount",
-      "docs": [
-        "解冻账户"
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "freezeState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "account",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "要解冻的账户"
-          ]
-        },
-        {
-          "name": "authorityState",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
       "name": "initializeAccessRegistry",
       "accounts": [
         {
@@ -119,7 +43,7 @@ export type WusdToken = {
           ]
         },
         {
-          "name": "mint",
+          "name": "tokenMint",
           "isMut": true,
           "isSigner": true,
           "docs": [
@@ -168,35 +92,23 @@ export type WusdToken = {
     {
       "name": "mint",
       "docs": [
-        "铸造WUSD代币",
-        "* `ctx` - 铸币上下文",
-        "* `amount` - 铸造数量",
-        "* `bump` - PDA的bump值"
+        "铸造WUSD代币"
       ],
       "accounts": [
         {
           "name": "authority",
           "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "铸币权限账户"
-          ]
+          "isSigner": true
         },
         {
-          "name": "mint",
+          "name": "tokenMint",
           "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "代币铸币账户"
-          ]
+          "isSigner": false
         },
         {
           "name": "tokenAccount",
           "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "接收代币的账户"
-          ]
+          "isSigner": false
         },
         {
           "name": "tokenProgram",
@@ -205,35 +117,23 @@ export type WusdToken = {
         },
         {
           "name": "authorityState",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "权限管理账户"
-          ]
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "mintState",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "铸币状态账户"
-          ]
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "pauseState",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "暂停状态账户"
-          ]
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "accessRegistry",
           "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "访问权限账户"
-          ]
+          "isSigner": false
         }
       ],
       "args": [
@@ -248,35 +148,33 @@ export type WusdToken = {
       ]
     },
     {
-      "name": "burn",
+      "name": "permit",
       "docs": [
-        "销毁WUSD代币",
-        "* `ctx` - 销毁上下文",
-        "* `amount` - 销毁数量"
+        "处理授权许可请求，允许代币持有者授权其他账户使用其代币"
       ],
       "accounts": [
         {
-          "name": "authorityState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "mintAuthority",
+          "name": "owner",
           "isMut": true,
           "isSigner": true
         },
         {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
+          "name": "spender",
+          "isMut": false,
+          "isSigner": false
         },
         {
-          "name": "mint",
+          "name": "allowance",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "tokenAccount",
+          "name": "permitState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "mintState",
           "isMut": true,
           "isSigner": false
         },
@@ -286,34 +184,29 @@ export type WusdToken = {
           "isSigner": false
         },
         {
-          "name": "mintState",
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         },
         {
-          "name": "pauseState",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "accessRegistry",
+          "name": "clock",
           "isMut": false,
           "isSigner": false
         }
       ],
       "args": [
         {
-          "name": "amount",
-          "type": "u64"
+          "name": "params",
+          "type": {
+            "defined": "PermitParams"
+          }
         }
       ]
     },
     {
       "name": "transfer",
       "docs": [
-        "转账WUSD代币",
-        "* `ctx` - 转账上下文",
-        "* `amount` - 转账数量"
+        "转账WUSD代币"
       ],
       "accounts": [
         {
@@ -377,9 +270,7 @@ export type WusdToken = {
     {
       "name": "transferFrom",
       "docs": [
-        "使用授权额度转账WUSD代币",
-        "* `ctx` - 转账上下文",
-        "* `amount` - 转账数量"
+        "使用授权额度转账WUSD代币"
       ],
       "accounts": [
         {
@@ -436,40 +327,81 @@ export type WusdToken = {
       ]
     },
     {
-      "name": "permit",
+      "name": "pause",
       "docs": [
-        "处理授权许可请求，允许代币持有者授权其他账户使用其代币",
-        "",
-        "# 参数",
-        "* `ctx` - 包含所有必要账户的上下文",
-        "* `params` - 授权许可的参数，包含签名、金额、期限等信息",
-        "",
-        "# 返回值",
-        "* `Result<()>` - 操作成功返回Ok(()), 失败返回错误"
+        "暂停合约"
       ],
       "accounts": [
         {
-          "name": "owner",
+          "name": "pauseState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "authorityState",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unpause",
+      "docs": [
+        "恢复合约"
+      ],
+      "accounts": [
+        {
+          "name": "pauseState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "authorityState",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "burn",
+      "docs": [
+        "销毁WUSD代币"
+      ],
+      "accounts": [
+        {
+          "name": "authorityState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "mintAuthority",
           "isMut": true,
           "isSigner": true
         },
         {
-          "name": "spender",
-          "isMut": false,
-          "isSigner": false
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
         },
         {
-          "name": "allowance",
+          "name": "mint",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "permitState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "mintState",
+          "name": "tokenAccount",
           "isMut": true,
           "isSigner": false
         },
@@ -479,54 +411,27 @@ export type WusdToken = {
           "isSigner": false
         },
         {
-          "name": "systemProgram",
+          "name": "mintState",
           "isMut": false,
           "isSigner": false
         },
         {
-          "name": "clock",
+          "name": "pauseState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "accessRegistry",
           "isMut": false,
           "isSigner": false
         }
       ],
       "args": [
         {
-          "name": "params",
-          "type": {
-            "defined": "PermitParams"
-          }
+          "name": "amount",
+          "type": "u64"
         }
       ]
-    },
-    {
-      "name": "supportsInterface",
-      "docs": [
-        "检查合约是否支持指定接口",
-        "* `_ctx` - 上下文",
-        "* `interface_id` - 接口ID"
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "调用者地址"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "interfaceId",
-          "type": {
-            "array": [
-              "u8",
-              4
-            ]
-          }
-        }
-      ],
-      "returns": "bool"
     },
     {
       "name": "addOperator",
@@ -607,46 +512,70 @@ export type WusdToken = {
       ]
     },
     {
-      "name": "pause",
+      "name": "freezeAccount",
       "docs": [
-        "暂停合约",
-        "* `ctx` - 上下文"
+        "冻结账户"
       ],
       "accounts": [
         {
-          "name": "pauseState",
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "freezeState",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "authority",
+          "name": "account",
           "isMut": false,
-          "isSigner": true
+          "isSigner": false,
+          "docs": [
+            "要冻结的账户"
+          ]
         },
         {
           "name": "authorityState",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "reason",
+          "type": "string"
+        }
+      ]
     },
     {
-      "name": "unpause",
+      "name": "unfreezeAccount",
       "docs": [
-        "恢复合约",
-        "* `ctx` - 上下文"
+        "解冻账户"
       ],
       "accounts": [
         {
-          "name": "pauseState",
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "freezeState",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "authority",
+          "name": "account",
           "isMut": false,
-          "isSigner": true
+          "isSigner": false,
+          "docs": [
+            "要解冻的账户"
+          ]
         },
         {
           "name": "authorityState",
@@ -1076,46 +1005,6 @@ export type WusdToken = {
   ],
   "events": [
     {
-      "name": "InitializeEvent",
-      "fields": [
-        {
-          "name": "authority",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "mint",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "decimals",
-          "type": "u8",
-          "index": false
-        }
-      ]
-    },
-    {
-      "name": "MintEvent",
-      "fields": [
-        {
-          "name": "minter",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "recipient",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "amount",
-          "type": "u64",
-          "index": false
-        }
-      ]
-    },
-    {
       "name": "BurnEvent",
       "fields": [
         {
@@ -1126,43 +1015,6 @@ export type WusdToken = {
         {
           "name": "amount",
           "type": "u64",
-          "index": false
-        }
-      ]
-    },
-    {
-      "name": "TransferEvent",
-      "fields": [
-        {
-          "name": "from",
-          "type": "publicKey",
-          "index": true
-        },
-        {
-          "name": "to",
-          "type": "publicKey",
-          "index": true
-        },
-        {
-          "name": "amount",
-          "type": "u64",
-          "index": false
-        },
-        {
-          "name": "fee",
-          "type": "u64",
-          "index": false
-        },
-        {
-          "name": "timestamp",
-          "type": "i64",
-          "index": false
-        },
-        {
-          "name": "memo",
-          "type": {
-            "option": "string"
-          },
           "index": false
         }
       ]
@@ -1235,6 +1087,63 @@ export type WusdToken = {
           "type": {
             "defined": "PermitScope"
           },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "TransferEvent",
+      "fields": [
+        {
+          "name": "from",
+          "type": "publicKey",
+          "index": true
+        },
+        {
+          "name": "to",
+          "type": "publicKey",
+          "index": true
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "fee",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "memo",
+          "type": {
+            "option": "string"
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "InitializeEvent",
+      "fields": [
+        {
+          "name": "authority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "mint",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "decimals",
+          "type": "u8",
           "index": false
         }
       ]
@@ -1354,82 +1263,6 @@ export const IDL: WusdToken = {
   "name": "wusd_token",
   "instructions": [
     {
-      "name": "freezeAccount",
-      "docs": [
-        "初始化访问注册表",
-        "* `ctx` - 初始化上下文",
-        "冻结账户"
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "freezeState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "account",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "要冻结的账户"
-          ]
-        },
-        {
-          "name": "authorityState",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "reason",
-          "type": "string"
-        }
-      ]
-    },
-    {
-      "name": "unfreezeAccount",
-      "docs": [
-        "解冻账户"
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "freezeState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "account",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "要解冻的账户"
-          ]
-        },
-        {
-          "name": "authorityState",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
       "name": "initializeAccessRegistry",
       "accounts": [
         {
@@ -1470,7 +1303,7 @@ export const IDL: WusdToken = {
           ]
         },
         {
-          "name": "mint",
+          "name": "tokenMint",
           "isMut": true,
           "isSigner": true,
           "docs": [
@@ -1519,35 +1352,23 @@ export const IDL: WusdToken = {
     {
       "name": "mint",
       "docs": [
-        "铸造WUSD代币",
-        "* `ctx` - 铸币上下文",
-        "* `amount` - 铸造数量",
-        "* `bump` - PDA的bump值"
+        "铸造WUSD代币"
       ],
       "accounts": [
         {
           "name": "authority",
           "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "铸币权限账户"
-          ]
+          "isSigner": true
         },
         {
-          "name": "mint",
+          "name": "tokenMint",
           "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "代币铸币账户"
-          ]
+          "isSigner": false
         },
         {
           "name": "tokenAccount",
           "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "接收代币的账户"
-          ]
+          "isSigner": false
         },
         {
           "name": "tokenProgram",
@@ -1556,35 +1377,23 @@ export const IDL: WusdToken = {
         },
         {
           "name": "authorityState",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "权限管理账户"
-          ]
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "mintState",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "铸币状态账户"
-          ]
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "pauseState",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "暂停状态账户"
-          ]
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "accessRegistry",
           "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "访问权限账户"
-          ]
+          "isSigner": false
         }
       ],
       "args": [
@@ -1599,35 +1408,33 @@ export const IDL: WusdToken = {
       ]
     },
     {
-      "name": "burn",
+      "name": "permit",
       "docs": [
-        "销毁WUSD代币",
-        "* `ctx` - 销毁上下文",
-        "* `amount` - 销毁数量"
+        "处理授权许可请求，允许代币持有者授权其他账户使用其代币"
       ],
       "accounts": [
         {
-          "name": "authorityState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "mintAuthority",
+          "name": "owner",
           "isMut": true,
           "isSigner": true
         },
         {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
+          "name": "spender",
+          "isMut": false,
+          "isSigner": false
         },
         {
-          "name": "mint",
+          "name": "allowance",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "tokenAccount",
+          "name": "permitState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "mintState",
           "isMut": true,
           "isSigner": false
         },
@@ -1637,34 +1444,29 @@ export const IDL: WusdToken = {
           "isSigner": false
         },
         {
-          "name": "mintState",
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         },
         {
-          "name": "pauseState",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "accessRegistry",
+          "name": "clock",
           "isMut": false,
           "isSigner": false
         }
       ],
       "args": [
         {
-          "name": "amount",
-          "type": "u64"
+          "name": "params",
+          "type": {
+            "defined": "PermitParams"
+          }
         }
       ]
     },
     {
       "name": "transfer",
       "docs": [
-        "转账WUSD代币",
-        "* `ctx` - 转账上下文",
-        "* `amount` - 转账数量"
+        "转账WUSD代币"
       ],
       "accounts": [
         {
@@ -1728,9 +1530,7 @@ export const IDL: WusdToken = {
     {
       "name": "transferFrom",
       "docs": [
-        "使用授权额度转账WUSD代币",
-        "* `ctx` - 转账上下文",
-        "* `amount` - 转账数量"
+        "使用授权额度转账WUSD代币"
       ],
       "accounts": [
         {
@@ -1787,40 +1587,81 @@ export const IDL: WusdToken = {
       ]
     },
     {
-      "name": "permit",
+      "name": "pause",
       "docs": [
-        "处理授权许可请求，允许代币持有者授权其他账户使用其代币",
-        "",
-        "# 参数",
-        "* `ctx` - 包含所有必要账户的上下文",
-        "* `params` - 授权许可的参数，包含签名、金额、期限等信息",
-        "",
-        "# 返回值",
-        "* `Result<()>` - 操作成功返回Ok(()), 失败返回错误"
+        "暂停合约"
       ],
       "accounts": [
         {
-          "name": "owner",
+          "name": "pauseState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "authorityState",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unpause",
+      "docs": [
+        "恢复合约"
+      ],
+      "accounts": [
+        {
+          "name": "pauseState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "authorityState",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "burn",
+      "docs": [
+        "销毁WUSD代币"
+      ],
+      "accounts": [
+        {
+          "name": "authorityState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "mintAuthority",
           "isMut": true,
           "isSigner": true
         },
         {
-          "name": "spender",
-          "isMut": false,
-          "isSigner": false
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
         },
         {
-          "name": "allowance",
+          "name": "mint",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "permitState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "mintState",
+          "name": "tokenAccount",
           "isMut": true,
           "isSigner": false
         },
@@ -1830,54 +1671,27 @@ export const IDL: WusdToken = {
           "isSigner": false
         },
         {
-          "name": "systemProgram",
+          "name": "mintState",
           "isMut": false,
           "isSigner": false
         },
         {
-          "name": "clock",
+          "name": "pauseState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "accessRegistry",
           "isMut": false,
           "isSigner": false
         }
       ],
       "args": [
         {
-          "name": "params",
-          "type": {
-            "defined": "PermitParams"
-          }
+          "name": "amount",
+          "type": "u64"
         }
       ]
-    },
-    {
-      "name": "supportsInterface",
-      "docs": [
-        "检查合约是否支持指定接口",
-        "* `_ctx` - 上下文",
-        "* `interface_id` - 接口ID"
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "调用者地址"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "interfaceId",
-          "type": {
-            "array": [
-              "u8",
-              4
-            ]
-          }
-        }
-      ],
-      "returns": "bool"
     },
     {
       "name": "addOperator",
@@ -1958,46 +1772,70 @@ export const IDL: WusdToken = {
       ]
     },
     {
-      "name": "pause",
+      "name": "freezeAccount",
       "docs": [
-        "暂停合约",
-        "* `ctx` - 上下文"
+        "冻结账户"
       ],
       "accounts": [
         {
-          "name": "pauseState",
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "freezeState",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "authority",
+          "name": "account",
           "isMut": false,
-          "isSigner": true
+          "isSigner": false,
+          "docs": [
+            "要冻结的账户"
+          ]
         },
         {
           "name": "authorityState",
           "isMut": false,
           "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "reason",
+          "type": "string"
+        }
+      ]
     },
     {
-      "name": "unpause",
+      "name": "unfreezeAccount",
       "docs": [
-        "恢复合约",
-        "* `ctx` - 上下文"
+        "解冻账户"
       ],
       "accounts": [
         {
-          "name": "pauseState",
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "freezeState",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "authority",
+          "name": "account",
           "isMut": false,
-          "isSigner": true
+          "isSigner": false,
+          "docs": [
+            "要解冻的账户"
+          ]
         },
         {
           "name": "authorityState",
@@ -2427,46 +2265,6 @@ export const IDL: WusdToken = {
   ],
   "events": [
     {
-      "name": "InitializeEvent",
-      "fields": [
-        {
-          "name": "authority",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "mint",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "decimals",
-          "type": "u8",
-          "index": false
-        }
-      ]
-    },
-    {
-      "name": "MintEvent",
-      "fields": [
-        {
-          "name": "minter",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "recipient",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "amount",
-          "type": "u64",
-          "index": false
-        }
-      ]
-    },
-    {
       "name": "BurnEvent",
       "fields": [
         {
@@ -2477,43 +2275,6 @@ export const IDL: WusdToken = {
         {
           "name": "amount",
           "type": "u64",
-          "index": false
-        }
-      ]
-    },
-    {
-      "name": "TransferEvent",
-      "fields": [
-        {
-          "name": "from",
-          "type": "publicKey",
-          "index": true
-        },
-        {
-          "name": "to",
-          "type": "publicKey",
-          "index": true
-        },
-        {
-          "name": "amount",
-          "type": "u64",
-          "index": false
-        },
-        {
-          "name": "fee",
-          "type": "u64",
-          "index": false
-        },
-        {
-          "name": "timestamp",
-          "type": "i64",
-          "index": false
-        },
-        {
-          "name": "memo",
-          "type": {
-            "option": "string"
-          },
           "index": false
         }
       ]
@@ -2586,6 +2347,63 @@ export const IDL: WusdToken = {
           "type": {
             "defined": "PermitScope"
           },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "TransferEvent",
+      "fields": [
+        {
+          "name": "from",
+          "type": "publicKey",
+          "index": true
+        },
+        {
+          "name": "to",
+          "type": "publicKey",
+          "index": true
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "fee",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        },
+        {
+          "name": "memo",
+          "type": {
+            "option": "string"
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "InitializeEvent",
+      "fields": [
+        {
+          "name": "authority",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "mint",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "decimals",
+          "type": "u8",
           "index": false
         }
       ]

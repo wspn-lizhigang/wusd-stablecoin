@@ -8,8 +8,7 @@
 //! - 紧急提现机制
 //! - 多级质押池配置
 
-#![allow(clippy::result_large_err)]
-
+#![allow(clippy::result_large_err)] 
 /// 引入必要的依赖
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
