@@ -4,7 +4,7 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount};
 use crate::state::{StateAccount, PoolStatus};
 use crate::error::WUSDError; 
 use crate::instructions::stake::calculate_rewards;
-use ed25519_dalek::{Signature, PublicKey, Verifier};
+use ed25519_dalek::{Verifier};
 
 /// 软质押状态枚举
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Default)]

@@ -25,7 +25,7 @@ use instructions::stake::*;
 use instructions::swap::*;
 use instructions::softstake::*;
 
-declare_id!("9VBdBHsx836ER2ejyetGvG7MWmpNwRg5Kc9FBfixCzCf");
+declare_id!("5WRowtz7c44xyybkexb18VKRZmUvxVuhK9qZV38TjuM5");
 
 #[program]
 pub mod wusd_application {

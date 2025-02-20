@@ -11,8 +11,7 @@ import {
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountInstruction,
 } from "@solana/spl-token";
-import { WusdToken } from "../../target/types/wusd_token";
-import * as crypto from "crypto";
+import { WusdToken } from "../../target/types/wusd_token"; 
 import { assert } from "chai";
 
 describe("WUSD Token Mint Test", () => {
