@@ -1,8 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Mint}; 
 
-use crate::AccessLevel;
-use crate::error::WusdError;   
+use crate::{AccessLevel, error::WusdError};
 use crate::state::{AuthorityState, MintState, AccessRegistryState, PauseState};
 
 #[derive(Accounts)]

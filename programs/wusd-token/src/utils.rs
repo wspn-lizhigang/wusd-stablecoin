@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
-use crate::error::WusdError;
-use crate::state::{PauseState, AccessRegistryState};
-use crate::AccessLevel;
+use crate::{AccessLevel, error::WusdError};
+use crate::state::{PauseState, AccessRegistryState}; 
 
 /// 检查用户是否具有执行操作的权限
 /// 
