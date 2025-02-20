@@ -2393,7 +2393,10 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bincode",
+ "ed25519-dalek",
+ "getrandom 0.1.16",
  "serde",
+ "solana-program",
 ]
 
 [[package]]

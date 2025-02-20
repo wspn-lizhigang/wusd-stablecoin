@@ -14,7 +14,7 @@ use anchor_spl::token::{self, Token, TokenAccount, Mint};
 mod error;
 mod state;
 
-use state::{AuthorityState, MintState, PauseState, AllowanceState, PermitState, AccessRegistryState};
+use state::{AuthorityState, MintState, PauseState, AllowanceState, PermitState, AccessRegistryState, FreezeState};
 use error::WusdError;  
 
 // Account sizes
@@ -24,6 +24,7 @@ const PAUSE_STATE_SIZE: usize = 8 + 1;            // discriminator + paused
 const PERMIT_SIZE: usize = 8 + 32 + 32 + 8 +  8 +  8 +  1;   
 const ALLOWANCE_SIZE: usize = 8 + 32 + 32 + 8;    // discriminator + owner + spender + amount
 const ACCESS_REGISTRY_SIZE: usize = 8 + 32 + 1 + (32 * 10) + 1;  // discriminator + authority + initialized + operators + operator_count
+const FREEZE_STATE_SIZE: usize = 8 + 32 + 8 + 32 + 1 + 200;  // discriminator + account + frozen_time + frozen_by + is_frozen + reason
 
 declare_id!("3aRTkTTdwnE6RGTnZjde8wAgt3HGzKEZFbmkFvv9pY1Q");
 
@@ -86,6 +87,55 @@ pub enum AccessLevel {
     Credit,
 } 
 
+/// 许可授权范围枚举
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct PermitScope {
+    /// 单次授权
+    pub one_time: bool,
+    /// 永久授权
+    pub permanent: bool,
+    /// 转账授权
+    pub transfer: bool,
+    /// 销毁授权
+    pub burn: bool,
+    /// 全部授权
+    pub all: bool
+}
+
+impl PermitScope {
+    pub const TRANSFER: PermitScope = PermitScope {
+        one_time: false,
+        permanent: true,
+        transfer: true,
+        burn: false,
+        all: false
+    };
+}
+
+/// 账户冻结事件
+#[event]
+pub struct AccountFrozen {
+    /// 被冻结的账户地址
+    pub account: Pubkey,
+    /// 冻结操作执行者
+    pub frozen_by: Pubkey,
+    /// 冻结原因
+    pub reason: String,
+    /// 冻结时间
+    pub frozen_time: i64,
+}
+
+/// 账户解冻事件
+#[event]
+pub struct AccountUnfrozen {
+    /// 被解冻的账户地址
+    pub account: Pubkey,
+    /// 解冻操作执行者
+    pub unfrozen_by: Pubkey,
+    /// 解冻时间
+    pub unfrozen_time: i64,
+}
+
 /// 许可授权事件，记录EIP-2612兼容的许可授权信息
 #[event]
 pub struct PermitGranted {
@@ -97,7 +147,7 @@ pub struct PermitGranted {
     pub amount: u64,
     /// 授权范围
     pub scope: PermitScope,
-}
+}  
 
 /// 检查用户是否具有执行操作的权限
 /// 
@@ -158,397 +208,476 @@ pub mod wusd_token {
 
     /// 初始化访问注册表
     /// * `ctx` - 初始化上下文
-    pub fn initialize_access_registry(ctx: Context<InitializeAccessRegistry>) -> Result<()> {
+    /// 冻结账户
+pub fn freeze_account(ctx: Context<FreezeAccount>, reason: String) -> Result<()> {
+    // 验证调用者权限
+    require!(
+        ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
+        WusdError::Unauthorized
+    );
+
+    // 验证账户未被冻结
+    require!(
+        !ctx.accounts.freeze_state.is_frozen,
+        WusdError::AccountAlreadyFrozen
+    );
+
+    // 执行冻结操作
+    ctx.accounts.freeze_state.freeze(
+        ctx.accounts.authority.key(),
+        reason.clone(),
+    )?;
+
+    // 发出冻结事件
+    emit!(AccountFrozen {
+        account: ctx.accounts.freeze_state.account,
+        frozen_by: ctx.accounts.authority.key(),
+        reason,
+        frozen_time: Clock::get()?.unix_timestamp,
+    });
+
+    Ok(())
+}
+
+/// 解冻账户
+pub fn unfreeze_account(ctx: Context<UnfreezeAccount>) -> Result<()> {
+    // 验证调用者权限
+    require!(
+        ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
+        WusdError::Unauthorized
+    );
+
+    // 验证账户已被冻结
+    require!(
+        ctx.accounts.freeze_state.is_frozen,
+        WusdError::AccountNotFrozen
+    );
+
+    // 执行解冻操作
+    ctx.accounts.freeze_state.unfreeze();
+
+    // 发出解冻事件
+    emit!(AccountUnfrozen {
+        account: ctx.accounts.freeze_state.account,
+        unfrozen_by: ctx.accounts.authority.key(),
+        unfrozen_time: Clock::get()?.unix_timestamp,
+    });
+
+    Ok(())
+}
+
+pub fn initialize_access_registry(ctx: Context<InitializeAccessRegistry>) -> Result<()> {
         let access_registry = &mut ctx.accounts.access_registry;
         access_registry.authority = ctx.accounts.authority.key();
         access_registry.operator_count = 0;
         access_registry.operators = [Pubkey::default(); 10];
         access_registry.initialized = true;
         Ok(())
-    }
+}
 
-    pub fn initialize(ctx: Context<Initialize>, decimals: u8) -> Result<()> {
-        msg!("Starting initialization...");
-        msg!("Authority: {}", ctx.accounts.authority.key());
-        msg!("Mint: {}", ctx.accounts.mint.key());
-    
-        // 1. 初始化状态账户
-        let authority_state = &mut ctx.accounts.authority_state;
-        authority_state.admin = ctx.accounts.authority.key();
-        authority_state.minter = ctx.accounts.authority.key();
-        authority_state.pauser = ctx.accounts.authority.key();
-    
-        let mint_state = &mut ctx.accounts.mint_state;
-        mint_state.mint = ctx.accounts.mint.key();
-        mint_state.decimals = decimals;
-    
-        let pause_state = &mut ctx.accounts.pause_state;
-        pause_state.paused = false;
-    
-        // 2. 转移mint的authority给authority_state PDA
-        let mint_key = ctx.accounts.mint.key();
-        let _seeds = &[b"authority", mint_key.as_ref()]; 
-        let bump = ctx.bumps.authority_state;
-        let _bump_bytes = &[bump];
+pub fn initialize(ctx: Context<Initialize>, decimals: u8) -> Result<()> {
+    msg!("Starting initialization...");
+    msg!("Authority: {}", ctx.accounts.authority.key());
+    msg!("Mint: {}", ctx.accounts.mint.key());
 
-        token::set_authority(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                token::SetAuthority {
-                    current_authority: ctx.accounts.authority.to_account_info(),
-                    account_or_mint: ctx.accounts.mint.to_account_info(),
-                }
-            ),
-            token::spl_token::instruction::AuthorityType::MintTokens,
-            Some(ctx.accounts.authority_state.key()),
-        )?;
-    
-        // 3. 发出初始化事件
-        emit!(InitializeEvent {
-            authority: ctx.accounts.authority.key(),
-            mint: ctx.accounts.mint.key(),
-            decimals
-        });
-    
-        msg!("Initialization completed successfully");
-        Ok(())
-    }
+    // 1. 初始化状态账户
+    let authority_state = &mut ctx.accounts.authority_state;
+    authority_state.admin = ctx.accounts.authority.key();
+    authority_state.minter = ctx.accounts.authority.key();
+    authority_state.pauser = ctx.accounts.authority.key();
 
-    /// 铸造WUSD代币
-    /// * `ctx` - 铸币上下文
-    /// * `amount` - 铸造数量
-    /// * `bump` - PDA的bump值
-    pub fn mint(ctx: Context<MintAccounts>, amount: u64, bump: u8) -> Result<()> {
-        require!(amount > 0, WusdError::InvalidAmount);
-        require!(
-            ctx.accounts.authority.is_signer,
-            WusdError::Unauthorized
-        );
-    
-        require!(
-            ctx.accounts.authority_state.is_minter(ctx.accounts.authority.key()),
-            WusdError::NotMinter
-        );
-    
-        // 修改这里：接收账户使用 Credit 级别检查
-        require_has_access(
-            ctx.accounts.token_account.owner,
-            false,  // is_debit = false 表示这是一个 Credit 操作
-            Some(amount),
-            &ctx.accounts.pause_state,
-            Some(&ctx.accounts.access_registry)
-        )?;
-    
-        let mint_key = ctx.accounts.mint.key();
-        token::mint_to(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                token::MintTo {
-                    mint: ctx.accounts.mint.to_account_info(),
-                    to: ctx.accounts.token_account.to_account_info(),
-                    authority: ctx.accounts.authority_state.to_account_info(),
-                },
-                &[&[
-                    b"authority",
-                    mint_key.as_ref(),
-                    &[bump]
-                ]]
-            ),
-            amount,
-        )?;
-    
-        emit!(MintEvent {
-            minter: ctx.accounts.authority.key(),
-            recipient: ctx.accounts.token_account.owner,
-            amount: amount
-        });
-    
-        Ok(())
-    } 
+    let mint_state = &mut ctx.accounts.mint_state;
+    mint_state.mint = ctx.accounts.mint.key();
+    mint_state.decimals = decimals;
 
-    /// 销毁WUSD代币
-    /// * `ctx` - 销毁上下文
-    /// * `amount` - 销毁数量
-    pub fn burn(ctx: Context<Burn>, amount: u64) -> Result<()> {
-        // 验证合约未暂停
-        ctx.accounts.pause_state.validate_not_paused()?;
-    
-        // 验证调用者权限
-        require!(
-            ctx.accounts.authority.is_signer,
-            WusdError::Unauthorized
-        );
-    
-        // 验证 token account 的所有者
-        require!(
-            ctx.accounts.token_account.owner == ctx.accounts.authority.key(),
-            WusdError::InvalidOwner
-        );
-    
-        // 验证访问权限
-        require!(
-            ctx.accounts.access_registry.has_access(
-                ctx.accounts.authority.key(),
-                AccessLevel::Debit
-            ),
-            WusdError::AccessDenied
-        );
-    
-        // 验证余额充足
-        require!(
-            ctx.accounts.token_account.amount >= amount,
-            WusdError::InsufficientBalance
-        );
-    
-        // 执行销毁操作
-        token::burn(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                token::Burn {
-                    mint: ctx.accounts.mint.to_account_info(),
-                    from: ctx.accounts.token_account.to_account_info(),
-                    authority: ctx.accounts.authority.to_account_info(),
-                },
-            ),
-            amount,
-        )?;
-    
-        emit!(BurnEvent {
-            burner: ctx.accounts.authority.key(),
-            amount
-        });
-    
-        Ok(())
-    } 
+    let pause_state = &mut ctx.accounts.pause_state;
+    pause_state.paused = false;
 
-    /// 转账WUSD代币
-    /// * `ctx` - 转账上下文
-    /// * `amount` - 转账数量
-    pub fn transfer(ctx: Context<Transfer>, amount: u64) -> Result<()> {
-        require!(amount > 0, WusdError::InvalidAmount);
-        let fee = calculate_transfer_fee(amount);  
-        require!(
-            ctx.accounts.from_token.amount >= amount.saturating_add(fee),
-            WusdError::InsufficientFunds
-        );
-        require!(
-            amount.checked_sub(fee).is_some(),
-            WusdError::InvalidAmount
-        );
+    // 2. 转移mint的authority给authority_state PDA
+    let mint_key = ctx.accounts.mint.key();
+    let seeds = &[b"authority", mint_key.as_ref()]; 
+    let (_authority_pda, bump) = Pubkey::find_program_address(seeds, ctx.program_id);
+    let _bump_bytes = &[bump];
 
-        let from = ctx.accounts.from_token.clone();
-        let to = ctx.accounts.to_token.clone();
-
-        require_has_access(
-            from.owner,
-            true,
-            Some(amount),
-            &ctx.accounts.pause_state,
-            Some(&ctx.accounts.access_registry) 
-        )?;
-
-        require_has_access(
-            to.owner,
-            false,
-            None,
-            &ctx.accounts.pause_state,
-            Some(&ctx.accounts.access_registry) 
-        )?;
-
-        token::transfer(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                token::Transfer {
-                    from: from.to_account_info(),
-                    to: to.to_account_info(),
-                    authority: ctx.accounts.from.to_account_info(),
-                }
-            ),
-            amount,
-        )?;
-
-        emit!(TransferEvent {
-            from: from.owner,
-            to: to.owner,
-            amount,
-            fee,   
-            timestamp: Clock::get()?.unix_timestamp,
-            memo: None   
-        });
-
-        Ok(())
-    } 
-
-    /// 使用授权额度转账WUSD代币
-    /// * `ctx` - 转账上下文
-    /// * `amount` - 转账数量
-    pub fn transfer_from(ctx: Context<TransferFrom>, amount: u64) -> Result<()> {
-        // 验证合约未暂停
-        ctx.accounts.pause_state.validate_not_paused()?;
-        
-        // 验证授权有效性
-        let current_time = Clock::get()?.unix_timestamp;
-        require!(
-            ctx.accounts.permit.expiration > current_time,
-            WusdError::ExpiredPermit
-        );
-        require!(
-            ctx.accounts.permit.amount >= amount,
-            WusdError::InsufficientAllowance
-        );
-    
-        // 验证 token account 所有权
-        require!(
-            ctx.accounts.from_token.owner == ctx.accounts.owner.key(),
-            WusdError::InvalidOwner
-        );
-    
-        // 生成 PDA 签名
-        let owner_key = ctx.accounts.owner.key();
-        let spender_key = ctx.accounts.spender.key();
-        let seeds = &[
-            b"permit",
-            owner_key.as_ref(),
-            spender_key.as_ref(),
-            &[ctx.accounts.permit.bump],
-        ];
-        
-        // 执行代币转账
-        token::transfer(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                token::Transfer {
-                    from: ctx.accounts.from_token.to_account_info(),
-                    to: ctx.accounts.to_token.to_account_info(),
-                    authority: ctx.accounts.owner.to_account_info(), 
-                },
-                &[&seeds[..]]
-            ),
-            amount
-        )?;
-    
-        // 更新授权额度
-        ctx.accounts.permit.amount = ctx.accounts.permit.amount
-            .checked_sub(amount)
-            .ok_or(WusdError::InsufficientAllowance)?;
-        
-        Ok(())
-    } 
-   
-    /// 处理授权许可请求，允许代币持有者授权其他账户使用其代币
-    /// 
-    /// # 参数
-    /// * `ctx` - 包含所有必要账户的上下文
-    /// * `params` - 授权许可的参数，包含签名、金额、期限等信息
-    /// 
-    /// # 返回值
-    /// * `Result<()>` - 操作成功返回Ok(()), 失败返回错误
-    pub fn permit(ctx: Context<Permit>, params: PermitParams) -> Result<()> { 
-        // 验证基本参数
-        require!(params.amount > 0, WusdError::InvalidAmount);
-        
-        // 初始化 permit_state
-        ctx.accounts.permit_state.set_inner(PermitState::initialize(
-            ctx.accounts.owner.key(),
-            ctx.accounts.spender.key(),
-            params.amount,
-            params.deadline,
-            ctx.bumps.permit_state
-        ));
-        
-        // 设置授权额度
-        ctx.accounts.allowance.amount = params.amount;
-        
-        // 发出授权许可事件
-        emit!(PermitGranted { 
-            owner: ctx.accounts.owner.key(),
-            spender: ctx.accounts.spender.key(),
-            amount: params.amount,
-            scope: PermitScope::Transfer
-        });
-        
-        Ok(())
-    } 
-
-    /// 检查合约是否支持指定接口
-    /// * `_ctx` - 上下文
-    /// * `interface_id` - 接口ID
-    pub fn supports_interface(_ctx: Context<SupportsInterface>, interface_id: [u8; 4]) -> Result<bool> {
-        let erc20_interface_id: [u8; 4] = [0x36, 0x37, 0x2b, 0x07];
-        let permit_interface_id: [u8; 4] = [0x79, 0x65, 0xdb, 0x0b];
-
-        Ok(interface_id == erc20_interface_id || interface_id == permit_interface_id)
-    }
-    
-    /// 添加操作员
-    pub fn add_operator(ctx: Context<ManageOperator>, operator: Pubkey) -> Result<()> {
-        let access_registry = &mut ctx.accounts.access_registry;
-        require!(access_registry.initialized, WusdError::AccessRegistryNotInitialized);
-        
-        // 确保调用者是管理员
-        require!(
-            ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
-            WusdError::Unauthorized
-        );
-        
-        // 检查操作员是否已存在
-        for i in 0..access_registry.operator_count as usize {
-            if access_registry.operators[i] == operator {
-                return Ok(());  // 操作员已存在，直接返回
+    token::set_authority(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            token::SetAuthority {
+                current_authority: ctx.accounts.authority.to_account_info(),
+                account_or_mint: ctx.accounts.mint.to_account_info(),
             }
+        ),
+        token::spl_token::instruction::AuthorityType::MintTokens,
+        Some(ctx.accounts.authority_state.key()),
+    )?;
+
+    // 3. 发出初始化事件
+    emit!(InitializeEvent {
+        authority: ctx.accounts.authority.key(),
+        mint: ctx.accounts.mint.key(),
+        decimals
+    });
+
+    msg!("Initialization completed successfully");
+    Ok(())
+}
+
+/// 铸造WUSD代币
+/// * `ctx` - 铸币上下文
+/// * `amount` - 铸造数量
+/// * `bump` - PDA的bump值
+pub fn mint(ctx: Context<MintAccounts>, amount: u64, bump: u8) -> Result<()> {
+    require!(amount > 0, WusdError::InvalidAmount);
+    require!(
+        ctx.accounts.authority.is_signer,
+        WusdError::Unauthorized
+    );
+
+    require!(
+        ctx.accounts.authority_state.is_minter(ctx.accounts.authority.key()),
+        WusdError::NotMinter
+    );
+
+    // 修改这里：接收账户使用 Credit 级别检查
+    require_has_access(
+        ctx.accounts.token_account.owner,
+        false,  // is_debit = false 表示这是一个 Credit 操作
+        Some(amount),
+        &ctx.accounts.pause_state,
+        Some(&ctx.accounts.access_registry)
+    )?;
+
+    let mint_key = ctx.accounts.mint.key();
+    token::mint_to(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            token::MintTo {
+                mint: ctx.accounts.mint.to_account_info(),
+                to: ctx.accounts.token_account.to_account_info(),
+                authority: ctx.accounts.authority_state.to_account_info(),
+            },
+            &[&[
+                b"authority",
+                mint_key.as_ref(),
+                &[bump]
+            ]]
+        ),
+        amount,
+    )?;
+
+    emit!(MintEvent {
+        minter: ctx.accounts.authority.key(),
+        recipient: ctx.accounts.token_account.owner,
+        amount: amount
+    });
+
+    Ok(())
+} 
+
+/// 销毁WUSD代币
+/// * `ctx` - 销毁上下文
+/// * `amount` - 销毁数量
+pub fn burn(ctx: Context<Burn>, amount: u64) -> Result<()> {
+    // 验证合约未暂停
+    ctx.accounts.pause_state.validate_not_paused()?;
+
+    // 验证调用者权限
+    require!(
+        ctx.accounts.authority.is_signer,
+        WusdError::Unauthorized
+    );
+
+    // 验证 token account 的所有者
+    require!(
+        ctx.accounts.token_account.owner == ctx.accounts.authority.key(),
+        WusdError::InvalidOwner
+    );
+
+    // 验证访问权限
+    require!(
+        ctx.accounts.access_registry.has_access(
+            ctx.accounts.authority.key(),
+            AccessLevel::Debit
+        ),
+        WusdError::AccessDenied
+    );
+
+    // 验证余额充足
+    require!(
+        ctx.accounts.token_account.amount >= amount,
+        WusdError::InsufficientBalance
+    );
+
+    // 执行销毁操作
+    token::burn(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            token::Burn {
+                mint: ctx.accounts.mint.to_account_info(),
+                from: ctx.accounts.token_account.to_account_info(),
+                authority: ctx.accounts.authority.to_account_info(),
+            },
+        ),
+        amount,
+    )?;
+
+    emit!(BurnEvent {
+        burner: ctx.accounts.authority.key(),
+        amount
+    });
+
+    Ok(())
+} 
+
+/// 转账WUSD代币
+/// * `ctx` - 转账上下文
+/// * `amount` - 转账数量
+pub fn transfer(ctx: Context<Transfer>, amount: u64) -> Result<()> {
+    require!(amount > 0, WusdError::InvalidAmount);
+    let fee = calculate_transfer_fee(amount);  
+    require!(
+        ctx.accounts.from_token.amount >= amount.saturating_add(fee),
+        WusdError::InsufficientFunds
+    );
+    require!(
+        amount.checked_sub(fee).is_some(),
+        WusdError::InvalidAmount
+    );
+
+    // 检查冻结状态
+    ctx.accounts.from_freeze_state.check_frozen()?;
+    ctx.accounts.to_freeze_state.check_frozen()?;
+
+    // 检查访问权限
+    require_has_access(
+        ctx.accounts.from_token.owner,
+        true,
+        Some(amount),
+        &ctx.accounts.pause_state,
+        Some(&ctx.accounts.access_registry)
+    )?;
+
+    require_has_access(
+        ctx.accounts.to_token.owner,
+        false,
+        None,
+        &ctx.accounts.pause_state,
+        Some(&ctx.accounts.access_registry)
+    )?;
+
+    // 执行转账
+    token::transfer(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            token::Transfer {
+                from: ctx.accounts.from_token.to_account_info(),
+                to: ctx.accounts.to_token.to_account_info(),
+                authority: ctx.accounts.from.to_account_info(),
+            }
+        ),
+        amount,
+    )?;
+
+    // 发出事件
+    emit!(TransferEvent {
+        from: ctx.accounts.from_token.owner,
+        to: ctx.accounts.to_token.owner,
+        amount,
+        fee,
+        timestamp: Clock::get()?.unix_timestamp,
+        memo: None
+    });
+
+    Ok(())
+} 
+
+/// 使用授权额度转账WUSD代币
+/// * `ctx` - 转账上下文
+/// * `amount` - 转账数量
+pub fn transfer_from(ctx: Context<TransferFrom>, amount: u64) -> Result<()> {
+    // 验证合约未暂停
+    ctx.accounts.pause_state.validate_not_paused()?;
+    
+    // 验证授权有效性
+    let current_time = Clock::get()?.unix_timestamp;
+    require!(
+        ctx.accounts.permit.expiration > current_time,
+        WusdError::ExpiredPermit
+    );
+    require!(
+        ctx.accounts.permit.amount >= amount,
+        WusdError::InsufficientAllowance
+    );
+
+    // 验证 token account 所有权
+    require!(
+        ctx.accounts.from_token.owner == ctx.accounts.owner.key(),
+        WusdError::InvalidOwner
+    );
+
+    // 生成 PDA 签名
+    let owner_key = ctx.accounts.owner.key();
+    let spender_key = ctx.accounts.spender.key();
+    let seeds = &[
+        b"permit",
+        owner_key.as_ref(),
+        spender_key.as_ref(),
+        &[ctx.accounts.permit.bump],
+    ];
+    
+    // 执行代币转账
+    token::transfer(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            token::Transfer {
+                from: ctx.accounts.from_token.to_account_info(),
+                to: ctx.accounts.to_token.to_account_info(),
+                authority: ctx.accounts.owner.to_account_info(), 
+            },
+            &[&seeds[..]]
+        ),
+        amount
+    )?;
+
+    // 更新授权额度
+    ctx.accounts.permit.amount = ctx.accounts.permit.amount
+        .checked_sub(amount)
+        .ok_or(WusdError::InsufficientAllowance)?;
+    
+    Ok(())
+} 
+
+/// 处理授权许可请求，允许代币持有者授权其他账户使用其代币
+/// 
+/// # 参数
+/// * `ctx` - 包含所有必要账户的上下文
+/// * `params` - 授权许可的参数，包含签名、金额、期限等信息
+/// 
+/// # 返回值
+/// * `Result<()>` - 操作成功返回Ok(()), 失败返回错误
+pub fn permit(ctx: Context<Permit>, params: PermitParams) -> Result<()> { 
+    // 验证基本参数
+    require!(params.amount > 0, WusdError::InvalidAmount);
+    
+    // 初始化 permit_state
+    ctx.accounts.permit_state.set_inner(PermitState::initialize(
+        ctx.accounts.owner.key(),
+        ctx.accounts.spender.key(),
+        params.amount,
+        params.deadline,
+        *ctx.bumps.get("permit_state").unwrap()
+    ));
+    
+    // 设置授权额度
+    ctx.accounts.allowance.amount = params.amount;
+    
+    // 发出授权许可事件
+    emit!(PermitGranted { 
+        owner: ctx.accounts.owner.key(),
+        spender: ctx.accounts.spender.key(),
+        amount: params.amount,
+        scope: PermitScope::TRANSFER
+    });
+    
+    Ok(())
+} 
+
+/// 检查合约是否支持指定接口
+/// * `_ctx` - 上下文
+/// * `interface_id` - 接口ID
+pub fn supports_interface(_ctx: Context<SupportsInterface>, interface_id: [u8; 4]) -> Result<bool> {
+    let erc20_interface_id: [u8; 4] = [0x36, 0x37, 0x2b, 0x07];
+    let permit_interface_id: [u8; 4] = [0x79, 0x65, 0xdb, 0x0b];
+
+    Ok(interface_id == erc20_interface_id || interface_id == permit_interface_id)
+}
+
+/// 添加操作员
+pub fn add_operator(ctx: Context<ManageOperator>, operator: Pubkey) -> Result<()> {
+    let access_registry = &mut ctx.accounts.access_registry;
+    require!(access_registry.initialized, WusdError::AccessRegistryNotInitialized);
+    
+    // 确保调用者是管理员
+    require!(
+        ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
+        WusdError::Unauthorized
+    );
+    
+    // 检查操作员是否已存在
+    for i in 0..access_registry.operator_count as usize {
+        if access_registry.operators[i] == operator {
+            return Ok(());  // 操作员已存在，直接返回
         }
-        
-        // 检查操作员数量限制
-        require!(
-            access_registry.operator_count < 10,
-            WusdError::TooManyOperators
-        );
-        
-        // 添加操作员
-        let current_count = access_registry.operator_count as usize;
-        access_registry.operators[current_count] = operator;
-        access_registry.operator_count += 1;
-        
-        Ok(())
-    } 
-
-    /// 移除操作员
-    pub fn remove_operator(ctx: Context<ManageOperator>, operator: Pubkey) -> Result<()> {
-        let access_registry = &mut ctx.accounts.access_registry;
-        require!(access_registry.initialized, WusdError::AccessRegistryNotInitialized);
-        
-        // 确保调用者是管理员
-        require!(
-            ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
-            WusdError::Unauthorized
-        );
-        
-        // 移除操作员
-        access_registry.remove_operator(operator)
     }
+    
+    // 检查操作员数量限制
+    require!(
+        access_registry.operator_count < 10,
+        WusdError::TooManyOperators
+    );
+    
+    // 添加操作员
+    let current_count = access_registry.operator_count as usize;
+    access_registry.operators[current_count] = operator;
+    access_registry.operator_count += 1;
+    
+    Ok(())
+}  
 
-    /// 暂停合约
-    /// * `ctx` - 上下文
-    pub fn pause(ctx: Context<Pause>) -> Result<()> {
-        require!(
-            ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
-            WusdError::Unauthorized
-        );
-        ctx.accounts.pause_state.set_paused(true);
-        Ok(())
-    }
+/// 移除操作员
+pub fn remove_operator(ctx: Context<ManageOperator>, operator: Pubkey) -> Result<()> {
+    let access_registry = &mut ctx.accounts.access_registry;
+    require!(access_registry.initialized, WusdError::AccessRegistryNotInitialized);
+    
+    // 确保调用者是管理员
+    require!(
+        ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
+        WusdError::Unauthorized
+    );
+    
+    // 移除操作员
+    access_registry.remove_operator(operator)
+}
 
-    /// 恢复合约
-    /// * `ctx` - 上下文
-    pub fn unpause(ctx: Context<Unpause>) -> Result<()> {
-        require!(
-            ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
-            WusdError::Unauthorized
-        );
-        ctx.accounts.pause_state.set_paused(false);
-        Ok(())
-    }
+/// 暂停合约
+/// * `ctx` - 上下文
+pub fn pause(ctx: Context<Pause>) -> Result<()> {
+    require!(
+        ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
+        WusdError::Unauthorized
+    );
+    ctx.accounts.pause_state.set_paused(true);
+    Ok(())
+}
 
+/// 恢复合约
+/// * `ctx` - 上下文
+pub fn unpause(ctx: Context<Unpause>) -> Result<()> {
+    require!(
+        ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
+        WusdError::Unauthorized
+    );
+    ctx.accounts.pause_state.set_paused(false);
+    Ok(())
+}
+
+}
+
+#[derive(Accounts)]
+pub struct ManageOperator<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(constraint = authority_state.is_admin(authority.key()))]
+    pub authority_state: Account<'info, AuthorityState>,
+
+    /// CHECK: 仅用于记录地址
+    pub operator: AccountInfo<'info>,
+
+    #[account(mut)]
+    pub access_registry: Account<'info, AccessRegistryState>,
+
+    pub system_program: Program<'info, System>,
 }
 
 /// 检查接口支持的账户参数
@@ -603,7 +732,6 @@ pub struct Initialize<'info> {
         bump
     )]
     pub pause_state: Account<'info, PauseState>,
-
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
@@ -711,13 +839,27 @@ pub struct Transfer<'info> {
     #[account(mut)]
     pub to_token: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
-    /// CHECK: This account is not read or written to
-    #[account(signer)]
-    /// CHECK: This account is not read or written to
-    pub owner: AccountInfo<'info>,
-    #[account(mut)]
     pub pause_state: Account<'info, PauseState>,
     pub access_registry: Account<'info, AccessRegistryState>,
+    /// CHECK: 这个账户的安全性由FreezeState结构和程序逻辑保证
+    #[account(
+        init_if_needed,
+        payer = from,
+        space = FREEZE_STATE_SIZE,
+        seeds = [b"freeze", from_token.key().as_ref()],
+        bump
+    )]
+    pub from_freeze_state: Account<'info, FreezeState>,
+    /// CHECK: 这个账户的安全性由FreezeState结构和程序逻辑保证
+    #[account(
+        init_if_needed,
+        payer = from,
+        space = FREEZE_STATE_SIZE,
+        seeds = [b"freeze", to_token.key().as_ref()],
+        bump
+    )]
+    pub to_freeze_state: Account<'info, FreezeState>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -789,21 +931,20 @@ pub struct TransferFrom<'info> {
 #[derive(Accounts)]
 #[instruction(params: PermitParams)]
 pub struct Permit<'info> {
-    #[account(mut, signer)]
-    pub owner: Signer<'info>, 
+    #[account(mut)]
+    pub owner: Signer<'info>,
 
     /// CHECK: This is the spender account that will be granted permission
-    #[account(mut)]
     pub spender: AccountInfo<'info>,
 
     #[account(
         init_if_needed,
         payer = owner,
-        space = ALLOWANCE_SIZE,  
+        space = ALLOWANCE_SIZE,
         seeds = [b"allowance", owner.key().as_ref(), spender.key().as_ref()],
         bump
     )]
-    pub allowance: Box<Account<'info, AllowanceState>>,
+    pub allowance: Account<'info, AllowanceState>,
 
     #[account(
         init_if_needed,
@@ -816,14 +957,14 @@ pub struct Permit<'info> {
         ],
         bump,
     )]
-    pub permit_state: Box<Account<'info, PermitState>>,
+    pub permit_state: Account<'info, PermitState>,
 
     #[account(mut)]
     pub mint_state: Box<Account<'info, MintState>>,
 
     pub token_program: Program<'info, Token>,
-    pub system_program: Program<'info, System>, 
-    pub clock: Sysvar<'info, Clock>, 
+    pub system_program: Program<'info, System>,
+    pub clock: Sysvar<'info, Clock>
 } 
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -834,13 +975,6 @@ pub struct PermitParams {
     pub scope: PermitScope,
     pub signature: [u8; 64],
     pub public_key: [u8; 32],
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum PermitScope {
-    Transfer,
-    Burn,
-    All
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -857,24 +991,50 @@ pub struct PermitMessage {
     pub version: [u8; 32]
 }
 
-
 /// 操作员管理账户结构体
 #[derive(Accounts)]
-pub struct ManageOperator<'info> {
-    /// 管理员账户
+pub struct FreezeAccount<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 
-    /// 权限管理状态账户
+    #[account(
+        init_if_needed,
+        payer = authority,
+        space = FREEZE_STATE_SIZE,
+        seeds = [b"freeze", account.key().as_ref()],
+        bump
+    )]
+    pub freeze_state: Account<'info, FreezeState>,
+
+    /// 要冻结的账户
+    /// CHECK: 这个账户仅用于生成PDA种子
+    pub account: AccountInfo<'info>,
+
     pub authority_state: Account<'info, AuthorityState>,
 
-    /// 要管理的操作员账户
-    /// CHECK: 仅用于记录地址
-    pub operator: AccountInfo<'info>,
-
-    /// 访问权限注册表
-    #[account(mut)]
-    pub access_registry: Account<'info, AccessRegistryState>,
+    pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct UnfreezeAccount<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"freeze", account.key().as_ref()],
+        bump,
+        constraint = freeze_state.is_frozen @ WusdError::AccountNotFrozen
+    )]
+    /// CHECK: 这个账户的安全性由FreezeState结构和程序逻辑保证
+    pub freeze_state: Account<'info, FreezeState>,
+
+    /// 要解冻的账户
+    /// CHECK: 这个账户仅用于生成PDA种子
+    pub account: AccountInfo<'info>,
+
+    pub authority_state: Account<'info, AuthorityState>,
+}
+
+ 
 

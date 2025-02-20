@@ -288,3 +288,54 @@ impl PauseState {
         Ok(())
     }
 }
+
+/// 账户冻结状态管理
+#[account]
+pub struct FreezeState {
+    /// 被冻结的账户地址
+    pub account: Pubkey,
+    /// 冻结时间戳
+    pub frozen_time: i64,
+    /// 冻结操作执行者
+    pub frozen_by: Pubkey,
+    /// 是否处于冻结状态
+    pub is_frozen: bool,
+    /// 冻结原因描述
+    pub reason: String,
+}
+
+impl FreezeState {
+    /// 初始化冻结状态
+    pub fn initialize(account: Pubkey) -> Self {
+        Self {
+            account,
+            frozen_time: 0,
+            frozen_by: Pubkey::default(),
+            is_frozen: false,
+            reason: String::new(),
+        }
+    }
+
+    /// 冻结账户
+    pub fn freeze(&mut self, authority: Pubkey, reason: String) -> Result<()> {
+        self.is_frozen = true;
+        self.frozen_time = Clock::get()?.unix_timestamp;
+        self.frozen_by = authority;
+        self.reason = reason;
+        Ok(())
+    }
+
+    /// 解冻账户
+    pub fn unfreeze(&mut self) {
+        self.is_frozen = false;
+        self.frozen_time = 0;
+        self.frozen_by = Pubkey::default();
+        self.reason = String::new();
+    }
+
+    /// 检查账户是否被冻结
+    pub fn check_frozen(&self) -> Result<()> {
+        require!(!self.is_frozen, WusdError::AccountFrozen);
+        Ok(())
+    }
+}

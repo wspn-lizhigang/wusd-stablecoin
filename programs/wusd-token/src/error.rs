@@ -38,4 +38,10 @@ pub enum WusdError {
     InvalidOwner,
     #[msg("Insufficient allowance")]
     InsufficientAllowance,
+    #[msg("Account is frozen")]
+    AccountFrozen,
+    #[msg("Account is already frozen")]
+    AccountAlreadyFrozen,
+    #[msg("Account is not frozen")]
+    AccountNotFrozen,
 }
