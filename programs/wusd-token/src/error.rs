@@ -40,4 +40,6 @@ pub enum WusdError {
     AccountAlreadyFrozen,
     #[msg("Account is not frozen")]
     AccountNotFrozen,
+    #[msg("Invalid transfer from operation")]
+    InvalidTransferFrom,
 }

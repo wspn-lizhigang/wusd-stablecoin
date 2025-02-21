@@ -11,15 +11,17 @@ import {
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountInstruction,
 } from "@solana/spl-token";
-import { WusdToken } from "../../target/types/wusd_token"; 
+import { WusdToken } from "../../target/types/wusd_token";
 import { assert } from "chai";
 
 describe("WUSD Token Mint Test", () => {
   // 1. 首先定义所有变量
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
+  console.log("钱包地址：", provider.wallet.publicKey.toString());
 
   const program = anchor.workspace.WusdToken as Program<WusdToken>;
+  console.log("Program ID:", program.programId.toString());
 
   // 定义关键账户
   let mintKeypair: Keypair;
@@ -125,7 +127,7 @@ describe("WUSD Token Mint Test", () => {
         );
         await provider.connection.confirmTransaction(signature, "confirmed");
 
-        console.log("Contract state initialized"); 
+        console.log("Contract state initialized");
       } catch (error) {
         console.error("Contract initialization failed:", error);
         throw error;

@@ -28,30 +28,40 @@ pub struct ExchangeRate {
     pub output: u64,
 }
 
-#[account]
-pub struct StateAccount {
-    pub authority: Pubkey,
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct TokenConfig {
     pub wusd_mint: Pubkey,
     pub collateral_mint: Pubkey,
     pub treasury: Pubkey,
     pub total_supply: u64,
     pub decimals: u8,
-    pub paused: bool,
+    pub collateral_decimals: u8,
+    pub wusd_decimals: u8,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct StakingConfig {
     pub total_staked: u64,
     pub reward_rate: u64,
     pub last_update_time: i64,
     pub emergency_withdraw_penalty: u64,
     pub emergency_cooldown_duration: i64,
-    pub collateral_decimals: u8,
-    pub wusd_decimals: u8,
-    pub token_whitelist: [(Pubkey, bool); 3],
-    pub exchange_rates: [(Pubkey, Pubkey, Rate); 3],
     pub total_staking_plans: u64,
-    pub owners: [Pubkey; 10],
-    pub pool_address: Pubkey,
-    pub claims: [(Pubkey, SoftStakeAccount); 32],
+}
+
+#[account]
+pub struct StateAccount {
+    pub authority: Pubkey,
+    pub token_config: Box<TokenConfig>,
+    pub staking_config: Box<StakingConfig>,
+    pub paused: bool,
+    pub token_whitelist: Box<[(Pubkey, bool); 3]>,
+    pub exchange_rates: Box<[(Pubkey, Pubkey, Rate); 3]>,
+    pub staking_pools: Box<[StakingPool; 16]>,
+    pub claims: Box<[(Pubkey, SoftStakeAccount); 16]>,
     pub claims_count: u32,
-    pub staking_pools: [StakingPool; 32],
+    pub owners: Box<[Pubkey; 5]>,
+    pub pool_address: Pubkey
 }
 
 impl StateAccount {
@@ -72,11 +82,11 @@ impl StateAccount {
         (32 + 1) * 3 + // token_whitelist
         (32 + 32 + 16) * 3 + // exchange_rates
         8 + // total_staking_plans
-        32 * 10 + // owners
+        32 * 5 + // owners
         32 + // pool_address
-        (32 + 128) * 32 + // claims
+        (32 + 128) * 16 + // claims
         4 + // claims_count
-        (8 + 8 + 8 + 8 + 1) * 32; // staking_pools
+        (8 + 8 + 8 + 8 + 1) * 16; // staking_pools
 
     pub fn has_role(_role: &[u8], authority: &Pubkey, state_authority: &Pubkey) -> bool {
         authority == state_authority
@@ -97,7 +107,7 @@ impl StateAccount {
         })
     }
 
-    pub fn is_token_whitelisted(mint: Pubkey, token_whitelist: &[(Pubkey, bool)]) -> bool {
+    pub fn is_token_whitelisted(mint: Pubkey, token_whitelist: &Box<[(Pubkey, bool); 3]>) -> bool {
         if let Some((_token, status)) = token_whitelist.iter().find(|(token, _)| *token == mint) {
             *status
         } else {
@@ -110,10 +120,10 @@ impl StateAccount {
             return err!(WUSDError::TokenNotWhitelisted);
         }
 
-        if mint == state.wusd_mint {
-            Ok(state.wusd_decimals)
-        } else if mint == state.collateral_mint {
-            Ok(state.collateral_decimals)
+        if mint == state.token_config.wusd_mint {
+            Ok(state.token_config.wusd_decimals)
+        } else if mint == state.token_config.collateral_mint {
+            Ok(state.token_config.collateral_decimals)
         } else {
             err!(WUSDError::TokenNotWhitelisted)
         }

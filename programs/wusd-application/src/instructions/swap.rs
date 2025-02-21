@@ -1,157 +1,20 @@
 #![allow(dead_code)] 
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+use anchor_spl::token::{self, Token, TokenAccount, Transfer, Mint};
+
+// 使用堆内存来存储大型数据结构
+#[derive(Clone)]
+pub struct SwapContext<'a> {
+    pub user: &'a Signer<'a>,
+    pub token_program: &'a Program<'a, Token>,
+    pub state: &'a Account<'a, StateAccount>,
+}
 use crate::state::{StateAccount, ExchangeRate};
 use crate::error::WUSDError;
 use crate::base::roles::*;
 
 /// 最大精度
-pub const MAX_DECIMALS: u8 = 18;
-
-/// 汇率结构体，定义代币兑换比率
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
-pub struct Rate {
-    pub input: u64,
-    pub output: u64,
-}
-
-/// 代币兑换事件
-#[event]
-pub struct SwapEvent {
-    pub user: Pubkey,
-    pub token_in: Pubkey,
-    pub token_out: Pubkey,
-    pub amount_in: u64,
-    pub amount_out: u64,
-    pub treasury: Pubkey,
-    pub timestamp: i64,
-}
-
-/// 汇率设置事件
-#[event]
-pub struct RateSetEvent {
-    pub caller: Pubkey,
-    pub token_in: Pubkey,
-    pub token_out: Pubkey,
-    pub old_rate: Rate,
-    pub new_rate: Rate,
-    pub timestamp: i64,
-}
-
-/// 交易池地址更新事件
-#[event]
-pub struct PoolAddressSetEvent {
-    pub caller: Pubkey,
-    pub old_pool_address: Pubkey,
-    pub new_pool_address: Pubkey,
-    pub timestamp: i64,
-}
-
-/// 代币白名单更新事件
-#[event]
-pub struct TokenWhitelistUpdatedEvent {
-    pub caller: Pubkey,
-    pub token: Pubkey,
-    pub status: bool,
-    pub timestamp: i64,
-}
-
-/// 代币配置更新事件
-#[event]
-pub struct ConfigSetEvent {
-    pub caller: Pubkey,
-    pub token_mint: Pubkey,
-    pub decimals: u8,
-    pub timestamp: i64,
-}
-
-/// 代币兑换指令的账户参数
-#[derive(Accounts)]
-pub struct Swap<'info> {
-    pub user: Signer<'info>,
-    
-    #[account(mut)]
-    pub user_token_in: Account<'info, TokenAccount>,
-    
-    #[account(mut)]
-    pub user_token_out: Account<'info, TokenAccount>,
-    
-    pub token_program: Program<'info, Token>,
-    
-    #[account(
-        mut,
-        seeds = [b"state"],
-        bump,
-        constraint = !state.paused @ WUSDError::ContractPaused,
-        constraint = StateAccount::is_token_whitelisted(user_token_in.mint, &state.token_whitelist) @ WUSDError::TokenNotWhitelisted,
-        constraint = StateAccount::is_token_whitelisted(user_token_out.mint, &state.token_whitelist) @ WUSDError::TokenNotWhitelisted,
-        constraint = user_token_in.mint != user_token_out.mint @ WUSDError::SameTokenAddresses
-    )]
-    pub state: Account<'info, StateAccount>,
-    
-    #[account(mut)]
-    pub treasury: Account<'info, TokenAccount>,
-}
-
-/// 设置代币兑换汇率的账户参数
-#[derive(Accounts)]
-pub struct SetRate<'info> {
-    #[account(mut)]
-    pub authority: Signer<'info>,
-    
-    #[account(
-        mut,
-        seeds = [b"state"],
-        bump,
-        constraint = StateAccount::has_role(RATE_SETTER, &authority.key(), &state.authority) @ WUSDError::Unauthorized
-    )]
-    pub state: Account<'info, StateAccount>,
-}
-
-/// 设置交易池地址的账户参数
-#[derive(Accounts)]
-pub struct PoolAddress<'info> {
-    #[account(mut)]
-    pub authority: Signer<'info>,
-    
-    #[account(
-        mut,
-        seeds = [b"state"],
-        bump,
-        constraint = StateAccount::has_role(CONFIG_SETTER, &authority.key(), &state.authority) @ WUSDError::Unauthorized
-    )]
-    pub state: Account<'info, StateAccount>,
-}
-
-/// 设置代币白名单的账户参数
-#[derive(Accounts)]
-pub struct SetWhitelistToken<'info> {
-    #[account(mut)]
-    pub authority: Signer<'info>,
-    
-    #[account(
-        mut,
-        seeds = [b"state"],
-        bump,
-        constraint = StateAccount::has_role(CONFIG_SETTER, &authority.key(), &state.authority) @ WUSDError::Unauthorized
-    )]
-    pub state: Account<'info, StateAccount>,
-}
-
-/// 设置代币配置的账户参数
-#[derive(Accounts)]
-pub struct SetConfig<'info> {
-    #[account(mut)]
-    pub authority: Signer<'info>,
-    
-    #[account(
-        mut,
-        seeds = [b"state"],
-        bump,
-        constraint = StateAccount::has_role(CONFIG_SETTER, &authority.key(), &state.authority) @ WUSDError::Unauthorized
-    )]
-    pub state: Account<'info, StateAccount>,
-}
+pub const MAX_DECIMALS: u8 = 18; 
 
 /// 执行代币兑换操作
 pub fn swap(
@@ -177,15 +40,18 @@ pub fn swap(
     )?;
     require!(amount_out >= min_amount_out, WUSDError::SlippageExceeded);
 
+    // 获取金库账户
+    let treasury = &ctx.accounts.state.token_config.treasury;
+
     // 验证金库余额
-    require!(ctx.accounts.treasury.amount >= amount_out, WUSDError::InsufficientTreasuryBalance);
+    require!(ctx.accounts.user_token_out.amount >= amount_out, WUSDError::InsufficientTreasuryBalance);
 
     // 将代币从用户转移到金库
     let transfer_in_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         Transfer {
             from: ctx.accounts.user_token_in.to_account_info(),
-            to: ctx.accounts.treasury.to_account_info(),
+            to: ctx.accounts.user_token_out.to_account_info(),
             authority: ctx.accounts.user.to_account_info(),
         },
     );
@@ -201,7 +67,7 @@ pub fn swap(
     let transfer_out_ctx = CpiContext::new_with_signer(
         ctx.accounts.token_program.to_account_info(),
         Transfer {
-            from: ctx.accounts.treasury.to_account_info(),
+            from: ctx.accounts.user_token_in.to_account_info(),
             to: ctx.accounts.user_token_out.to_account_info(),
             authority: ctx.accounts.state.to_account_info(),
         },
@@ -216,7 +82,7 @@ pub fn swap(
         token_out: ctx.accounts.user_token_out.mint,
         amount_in,
         amount_out,
-        treasury: ctx.accounts.treasury.key(),
+        treasury: *treasury,
         timestamp: clock.unix_timestamp,
     });
 
@@ -277,8 +143,8 @@ pub fn set_pool_address(
     require!(new_pool_address != Pubkey::default(), WUSDError::InvalidAddress);
     
     let state = &mut ctx.accounts.state;
-    let old_pool_address = state.treasury;
-    state.treasury = new_pool_address;
+    let old_pool_address = state.token_config.treasury;
+    state.token_config.treasury = new_pool_address;
     
     let clock = Clock::get()?;
     emit!(PoolAddressSetEvent {
@@ -293,7 +159,7 @@ pub fn set_pool_address(
 
 /// 获取交易池地址
 pub fn get_pool_address(state: &StateAccount) -> Pubkey {
-    state.treasury
+    state.token_config.treasury
 }
 
 /// 更新单个代币的白名单状态的内部函数
@@ -512,4 +378,150 @@ pub fn get_rate(
         input: exchange_rate.input,
         output: exchange_rate.output
     })
+}
+
+/// 汇率结构体，定义代币兑换比率
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
+pub struct Rate {
+    pub input: u64,
+    pub output: u64,
+}
+
+/// 代币兑换事件
+#[event]
+pub struct SwapEvent {
+    pub user: Pubkey,
+    pub token_in: Pubkey,
+    pub token_out: Pubkey,
+    pub amount_in: u64,
+    pub amount_out: u64,
+    pub treasury: Pubkey,
+    pub timestamp: i64,
+}
+
+/// 汇率设置事件
+#[event]
+pub struct RateSetEvent {
+    pub caller: Pubkey,
+    pub token_in: Pubkey,
+    pub token_out: Pubkey,
+    pub old_rate: Rate,
+    pub new_rate: Rate,
+    pub timestamp: i64,
+}
+
+/// 交易池地址更新事件
+#[event]
+pub struct PoolAddressSetEvent {
+    pub caller: Pubkey,
+    pub old_pool_address: Pubkey,
+    pub new_pool_address: Pubkey,
+    pub timestamp: i64,
+}
+
+/// 代币白名单更新事件
+#[event]
+pub struct TokenWhitelistUpdatedEvent {
+    pub caller: Pubkey,
+    pub token: Pubkey,
+    pub status: bool,
+    pub timestamp: i64,
+}
+
+/// 代币配置更新事件
+#[event]
+pub struct ConfigSetEvent {
+    pub caller: Pubkey,
+    pub token_mint: Pubkey,
+    pub decimals: u8,
+    pub timestamp: i64,
+}
+
+/// 代币兑换指令的账户参数
+#[derive(Accounts)]
+pub struct Swap<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(mut)]
+    pub user_token_in: Box<Account<'info, TokenAccount>>,
+    
+    #[account(mut)]
+    pub user_token_out: Box<Account<'info, TokenAccount>>,
+    
+    #[account(mut)]
+    pub token_in_mint: Box<Account<'info, Mint>>,
+    
+    #[account(mut)]
+    pub token_out_mint: Box<Account<'info, Mint>>,
+    
+    #[account(
+        mut,
+        seeds = [b"state"],
+        bump,
+        constraint = !state.paused @ WUSDError::ContractPaused
+    )]
+    pub state: Box<Account<'info, StateAccount>>,
+    
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct SetRate<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    
+    #[account(
+        mut,
+        seeds = [b"state"],
+        bump,
+        constraint = !state.paused @ WUSDError::ContractPaused,
+        constraint = state.authority == authority.key() @ WUSDError::Unauthorized
+    )]
+    pub state: Box<Account<'info, StateAccount>>,
+}
+
+/// 设置交易池地址的账户参数
+#[derive(Accounts)]
+pub struct PoolAddress<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    
+    #[account(
+        mut,
+        seeds = [b"state"],
+        bump,
+        constraint = StateAccount::has_role(CONFIG_SETTER, &authority.key(), &state.authority) @ WUSDError::Unauthorized
+    )]
+    pub state: Account<'info, StateAccount>,
+}
+
+/// 设置代币白名单的账户参数
+#[derive(Accounts)]
+pub struct SetWhitelistToken<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    
+    #[account(
+        mut,
+        seeds = [b"state"],
+        bump,
+        constraint = StateAccount::has_role(CONFIG_SETTER, &authority.key(), &state.authority) @ WUSDError::Unauthorized
+    )]
+    pub state: Account<'info, StateAccount>,
+}
+
+/// 设置代币配置的账户参数
+#[derive(Accounts)]
+pub struct SetConfig<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    
+    #[account(
+        mut,
+        seeds = [b"state"],
+        bump,
+        constraint = StateAccount::has_role(CONFIG_SETTER, &authority.key(), &state.authority) @ WUSDError::Unauthorized
+    )]
+    pub state: Account<'info, StateAccount>,
 }

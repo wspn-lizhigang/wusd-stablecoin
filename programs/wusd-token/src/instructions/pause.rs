@@ -2,22 +2,6 @@ use anchor_lang::prelude::*;
 use crate::error::WusdError;  
 use crate::state::{AuthorityState, PauseState};
 
-#[derive(Accounts)]
-pub struct Pause<'info> {
-    #[account(mut)]
-    pub pause_state: Account<'info, PauseState>,
-    pub authority: Signer<'info>,
-    pub authority_state: Account<'info, AuthorityState>,
-}
-
-#[derive(Accounts)]
-pub struct Unpause<'info> {
-    #[account(mut)]
-    pub pause_state: Account<'info, PauseState>,
-    pub authority: Signer<'info>,
-    pub authority_state: Account<'info, AuthorityState>,
-}
-
 /// 暂停合约
 /// * `ctx` - 上下文
 pub fn pause(ctx: Context<Pause>) -> Result<()> {
@@ -38,4 +22,20 @@ pub fn unpause(ctx: Context<Unpause>) -> Result<()> {
     );
     ctx.accounts.pause_state.set_paused(false);
     Ok(())
+}
+
+#[derive(Accounts)]
+pub struct Pause<'info> {
+    #[account(mut)]
+    pub pause_state: Account<'info, PauseState>,
+    pub authority: Signer<'info>,
+    pub authority_state: Account<'info, AuthorityState>,
+}
+
+#[derive(Accounts)]
+pub struct Unpause<'info> {
+    #[account(mut)]
+    pub pause_state: Account<'info, PauseState>,
+    pub authority: Signer<'info>,
+    pub authority_state: Account<'info, AuthorityState>,
 }

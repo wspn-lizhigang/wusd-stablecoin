@@ -6,15 +6,15 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-wusd_application = "5SvHeeNmA128wY4pA8GoDeRqnkartjWcHVfAjt8E2MhT"
-wusd_token = "GVW49CHk6N7AMbWWnd3dj5vM6BbRmG1MnNNCBTNoyEj3"
+wusd_application = "3HKNJ1GSSzuNjBTQZ3edmNK5tv1qKnywZ3PJMfpMtUj2"
+wusd_token = "8T6Eo9r2DbMjB1GL5VQc1JJYV8xdBDg5fpUrLG4xsKNq"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
 cluster = "http://localhost:8899"
-wallet = "~/.config/solana/id.json"
+wallet = "./deploy-keypair.json"
 
 [workspace]
 members = ["programs/wusd-application", "programs/wusd-token"]

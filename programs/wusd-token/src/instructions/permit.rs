@@ -2,6 +2,41 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::Token; 
 use crate::error::WusdError;  
 use crate::state::{MintState, PermitState, AllowanceState};
+
+/// 处理授权许可请求，允许代币持有者授权其他账户使用其代币
+/// 
+/// # 参数
+/// * `ctx` - 包含所有必要账户的上下文
+/// * `params` - 授权许可的参数，包含签名、金额、期限等信息
+/// 
+/// # 返回值
+/// * `Result<()>` - 操作成功返回Ok(()), 失败返回错误
+pub fn permit(ctx: Context<Permit>, params: PermitParams) -> Result<()> { 
+    // 验证基本参数
+    require!(params.amount > 0, WusdError::InvalidAmount);
+    
+    // 初始化 permit_state
+    ctx.accounts.permit_state.set_inner(PermitState::initialize(
+        ctx.accounts.owner.key(),
+        ctx.accounts.spender.key(),
+        params.amount,
+        params.deadline,
+        *ctx.bumps.get("permit_state").unwrap()
+    ));
+    
+    // 设置授权额度
+    ctx.accounts.allowance.amount = params.amount;
+    
+    // 发出授权许可事件
+    emit!(PermitGranted { 
+        owner: ctx.accounts.owner.key(),
+        spender: ctx.accounts.spender.key(),
+        amount: params.amount,
+        scope: PermitScope::TRANSFER
+    });
+    
+    Ok(())
+}
  
 /// 许可授权范围枚举
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
@@ -103,39 +138,3 @@ impl PermitScope {
         all: false
     };
 } 
-
-/// 处理授权许可请求，允许代币持有者授权其他账户使用其代币
-/// 
-/// # 参数
-/// * `ctx` - 包含所有必要账户的上下文
-/// * `params` - 授权许可的参数，包含签名、金额、期限等信息
-/// 
-/// # 返回值
-/// * `Result<()>` - 操作成功返回Ok(()), 失败返回错误
-pub fn permit(ctx: Context<Permit>, params: PermitParams) -> Result<()> { 
-    // 验证基本参数
-    require!(params.amount > 0, WusdError::InvalidAmount);
-    
-    // 初始化 permit_state
-    ctx.accounts.permit_state.set_inner(PermitState::initialize(
-        ctx.accounts.owner.key(),
-        ctx.accounts.spender.key(),
-        params.amount,
-        params.deadline,
-        *ctx.bumps.get("permit_state").unwrap()
-    ));
-    
-    // 设置授权额度
-    ctx.accounts.allowance.amount = params.amount;
-    
-    // 发出授权许可事件
-    emit!(PermitGranted { 
-        owner: ctx.accounts.owner.key(),
-        spender: ctx.accounts.spender.key(),
-        amount: params.amount,
-        scope: PermitScope::TRANSFER
-    });
-    
-    Ok(())
-}
- 

@@ -22,10 +22,6 @@ pub trait Base {
 }
 
 /// 角色常量定义
-pub mod roles {
-    pub const ADMIN: &[u8] = b"ADMIN";
-    pub const UPGRADER: &[u8] = b"UPGRADER";
-    pub const PAUSER: &[u8] = b"PAUSER";
-    pub const CONFIG_SETTER: &[u8] = b"CONFIG_SETTER";
-    pub const RATE_SETTER: &[u8] = b"RATE_SETTER";
+pub mod roles { 
+    pub const CONFIG_SETTER: &[u8] = b"CONFIG_SETTER"; 
 }

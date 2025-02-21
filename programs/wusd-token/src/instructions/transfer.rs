@@ -4,6 +4,122 @@ use crate::error::WusdError;
 use crate::utils::require_has_access; 
 use crate::state::{FreezeState, PermitState, MintState, AccessRegistryState, PauseState};
 
+/// 转账WUSD代币
+/// * `ctx` - 转账上下文
+/// * `amount` - 转账数量
+pub fn transfer(ctx: Context<Transfer>, amount: u64) -> Result<()> {
+    require!(amount > 0, WusdError::InvalidAmount);
+    let fee = calculate_transfer_fee(amount);  
+    require!(
+        ctx.accounts.from_token.amount >= amount.saturating_add(fee),
+        WusdError::InsufficientFunds
+    );
+    require!(
+        amount.checked_sub(fee).is_some(),
+        WusdError::InvalidAmount
+    );
+
+    // 检查冻结状态
+    ctx.accounts.from_freeze_state.check_frozen()?;
+    ctx.accounts.to_freeze_state.check_frozen()?;
+
+    // 检查访问权限
+    require_has_access(
+        ctx.accounts.from.key(),
+        true,
+        Some(amount),
+        &ctx.accounts.pause_state,
+        Some(&ctx.accounts.access_registry),
+    )?;
+
+    // 执行转账
+    token::transfer(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            token::Transfer {
+                from: ctx.accounts.from_token.to_account_info(),
+                to: ctx.accounts.to_token.to_account_info(),
+                authority: ctx.accounts.from.to_account_info(),
+            },
+        ),
+        amount,
+    )?;
+
+    Ok(())
+}  
+
+pub fn transfer_from(ctx: Context<TransferFrom>, amount: u64) -> Result<()> {
+    // 基本验证
+    ctx.accounts.pause_state.validate_not_paused()?;
+    
+    // 创建堆分配的上下文数据结构
+    let transfer_context = Box::new(TransferContext {
+        current_time: Clock::get()?.unix_timestamp,
+        owner_key: ctx.accounts.owner.key(),
+        spender_key: ctx.accounts.spender.key(),
+        permit_bump: ctx.accounts.permit.bump,
+    });
+    
+    // 验证转账前置条件
+    if ctx.accounts.permit.expiration <= transfer_context.current_time {
+        return Err(WusdError::InvalidTransferFrom.into());
+    }
+    if ctx.accounts.permit.amount < amount {
+        return Err(WusdError::InsufficientAllowance.into());
+    }
+    if ctx.accounts.from_token.owner != transfer_context.owner_key {
+        return Err(WusdError::InvalidTransferFrom.into());
+    }
+
+    // 检查冻结状态
+    ctx.accounts.from_freeze_state.check_frozen()?;
+    ctx.accounts.to_freeze_state.check_frozen()?;
+    
+    // 构建签名种子
+    let seeds = &[
+        b"permit",
+        transfer_context.owner_key.as_ref(),
+        transfer_context.spender_key.as_ref(),
+        &[transfer_context.permit_bump]
+    ];
+
+    // 执行代币转账
+    token::transfer(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            token::Transfer {
+                from: ctx.accounts.from_token.to_account_info(),
+                to: ctx.accounts.to_token.to_account_info(),
+                authority: ctx.accounts.owner.to_account_info(), 
+            },
+            &[seeds]
+        ),
+        amount
+    )?;
+
+    // 更新授权额度
+    ctx.accounts.permit.amount = ctx.accounts.permit.amount
+        .checked_sub(amount)
+        .ok_or(WusdError::InsufficientAllowance)?;
+    
+    Ok(())
+}
+
+// 转账上下文数据结构
+#[derive(Clone)]
+struct TransferContext {
+    current_time: i64,
+    owner_key: Pubkey,
+    spender_key: Pubkey,
+    permit_bump: u8,
+}
+
+// 实现费用计算函数
+fn calculate_transfer_fee(amount: u64) -> u64 {
+    // 示例：0.1% 手续费
+    amount.checked_div(1000).unwrap_or(0)
+}
+
 #[derive(Accounts)]
 pub struct Transfer<'info> {
     #[account(mut)]
@@ -107,114 +223,4 @@ pub struct TransferFrom<'info> {
     pub to_freeze_state: Account<'info, FreezeState>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
-}
-
-/// 转账WUSD代币
-/// * `ctx` - 转账上下文
-/// * `amount` - 转账数量
-pub fn transfer(ctx: Context<Transfer>, amount: u64) -> Result<()> {
-    require!(amount > 0, WusdError::InvalidAmount);
-    let fee = calculate_transfer_fee(amount);  
-    require!(
-        ctx.accounts.from_token.amount >= amount.saturating_add(fee),
-        WusdError::InsufficientFunds
-    );
-    require!(
-        amount.checked_sub(fee).is_some(),
-        WusdError::InvalidAmount
-    );
-
-    // 检查冻结状态
-    ctx.accounts.from_freeze_state.check_frozen()?;
-    ctx.accounts.to_freeze_state.check_frozen()?;
-
-    // 检查访问权限
-    require_has_access(
-        ctx.accounts.from.key(),
-        true,
-        Some(amount),
-        &ctx.accounts.pause_state,
-        Some(&ctx.accounts.access_registry),
-    )?;
-
-    // 执行转账
-    token::transfer(
-        CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
-            token::Transfer {
-                from: ctx.accounts.from_token.to_account_info(),
-                to: ctx.accounts.to_token.to_account_info(),
-                authority: ctx.accounts.from.to_account_info(),
-            },
-        ),
-        amount,
-    )?;
-
-    Ok(())
-} 
-
-/// 使用授权额度转账WUSD代币
-/// * `ctx` - 转账上下文
-/// * `amount` - 转账数量
-pub fn transfer_from(ctx: Context<TransferFrom>, amount: u64) -> Result<()> {
-    // 验证合约未暂停
-    ctx.accounts.pause_state.validate_not_paused()?;
-    
-    // 验证授权有效性
-    let current_time = Clock::get()?.unix_timestamp;
-    require!(
-        ctx.accounts.permit.expiration > current_time,
-        WusdError::ExpiredPermit
-    );
-    require!(
-        ctx.accounts.permit.amount >= amount,
-        WusdError::InsufficientAllowance
-    );
-
-    // 验证 token account 所有权
-    require!(
-        ctx.accounts.from_token.owner == ctx.accounts.owner.key(),
-        WusdError::InvalidOwner
-    );
-
-    // 检查冻结状态
-    ctx.accounts.from_freeze_state.check_frozen()?;
-    ctx.accounts.to_freeze_state.check_frozen()?;
-
-    // 生成 PDA 签名
-    let owner_key = ctx.accounts.owner.key();
-    let spender_key = ctx.accounts.spender.key();
-    let seeds = &[
-        b"permit",
-        owner_key.as_ref(),
-        spender_key.as_ref(),
-        &[ctx.accounts.permit.bump],
-    ];
-    
-    // 执行代币转账
-    token::transfer(
-        CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            token::Transfer {
-                from: ctx.accounts.from_token.to_account_info(),
-                to: ctx.accounts.to_token.to_account_info(),
-                authority: ctx.accounts.owner.to_account_info(), 
-            },
-            &[&seeds[..]]
-        ),
-        amount
-    )?;
-
-    // 更新授权额度
-    ctx.accounts.permit.amount = ctx.accounts.permit.amount
-        .checked_sub(amount)
-        .ok_or(WusdError::InsufficientAllowance)?;
-    
-    Ok(())
-}
-
-// 实现费用计算函数
-fn calculate_transfer_fee(amount: u64) -> u64 {
-    // 示例：0.1% 手续费
-    amount.checked_div(1000).unwrap_or(0)
 }

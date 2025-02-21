@@ -1,35 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Mint}; 
-
 use crate::{AccessLevel, error::WusdError};
 use crate::state::{AuthorityState, MintState, AccessRegistryState, PauseState};
-
-#[derive(Accounts)]
-pub struct Burn<'info> {
-    #[account(mut)]
-    pub authority_state: Account<'info, AuthorityState>, 
-    #[account(mut)]
-    pub mint_authority: Signer<'info>,
-    #[account(mut)]
-    pub authority: Signer<'info>,
-    #[account(mut)]
-    pub mint: Account<'info, Mint>,
-    #[account(mut)]
-    pub token_account: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>, 
-    pub mint_state: Account<'info, MintState>,
-    pub pause_state: Account<'info, PauseState>,
-    pub access_registry: Account<'info, AccessRegistryState>, 
-} 
-
-/// 销毁事件，记录代币销毁的详细信息
-#[event]
-pub struct BurnEvent {
-    /// 销毁者地址，执行销毁操作的账户
-    pub burner: Pubkey,
-    /// 销毁数量，被销毁的代币数量
-    pub amount: u64,
-}
 
 /// 销毁WUSD代币
 /// * `ctx` - 销毁上下文
@@ -91,3 +63,30 @@ pub fn burn(ctx: Context<Burn>, amount: u64) -> Result<()> {
 
     Ok(())
 } 
+
+#[derive(Accounts)]
+pub struct Burn<'info> {
+    #[account(mut)]
+    pub authority_state: Account<'info, AuthorityState>, 
+    #[account(mut)]
+    pub mint_authority: Signer<'info>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub token_account: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>, 
+    pub mint_state: Account<'info, MintState>,
+    pub pause_state: Account<'info, PauseState>,
+    pub access_registry: Account<'info, AccessRegistryState>, 
+} 
+
+/// 销毁事件，记录代币销毁的详细信息
+#[event]
+pub struct BurnEvent {
+    /// 销毁者地址，执行销毁操作的账户
+    pub burner: Pubkey,
+    /// 销毁数量，被销毁的代币数量
+    pub amount: u64,
+}

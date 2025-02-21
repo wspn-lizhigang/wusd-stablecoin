@@ -25,94 +25,7 @@ use instructions::operator::*;
 use instructions::pause::*;
 use instructions::freeze::*; 
 
-declare_id!("GVW49CHk6N7AMbWWnd3dj5vM6BbRmG1MnNNCBTNoyEj3");
-
-#[derive(Accounts)]
-#[instruction(decimals: u8)]
-pub struct Initialize<'info> {
-    /// 管理员账户
-    #[account(mut)]
-    pub authority: Signer<'info>,
-
-    /// 权限管理账户
-    #[account(
-        init,
-        payer = authority, 
-        space = AuthorityState::SIZE,
-        seeds = [b"authority", token_mint.key().as_ref()],
-        bump
-    )]
-    pub authority_state: Account<'info, AuthorityState>,
-
-    /// 代币铸币账户 
-    #[account(
-        init,
-        payer = authority,
-        mint::decimals = decimals,
-        mint::authority = authority.key()
-    )]
-    pub token_mint: Account<'info, Mint>,
-
-    /// 铸币状态账户
-    #[account(
-        init,
-        payer = authority, 
-        space = MintState::SIZE,
-        seeds = [b"mint_state", token_mint.key().as_ref()],
-        bump
-    )]
-    pub mint_state: Account<'info, MintState>,
-
-    /// 暂停状态账户
-    #[account(
-        init,
-        payer = authority, 
-        space = PauseState::SIZE,
-        seeds = [b"pause_state", token_mint.key().as_ref()],
-        bump
-    )]
-    pub pause_state: Account<'info, PauseState>,
-    pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
-    pub rent: Sysvar<'info, Rent>,
-}   
-
-#[derive(Accounts)]
-pub struct InitializeAccessRegistry<'info> {
-    #[account(mut)]
-    pub authority: Signer<'info>, 
-     
-    #[account(
-        init,
-        payer = authority, 
-        space = AccessRegistryState::SIZE,
-        seeds = [b"access_registry"],
-        bump
-    )]
-    pub access_registry: Account<'info, AccessRegistryState>,
-
-    pub system_program: Program<'info, System>,
-}   
-
-/// 访问级别枚举，用于控制账户的操作权限
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum AccessLevel {
-    /// 允许扣款操作，如转出、销毁等
-    Debit,
-    /// 允许入账操作，如接收转账、铸币等
-    Credit,
-}  
-
-/// 初始化事件，记录代币初始化的关键信息
-#[event]
-pub struct InitializeEvent {
-    /// 管理员地址，负责合约的权限管理
-    pub authority: Pubkey,
-    /// 代币铸币权地址，用于控制代币的发行
-    pub mint: Pubkey,
-    /// 代币精度，定义代币的最小单位
-    pub decimals: u8,
-}  
+declare_id!("8T6Eo9r2DbMjB1GL5VQc1JJYV8xdBDg5fpUrLG4xsKNq");
 
 #[program]
 pub mod wusd_token {
@@ -230,7 +143,92 @@ pub mod wusd_token {
 
 }
 
+#[derive(Accounts)]
+#[instruction(decimals: u8)]
+pub struct Initialize<'info> {
+    /// 管理员账户
+    #[account(mut)]
+    pub authority: Signer<'info>,
 
+    /// 权限管理账户
+    #[account(
+        init,
+        payer = authority, 
+        space = AuthorityState::SIZE,
+        seeds = [b"authority", token_mint.key().as_ref()],
+        bump
+    )]
+    pub authority_state: Account<'info, AuthorityState>,
+
+    /// 代币铸币账户 
+    #[account(
+        init,
+        payer = authority,
+        mint::decimals = decimals,
+        mint::authority = authority.key()
+    )]
+    pub token_mint: Account<'info, Mint>,
+
+    /// 铸币状态账户
+    #[account(
+        init,
+        payer = authority, 
+        space = MintState::SIZE,
+        seeds = [b"mint_state", token_mint.key().as_ref()],
+        bump
+    )]
+    pub mint_state: Account<'info, MintState>,
+
+    /// 暂停状态账户
+    #[account(
+        init,
+        payer = authority, 
+        space = PauseState::SIZE,
+        seeds = [b"pause_state", token_mint.key().as_ref()],
+        bump
+    )]
+    pub pause_state: Account<'info, PauseState>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
+}   
+
+#[derive(Accounts)]
+pub struct InitializeAccessRegistry<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>, 
+     
+    #[account(
+        init,
+        payer = authority, 
+        space = AccessRegistryState::SIZE,
+        seeds = [b"access_registry"],
+        bump
+    )]
+    pub access_registry: Account<'info, AccessRegistryState>,
+
+    pub system_program: Program<'info, System>,
+}   
+
+/// 访问级别枚举，用于控制账户的操作权限
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum AccessLevel {
+    /// 允许扣款操作，如转出、销毁等
+    Debit,
+    /// 允许入账操作，如接收转账、铸币等
+    Credit,
+}  
+
+/// 初始化事件，记录代币初始化的关键信息
+#[event]
+pub struct InitializeEvent {
+    /// 管理员地址，负责合约的权限管理
+    pub authority: Pubkey,
+    /// 代币铸币权地址，用于控制代币的发行
+    pub mint: Pubkey,
+    /// 代币精度，定义代币的最小单位
+    pub decimals: u8,
+}  
 
 
 
