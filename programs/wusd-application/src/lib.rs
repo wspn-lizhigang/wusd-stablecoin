@@ -2,17 +2,16 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
-mod instructions;
 mod state;
 mod error;
 mod base;
+mod instructions; 
 
 use state::*;
 use error::WUSDError; 
 use instructions::swap::*; 
 use instructions::stake::*; 
-use instructions::softstake::*;
-use instructions::stake::InitializeStakeAccount;
+use instructions::softstake::*; 
 
 declare_id!("3HKNJ1GSSzuNjBTQZ3edmNK5tv1qKnywZ3PJMfpMtUj2");
 
@@ -134,7 +133,6 @@ pub mod wusd_application {
         Ok(instructions::swap::get_pool_address(&ctx.accounts.state))
     }
 }
-
 
 /// 初始化指令的账户参数
 #[derive(Accounts)]
