@@ -13,7 +13,7 @@ wusd_token = "GVW49CHk6N7AMbWWnd3dj5vM6BbRmG1MnNNCBTNoyEj3"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "http://localhost:8899"
 wallet = "~/.config/solana/id.json"
 
 [workspace]
