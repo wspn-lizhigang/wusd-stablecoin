@@ -25,7 +25,7 @@ use instructions::operator::*;
 use instructions::pause::*;
 use instructions::freeze::*; 
 
-declare_id!("Cnm3HeFNeXhtNzLGut39N138XRJAHE4hJsv7kreGjQuj");
+declare_id!("GVW49CHk6N7AMbWWnd3dj5vM6BbRmG1MnNNCBTNoyEj3");
 
 #[derive(Accounts)]
 #[instruction(decimals: u8)]
