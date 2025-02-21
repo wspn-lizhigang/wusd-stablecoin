@@ -25,7 +25,7 @@ use instructions::operator::*;
 use instructions::pause::*;
 use instructions::freeze::*; 
 
-declare_id!("8T6Eo9r2DbMjB1GL5VQc1JJYV8xdBDg5fpUrLG4xsKNq");
+declare_id!("AaophXdbkkqvFJx1XqroNPdwLTPAwyS5z4hqj7Efh1a1");
 
 #[program]
 pub mod wusd_token {
