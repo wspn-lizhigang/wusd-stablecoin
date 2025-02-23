@@ -125,6 +125,11 @@ pub fn transfer_from(ctx: Context<TransferFrom>, amount: u64) -> Result<()> {
         .ok_or(WusdError::InsufficientAllowance)?;
     
     Ok(())
+} 
+
+// 实现费用计算函数
+fn calculate_transfer_fee(amount: u64) -> u64 { 
+    amount.checked_div(1000).unwrap_or(0)
 }
 
 // 转账上下文数据结构
@@ -134,12 +139,6 @@ struct TransferContext {
     owner_key: Pubkey,
     spender_key: Pubkey,
     permit_bump: u8,
-}
-
-// 实现费用计算函数
-fn calculate_transfer_fee(amount: u64) -> u64 {
-    // 示例：0.1% 手续费
-    amount.checked_div(1000).unwrap_or(0)
 }
 
 #[derive(Accounts)]
@@ -209,8 +208,7 @@ pub struct TransferEvent {
 #[derive(Accounts)]
 pub struct TransferFrom<'info> {
     #[account(mut)]
-    pub spender: Signer<'info>, 
-    /// CHECK: 这是一个已验证的所有者地址
+    pub spender: Signer<'info>,  
     /// CHECK: 这是一个已验证的所有者地址
     #[account(mut)]  
     pub owner: AccountInfo<'info>, 

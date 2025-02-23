@@ -10,11 +10,12 @@ import { Program } from "@coral-xyz/anchor";
 import {
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountInstruction,
+  getAccount,
 } from "@solana/spl-token";
 import { WusdToken } from "../../target/types/wusd_token";
 import { assert } from "chai";
 
-describe("WUSD Token Mint Test", () => {
+describe("WUSD Token Test", () => {
   // 1. 首先定义所有变量
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
@@ -306,193 +307,8 @@ describe("WUSD Token Mint Test", () => {
     }
   });
 
-  it("Transfer WUSD tokens", async () => {
-    try {
-      // 为 recipientKeypair 请求空投
-      const airdropSignature = await provider.connection.requestAirdrop(
-        recipientKeypair.publicKey,
-        10 * LAMPORTS_PER_SOL // 空投 10 SOL
-      );
-      await provider.connection.confirmTransaction(
-        airdropSignature,
-        "confirmed"
-      );
-      console.log("Airdropped SOL to recipient");
-      await sleep(1000); // 等待空投确认
-
-      // 检查当前操作员列表
-      const accessRegistry = await program.account.accessRegistryState.fetch(
-        accessRegistryPda
-      );
-
-      // 如果操作员列表已满，移除第一个操作员
-      if (accessRegistry.operatorCount >= 10) {
-        const removeOperatorTx = await program.methods
-          .removeOperator(accessRegistry.operators[0])
-          .accounts({
-            authority: provider.wallet.publicKey,
-            authorityState: authorityPda,
-            accessRegistry: accessRegistryPda,
-            operator: accessRegistry.operators[0],
-          })
-          .rpc();
-
-        await provider.connection.confirmTransaction(removeOperatorTx);
-        console.log(
-          "Removed operator:",
-          accessRegistry.operators[0].toString()
-        );
-        await sleep(1000);
-      }
-
-      // 为发送方账户添加转账权限
-      const addOperatorTx = await program.methods
-        .addOperator(recipientKeypair.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          authorityState: authorityPda,
-          accessRegistry: accessRegistryPda,
-          operator: recipientKeypair.publicKey,
-        })
-        .rpc();
-
-      await provider.connection.confirmTransaction(addOperatorTx);
-      console.log("Transfer access granted to sender");
-
-      // 创建新的接收账户
-      const newRecipient = Keypair.generate();
-      const newRecipientTokenAccount =
-        await anchor.utils.token.associatedAddress({
-          mint: mintKeypair.publicKey,
-          owner: newRecipient.publicKey,
-        });
-
-      // 创建接收账户的代币账户
-      const createTokenAccountIx = createAssociatedTokenAccountInstruction(
-        provider.wallet.publicKey,
-        newRecipientTokenAccount,
-        newRecipient.publicKey,
-        mintKeypair.publicKey
-      );
-
-      const tx = new anchor.web3.Transaction().add(createTokenAccountIx);
-      const signature = await provider.sendAndConfirm(tx);
-      await provider.connection.confirmTransaction(signature, "confirmed");
-
-      // 获取转账前的余额
-      const balanceBefore = await provider.connection.getTokenAccountBalance(
-        recipientTokenAccount
-      );
-      console.log(
-        "Sender balance before transfer:",
-        balanceBefore.value.uiAmount
-      );
-
-      // 正确派生 freeze state PDAs
-      const [fromFreezeState, fromFreezeBump] =
-        PublicKey.findProgramAddressSync(
-          [Buffer.from("freeze"), recipientTokenAccount.toBuffer()],
-          program.programId
-        );
-
-      const [toFreezeState, toFreezeBump] = PublicKey.findProgramAddressSync(
-        [Buffer.from("freeze"), newRecipientTokenAccount.toBuffer()],
-        program.programId
-      );
-
-      // 初始化 from_freeze_state
-      const initFromFreezeStateTx = await program.methods
-        .initializeFreezeState()
-        .accounts({
-          authority: provider.wallet.publicKey,
-          freezeState: fromFreezeState,
-          tokenAccount: recipientTokenAccount,
-          payer: provider.wallet.publicKey,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc();
-
-      await provider.connection.confirmTransaction(initFromFreezeStateTx);
-      console.log("Initialized from freeze state");
-
-      // 初始化 to_freeze_state
-      const initToFreezeStateTx = await program.methods
-        .initializeFreezeState()
-        .accounts({
-          authority: provider.wallet.publicKey,
-          freezeState: toFreezeState,
-          tokenAccount: newRecipientTokenAccount,
-          payer: provider.wallet.publicKey,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc();
-
-      await provider.connection.confirmTransaction(initToFreezeStateTx);
-      console.log("Initialized to freeze state");
-
-      // 执行转账操作
-      const transferAmount = new anchor.BN(20000000); // 20 WUSD
-      const transferTx = await program.methods
-        .transfer(transferAmount)
-        .accounts({
-          from: recipientKeypair.publicKey,
-          to: newRecipient.publicKey,
-          fromToken: recipientTokenAccount,
-          toToken: newRecipientTokenAccount,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          pauseState: pauseStatePda,
-          accessRegistry: accessRegistryPda,
-          fromFreezeState: fromFreezeState,
-          toFreezeState: toFreezeState,
-          systemProgram: SystemProgram.programId,
-        })
-        .signers([recipientKeypair])
-        .rpc();
-
-      await provider.connection.confirmTransaction(transferTx, "confirmed");
-
-      // 验证转账结果
-      const senderBalanceAfter =
-        await provider.connection.getTokenAccountBalance(recipientTokenAccount);
-      const receiverBalance = await provider.connection.getTokenAccountBalance(
-        newRecipientTokenAccount
-      );
-
-      console.log(
-        "Sender balance after transfer:",
-        senderBalanceAfter.value.uiAmount
-      );
-      console.log("Receiver balance:", receiverBalance.value.uiAmount);
-
-      // 验证余额变化
-      const expectedSenderBalance =
-        balanceBefore.value.uiAmount - transferAmount.toNumber() / 1000000;
-      assert.approximately(
-        senderBalanceAfter.value.uiAmount,
-        expectedSenderBalance,
-        0.000001,
-        "Transfer amount not correctly deducted from sender"
-      );
-
-      assert.approximately(
-        receiverBalance.value.uiAmount,
-        transferAmount.toNumber() / 1000000,
-        0.000001,
-        "Transfer amount not correctly added to receiver"
-      );
-
-      console.log("Transfer operation successful");
-    } catch (error) {
-      console.error("Transfer operation failed:", error);
-      throw error;
-    }
-  });
-
-  // it("Test transfer_from functionality", async () => {
+  // it("Transfer WUSD tokens", async () => {
   //   try {
-  //     // 创建新的接收账户
-  //     const spender = Keypair.generate();
-
   //     // 为 recipientKeypair 请求空投
   //     const airdropSignature = await provider.connection.requestAirdrop(
   //       recipientKeypair.publicKey,
@@ -503,178 +319,480 @@ describe("WUSD Token Mint Test", () => {
   //       "confirmed"
   //     );
   //     console.log("Airdropped SOL to recipient");
-
-  //     const spenderTokenAccount = await anchor.utils.token.associatedAddress({
-  //       mint: mintKeypair.publicKey,
-  //       owner: spender.publicKey,
-  //     });
-
-  //     // 创建接收账户的代币账户
-  //     const createTokenAccountIx = createAssociatedTokenAccountInstruction(
-  //       provider.wallet.publicKey,
-  //       spenderTokenAccount,
-  //       spender.publicKey,
-  //       mintKeypair.publicKey
-  //     );
-
-  //     const tx = new anchor.web3.Transaction().add(createTokenAccountIx);
-  //     const trs_signature = await provider.sendAndConfirm(tx);
-  //     await provider.connection.confirmTransaction(trs_signature, "confirmed");
-  //     await sleep(1000);
+  //     await sleep(1000); // 等待空投确认
 
   //     // 检查当前操作员列表
   //     const accessRegistry = await program.account.accessRegistryState.fetch(
   //       accessRegistryPda
   //     );
-  //     console.log("Current operators:", {
-  //       operatorCount: accessRegistry.operatorCount,
-  //       operators: accessRegistry.operators
-  //         .slice(0, accessRegistry.operatorCount)
-  //         .map((op) => op.toString()),
-  //     });
 
-  //     // 如果操作员列表已满，移除前两个操作员
-  //     if (accessRegistry.operatorCount >= 9) {
-  //       for (let i = 0; i < 2; i++) {
-  //         const operator = accessRegistry.operators[i];
-  //         const removeOperatorTx = await program.methods
-  //           .removeOperator(operator)
-  //           .accounts({
-  //             authority: provider.wallet.publicKey,
-  //             authorityState: authorityPda,
-  //             accessRegistry: accessRegistryPda,
-  //             operator: operator,
-  //           })
-  //           .rpc();
+  //     // 如果操作员列表已满，移除第一个操作员
+  //     if (accessRegistry.operatorCount >= 10) {
+  //       const removeOperatorTx = await program.methods
+  //         .removeOperator(accessRegistry.operators[0])
+  //         .accounts({
+  //           authority: provider.wallet.publicKey,
+  //           authorityState: authorityPda,
+  //           accessRegistry: accessRegistryPda,
+  //           operator: accessRegistry.operators[0],
+  //         })
+  //         .rpc();
 
-  //         await provider.connection.confirmTransaction(removeOperatorTx);
-  //         console.log(`Removed operator ${i + 1}:`, operator.toString());
-  //         await sleep(1000);
-  //       }
+  //       await provider.connection.confirmTransaction(removeOperatorTx);
+  //       console.log(
+  //         "Removed operator:",
+  //         accessRegistry.operators[0].toString()
+  //       );
+  //       await sleep(1000);
   //     }
 
-  //     // 为 spender 添加操作员权限
+  //     // 为发送方账户添加转账权限
   //     const addOperatorTx = await program.methods
-  //       .addOperator(spender.publicKey)
+  //       .addOperator(recipientKeypair.publicKey)
   //       .accounts({
   //         authority: provider.wallet.publicKey,
   //         authorityState: authorityPda,
   //         accessRegistry: accessRegistryPda,
-  //         operator: spender.publicKey,
+  //         operator: recipientKeypair.publicKey,
   //       })
   //       .rpc();
 
   //     await provider.connection.confirmTransaction(addOperatorTx);
-  //     console.log("Added spender as operator");
-  //     await sleep(1000);
+  //     console.log("Transfer access granted to sender");
 
-  //     // 创建 allowance 状态账户的 PDA
-  //     const [allowanceStatePda] = PublicKey.findProgramAddressSync(
-  //       [
-  //         Buffer.from("allowance"),
-  //         recipientKeypair.publicKey.toBuffer(),
-  //         spender.publicKey.toBuffer(),
-  //       ],
-  //       program.programId
+  //     // 创建新的接收账户
+  //     const newRecipient = Keypair.generate();
+  //     const newRecipientTokenAccount =
+  //       await anchor.utils.token.associatedAddress({
+  //         mint: mintKeypair.publicKey,
+  //         owner: newRecipient.publicKey,
+  //       });
+
+  //     // 创建接收账户的代币账户
+  //     const createTokenAccountIx = createAssociatedTokenAccountInstruction(
+  //       provider.wallet.publicKey,
+  //       newRecipientTokenAccount,
+  //       newRecipient.publicKey,
+  //       mintKeypair.publicKey
   //     );
 
-  //     const [permitPda] = PublicKey.findProgramAddressSync(
-  //       [
-  //         Buffer.from("permit"),
-  //         recipientKeypair.publicKey.toBuffer(),
-  //         spender.publicKey.toBuffer(),
-  //       ],
-  //       program.programId
-  //     );
+  //     const tx = new anchor.web3.Transaction().add(createTokenAccountIx);
+  //     const signature = await provider.sendAndConfirm(tx);
+  //     await provider.connection.confirmTransaction(signature, "confirmed");
 
-  //     console.log("Debug PDA addresses:", {
-  //       allowanceStatePda: allowanceStatePda.toString(),
-  //       permitPda: permitPda.toString(),
-  //       owner: recipientKeypair.publicKey.toString(),
-  //       spender: spender.publicKey.toString(),
-  //     });
-
-  //     try {
-  //       // 在 test.ts 中修改
-  //       const permitTx = await program.methods
-  //         .permit({
-  //           amount: new anchor.BN(10000000),
-  //           deadline: new anchor.BN(Math.floor(Date.now() / 1000) + 3600),
-  //           nonce: new anchor.BN(0), // 修改为 BN 类型
-  //           scope: { transfer: {} },
-  //           signature: new Uint8Array(64),
-  //           public_key: new Uint8Array(32),
-  //         })
-  //         .accounts({
-  //           owner: recipientKeypair.publicKey,
-  //           spender: spender.publicKey,
-  //           allowance: allowanceStatePda,
-  //           permitState: permitPda,
-  //           mintState: mintStatePda,
-  //           tokenProgram: TOKEN_PROGRAM_ID,
-  //           systemProgram: SystemProgram.programId,
-  //           clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
-  //         })
-  //         .signers([recipientKeypair])
-  //         .rpc();
-
-  //       await provider.connection.confirmTransaction(permitTx);
-  //       console.log("Permit granted successfully");
-  //       await sleep(1000);
-  //     } catch (error) {
-  //       console.error("Permit transaction failed:", error);
-  //       // 打印详细的错误信息
-  //       if (error.logs) {
-  //         console.error("Transaction logs:", error.logs);
-  //       }
-  //       throw error;
-  //     }
-
-  //     // 执行 transfer_from 操作
-  //     const transferFromTx = await program.methods
-  //       .transferFrom(new anchor.BN(10000000))
-  //       .accounts({
-  //         owner: recipientKeypair.publicKey,
-  //         spender: spender.publicKey,
-  //         fromToken: recipientTokenAccount,
-  //         toToken: spenderTokenAccount,
-  //         permit: permitPda,
-  //         mintState: mintStatePda,
-  //         pauseState: pauseStatePda,
-  //         accessRegistry: accessRegistryPda,
-  //         tokenProgram: TOKEN_PROGRAM_ID,
-  //       })
-  //       .signers([spender, recipientKeypair]) // 添加 owner 作为签名者
-  //       .rpc();
-
-  //     // 添加余额检查
-  //     const beforeBalance = await provider.connection.getTokenAccountBalance(
+  //     // 获取转账前的余额
+  //     const balanceBefore = await provider.connection.getTokenAccountBalance(
   //       recipientTokenAccount
   //     );
   //     console.log(
-  //       "Before transfer_from balance:",
-  //       beforeBalance.value.uiAmount
+  //       "Sender balance before transfer:",
+  //       balanceBefore.value.uiAmount
   //     );
 
-  //     // 执行转账
-  //     await provider.connection.confirmTransaction(transferFromTx);
+  //     // 正确派生 freeze state PDAs
+  //     const [fromFreezeState] =
+  //       PublicKey.findProgramAddressSync(
+  //         [Buffer.from("freeze"), recipientTokenAccount.toBuffer()],
+  //         program.programId
+  //       );
 
-  //     // 检查转账后的余额
-  //     const afterBalance = await provider.connection.getTokenAccountBalance(
-  //       recipientTokenAccount
+  //     const [toFreezeState] = PublicKey.findProgramAddressSync(
+  //       [Buffer.from("freeze"), newRecipientTokenAccount.toBuffer()],
+  //       program.programId
   //     );
-  //     console.log("After transfer_from balance:", afterBalance.value.uiAmount);
+
+  //     // 初始化 from_freeze_state
+  //     const initFromFreezeStateTx = await program.methods
+  //       .initializeFreezeState()
+  //       .accounts({
+  //         authority: provider.wallet.publicKey,
+  //         freezeState: fromFreezeState,
+  //         tokenAccount: recipientTokenAccount,
+  //         payer: provider.wallet.publicKey,
+  //         systemProgram: SystemProgram.programId,
+  //       })
+  //       .rpc();
+
+  //     await provider.connection.confirmTransaction(initFromFreezeStateTx);
+  //     console.log("Initialized from freeze state");
+
+  //     // 初始化 to_freeze_state
+  //     const initToFreezeStateTx = await program.methods
+  //       .initializeFreezeState()
+  //       .accounts({
+  //         authority: provider.wallet.publicKey,
+  //         freezeState: toFreezeState,
+  //         tokenAccount: newRecipientTokenAccount,
+  //         payer: provider.wallet.publicKey,
+  //         systemProgram: SystemProgram.programId,
+  //       })
+  //       .rpc();
+
+  //     await provider.connection.confirmTransaction(initToFreezeStateTx);
+  //     console.log("Initialized to freeze state");
+
+  //     // 执行转账操作
+  //     const transferAmount = new anchor.BN(20000000); // 20 WUSD
+  //     const transferTx = await program.methods
+  //       .transfer(transferAmount)
+  //       .accounts({
+  //         from: recipientKeypair.publicKey,
+  //         to: newRecipient.publicKey,
+  //         fromToken: recipientTokenAccount,
+  //         toToken: newRecipientTokenAccount,
+  //         tokenProgram: TOKEN_PROGRAM_ID,
+  //         pauseState: pauseStatePda,
+  //         accessRegistry: accessRegistryPda,
+  //         fromFreezeState: fromFreezeState,
+  //         toFreezeState: toFreezeState,
+  //       })
+  //       .signers([recipientKeypair])
+  //       .rpc();
+
+  //     await provider.connection.confirmTransaction(transferTx, "confirmed");
+
+  //     // 验证转账结果
+  //     const senderBalanceAfter =
+  //       await provider.connection.getTokenAccountBalance(recipientTokenAccount);
+  //     const receiverBalance = await provider.connection.getTokenAccountBalance(
+  //       newRecipientTokenAccount
+  //     );
+
+  //     console.log(
+  //       "Sender balance after transfer:",
+  //       senderBalanceAfter.value.uiAmount
+  //     );
+  //     console.log("Receiver balance:", receiverBalance.value.uiAmount);
+
+  //     // 验证余额变化
+  //     const expectedSenderBalance =
+  //       balanceBefore.value.uiAmount - transferAmount.toNumber() / 1000000;
+  //     assert.approximately(
+  //       senderBalanceAfter.value.uiAmount,
+  //       expectedSenderBalance,
+  //       0.000001,
+  //       "Transfer amount not correctly deducted from sender"
+  //     );
+
+  //     assert.approximately(
+  //       receiverBalance.value.uiAmount,
+  //       transferAmount.toNumber() / 1000000,
+  //       0.000001,
+  //       "Transfer amount not correctly added to receiver"
+  //     );
+
+  //     console.log("Transfer operation successful");
   //   } catch (error) {
-  //     console.error("Transaction failed with error:", error);
-  //     if (error.logs) {
-  //       console.error("Transaction logs:");
-  //       error.logs.forEach((log: string, index: number) => {
-  //         console.error(`${index}: ${log}`);
-  //       });
-  //     }
+  //     console.error("Transfer operation failed:", error);
   //     throw error;
   //   }
   // });
+
+  it("Test transfer_from functionality", async () => {
+    try {
+      // 创建新的接收账户
+      const spender = Keypair.generate();
+
+      // 为 recipientKeypair 请求空投
+      const airdropSignature = await provider.connection.requestAirdrop(
+        recipientKeypair.publicKey,
+        10 * LAMPORTS_PER_SOL // 空投 10 SOL
+      );
+      await provider.connection.confirmTransaction(
+        airdropSignature,
+        "confirmed"
+      );
+      console.log("Airdropped SOL to recipient");
+
+      const spenderAirdropSignature = await provider.connection.requestAirdrop(
+        spender.publicKey,
+        10 * LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(
+        spenderAirdropSignature,
+        "confirmed"
+      );
+      console.log("Airdropped SOL to spender");
+
+      const spenderTokenAccount = await anchor.utils.token.associatedAddress({
+        mint: mintKeypair.publicKey,
+        owner: spender.publicKey,
+      });
+
+      // 创建接收账户的代币账户
+      const createTokenAccountIx = createAssociatedTokenAccountInstruction(
+        provider.wallet.publicKey,
+        spenderTokenAccount,
+        spender.publicKey,
+        mintKeypair.publicKey
+      );
+
+      const tx = new anchor.web3.Transaction().add(createTokenAccountIx);
+      const trs_signature = await provider.sendAndConfirm(tx);
+      await provider.connection.confirmTransaction(trs_signature, "confirmed");
+      await sleep(1000);
+
+      // 检查当前操作员列表
+      const accessRegistry = await program.account.accessRegistryState.fetch(
+        accessRegistryPda
+      );
+      console.log("Current operators:", {
+        operatorCount: accessRegistry.operatorCount,
+        operators: accessRegistry.operators
+          .slice(0, accessRegistry.operatorCount)
+          .map((op) => op.toString()),
+      });
+
+      // 如果操作员列表已满，移除前两个操作员
+      if (accessRegistry.operatorCount >= 9) {
+        for (let i = 0; i < 2; i++) {
+          const operator = accessRegistry.operators[i];
+          const removeOperatorTx = await program.methods
+            .removeOperator(operator)
+            .accounts({
+              authority: provider.wallet.publicKey,
+              authorityState: authorityPda,
+              accessRegistry: accessRegistryPda,
+              operator: operator,
+            })
+            .rpc();
+
+          await provider.connection.confirmTransaction(removeOperatorTx);
+          console.log(`Removed operator ${i + 1}:`, operator.toString());
+          await sleep(1000);
+        }
+      }
+
+      // 为 spender 添加操作员权限
+      const addOperatorTx = await program.methods
+        .addOperator(spender.publicKey)
+        .accounts({
+          authority: provider.wallet.publicKey,
+          authorityState: authorityPda,
+          accessRegistry: accessRegistryPda,
+          operator: spender.publicKey,
+        })
+        .rpc();
+
+      await provider.connection.confirmTransaction(addOperatorTx);
+      console.log("Added spender as operator");
+      await sleep(1000);
+
+      // 创建 allowance 状态账户的 PDA
+      const [allowanceStatePda] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("allowance"),
+          recipientKeypair.publicKey.toBuffer(),
+          spender.publicKey.toBuffer(),
+        ],
+        program.programId
+      );
+
+      const [permitPda] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("permit"),
+          recipientKeypair.publicKey.toBuffer(),
+          spender.publicKey.toBuffer(),
+        ],
+        program.programId
+      );
+
+      console.log("Debug PDA addresses:", {
+        allowanceStatePda: allowanceStatePda.toString(),
+        permitPda: permitPda.toString(),
+        owner: recipientKeypair.publicKey.toString(),
+        spender: spender.publicKey.toString(),
+      });
+
+      try {
+        // 在 test.ts 中修改
+        const permitTx = await program.methods
+          .permit({
+            amount: new anchor.BN(10000000),
+            deadline: new anchor.BN(Math.floor(Date.now() / 1000) + 3600),
+            nonce: new anchor.BN(0), // 修改为 BN 类型
+            scope: { transfer: {} },
+            signature: new Uint8Array(64),
+            public_key: new Uint8Array(32),
+          })
+          .accounts({
+            owner: recipientKeypair.publicKey,
+            spender: spender.publicKey,
+            allowance: allowanceStatePda,
+            permitState: permitPda,
+            mintState: mintStatePda,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+            clock: anchor.web3.SYSVAR_CLOCK_PUBKEY,
+          })
+          .signers([recipientKeypair])
+          .rpc();
+
+        await provider.connection.confirmTransaction(permitTx);
+        console.log("Permit granted successfully");
+        await sleep(1000);
+      } catch (error) {
+        console.error("Permit transaction failed:", error);
+        // 打印详细的错误信息
+        if (error.logs) {
+          console.error("Transaction logs:", error.logs);
+        }
+        throw error;
+      }
+
+      // 正确派生 freeze state PDAs
+      const [fromFreezeState] = PublicKey.findProgramAddressSync(
+        [Buffer.from("freeze"), recipientTokenAccount.toBuffer()],
+        program.programId
+      );
+
+      const [toFreezeState] = PublicKey.findProgramAddressSync(
+        [Buffer.from("freeze"), spenderTokenAccount.toBuffer()],
+        program.programId
+      );
+
+      // 检查并初始化 from_freeze_state
+      const fromFreezeStateInfo = await provider.connection.getAccountInfo(
+        fromFreezeState
+      );
+      if (!fromFreezeStateInfo) {
+        const initFromFreezeStateTx = await program.methods
+          .initializeFreezeState()
+          .accounts({
+            authority: provider.wallet.publicKey,
+            freezeState: fromFreezeState,
+            tokenAccount: recipientTokenAccount,
+            payer: provider.wallet.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
+
+        await provider.connection.confirmTransaction(initFromFreezeStateTx);
+        console.log("Initialized from freeze state");
+      }
+
+      // 检查并初始化 to_freeze_state
+      const toFreezeStateInfo = await provider.connection.getAccountInfo(
+        toFreezeState
+      );
+      if (!toFreezeStateInfo) {
+        const initToFreezeStateTx = await program.methods
+          .initializeFreezeState()
+          .accounts({
+            authority: provider.wallet.publicKey,
+            freezeState: toFreezeState,
+            tokenAccount: spenderTokenAccount,
+            payer: provider.wallet.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
+
+        await provider.connection.confirmTransaction(initToFreezeStateTx);
+        console.log("Initialized to freeze state");
+      }
+
+      try {
+        // 验证 spender 的权限
+        console.log("Verifying spender permissions...");
+        const permitAccount = await program.account.permitState.fetch(
+          permitPda
+        );
+        console.log("Permit state:", {
+          amount: permitAccount.amount.toString(),
+          expiration: permitAccount.expiration.toString(),
+          owner: permitAccount.owner.toString(),
+          spender: permitAccount.spender.toString(),
+        });
+
+        // 验证账户余额
+        const fromBalance = await provider.connection.getTokenAccountBalance(
+          recipientTokenAccount
+        );
+        console.log("From account balance:", fromBalance.value.uiAmount);
+
+        // 在执行转账之前添加这些日志
+        console.log("Debug account addresses:", {
+          spenderTokenAccount: spenderTokenAccount.toString(),
+          toFreezeState: toFreezeState.toString(),
+          programId: program.programId.toString(),
+        });
+        console.log("fromFreezeState:", fromFreezeState.toString());
+
+        // 验证代币账户
+        const fromTokenAccount = await getAccount(
+          provider.connection,
+          recipientTokenAccount
+        );
+        const toTokenAccount = await getAccount(
+          provider.connection,
+          spenderTokenAccount
+        );
+
+        console.log("Token account verification:", {
+          fromOwner: fromTokenAccount.owner.toString(),
+          toOwner: toTokenAccount.owner.toString(),
+          fromMint: fromTokenAccount.mint.toString(),
+          toMint: toTokenAccount.mint.toString(),
+          fromBalance: fromTokenAccount.amount.toString(),
+        });
+
+        // 验证 permit
+        const permitState = await program.account.permitState.fetch(permitPda);
+        console.log("Permit verification:", {
+          owner: permitState.owner.toString(),
+          spender: permitState.spender.toString(),
+          amount: permitState.amount.toString(),
+          expiration: permitState.expiration.toString(),
+        });
+
+        // 执行 transfer_from 操作
+        const transferFromTx = await program.methods
+          .transferFrom(new anchor.BN(100000))
+          .accounts({
+            spender: spender.publicKey,
+            owner: recipientKeypair.publicKey,
+            fromToken: recipientTokenAccount,
+            toToken: spenderTokenAccount,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            pauseState: pauseStatePda,
+            mintState: mintStatePda,
+            accessRegistry: accessRegistryPda,
+            fromFreezeState: fromFreezeState,
+            toFreezeState: toFreezeState,
+            permit: permitPda,
+          })
+          .signers([spender])
+          .rpc({
+            skipPreflight: false,
+            commitment: "confirmed",
+          });
+
+        await provider.connection.confirmTransaction(
+          transferFromTx,
+          "confirmed"
+        );
+      } catch (error) {
+        console.error("Transfer failed:", error);
+        // 打印详细的错误信息
+        if (error.logs) {
+          console.error("Transaction logs:");
+          error.logs.forEach((log: string, index: number) => {
+            console.error(`${index}: ${log}`);
+          });
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error("Transaction failed with error:", error);
+      if (error.logs) {
+        console.error("Transaction logs:");
+        error.logs.forEach((log: string, index: number) => {
+          console.error(`${index}: ${log}`);
+        });
+      }
+      throw error;
+    }
+  });
 
   // it("Set burn access", async () => {
   //   try {
