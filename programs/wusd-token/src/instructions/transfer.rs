@@ -8,6 +8,9 @@ use crate::state::{FreezeState, PermitState, MintState, AccessRegistryState, Pau
 /// * `ctx` - 转账上下文
 /// * `amount` - 转账数量
 pub fn transfer(ctx: Context<Transfer>, amount: u64) -> Result<()> {
+    // 验证系统未被暂停
+    ctx.accounts.pause_state.validate_not_paused()?;
+
     require!(amount > 0, WusdError::InvalidAmount);
     let fee = calculate_transfer_fee(amount);  
     require!(
@@ -32,6 +35,14 @@ pub fn transfer(ctx: Context<Transfer>, amount: u64) -> Result<()> {
         Some(&ctx.accounts.access_registry),
     )?;
 
+    // 计算实际转账金额（扣除手续费）
+    let transfer_amount = amount;
+    let fee = calculate_transfer_fee(amount);
+    require!(
+        ctx.accounts.from_token.amount >= amount.saturating_add(fee),
+        WusdError::InsufficientFunds
+    );
+
     // 执行转账
     token::transfer(
         CpiContext::new(
@@ -42,8 +53,19 @@ pub fn transfer(ctx: Context<Transfer>, amount: u64) -> Result<()> {
                 authority: ctx.accounts.from.to_account_info(),
             },
         ),
-        amount,
+        transfer_amount,
     )?;
+
+    // 发送转账事件
+    let clock = Clock::get()?;
+    emit!(TransferEvent {
+        from: ctx.accounts.from.key(),
+        to: ctx.accounts.to.key(),
+        amount: transfer_amount,
+        fee,
+        timestamp: clock.unix_timestamp,
+        memo: None,
+    });
 
     Ok(())
 }  
@@ -127,29 +149,39 @@ pub struct Transfer<'info> {
     /// CHECK: This account is not read or written to
     #[account(mut)]
     pub to: AccountInfo<'info>,
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = from_token.owner == from.key() @ WusdError::InvalidOwner,
+        constraint = from_token.mint == to_token.mint @ WusdError::InvalidMint
+    )]
     pub from_token: Account<'info, TokenAccount>,
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = to_token.owner == to.key() @ WusdError::InvalidOwner
+    )]
     pub to_token: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
-    pub pause_state: Account<'info, PauseState>,
-    pub access_registry: Account<'info, AccessRegistryState>,
-    /// CHECK: 这个账户的安全性由FreezeState结构和程序逻辑保证
     #[account(
-        init_if_needed,
-        payer = from,
-        space = FreezeState::SIZE,
-        seeds = [b"freeze", from_token.key().as_ref()],
+        seeds = [b"pause_state", from_token.mint.as_ref()],
+        bump,
+        constraint = !pause_state.paused @ WusdError::ContractPaused
+    )]
+    pub pause_state: Account<'info, PauseState>,
+    #[account(
+        seeds = [b"access_registry"],
         bump
     )]
-    pub from_freeze_state: Account<'info, FreezeState>,
-    /// CHECK: 这个账户的安全性由FreezeState结构和程序逻辑保证
+    pub access_registry: Account<'info, AccessRegistryState>,
     #[account(
-        init_if_needed,
-        payer = from,
-        space = FreezeState::SIZE,
+        seeds = [b"freeze", from_token.key().as_ref()],
+        bump,
+        constraint = !from_freeze_state.is_frozen @ WusdError::AccountFrozen
+    )]
+    pub from_freeze_state: Account<'info, FreezeState>, 
+    #[account(
         seeds = [b"freeze", to_token.key().as_ref()],
-        bump
+        bump,
+        constraint = !to_freeze_state.is_frozen @ WusdError::AccountFrozen
     )]
     pub to_freeze_state: Account<'info, FreezeState>,
     pub system_program: Program<'info, System>,
@@ -179,7 +211,8 @@ pub struct TransferFrom<'info> {
     #[account(mut)]
     pub spender: Signer<'info>, 
     /// CHECK: 这是一个已验证的所有者地址
-    #[account(mut, signer)]  
+    /// CHECK: 这是一个已验证的所有者地址
+    #[account(mut)]  
     pub owner: AccountInfo<'info>, 
     #[account(
         mut,

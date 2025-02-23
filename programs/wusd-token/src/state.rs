@@ -280,17 +280,11 @@ impl PauseState {
 pub struct FreezeState {
     /// 账户是否被冻结
     pub is_frozen: bool,
-    /// 冻结原因
-    pub reason: String,
-    /// 冻结时间
-    pub freeze_time: i64,
 }
 
 impl FreezeState {
     pub const SIZE: usize = 8 + // discriminator
-        1 + // frozen
-        4 + 256 + // reason (max 256 chars)
-        8;  // freeze_time
+        1;  // is_frozen
 
     /// 检查账户是否被冻结
     pub fn check_frozen(&self) -> Result<()> {
@@ -299,18 +293,14 @@ impl FreezeState {
     }
 
     /// 冻结账户
-    pub fn freeze(&mut self, reason: String) -> Result<()> {
+    pub fn freeze(&mut self) -> Result<()> {
         require!(!self.is_frozen, WusdError::AccountAlreadyFrozen);
         self.is_frozen = true;
-        self.reason = reason;
-        self.freeze_time = Clock::get()?.unix_timestamp;
         Ok(())
     }
 
     /// 解冻账户
     pub fn unfreeze(&mut self) {
         self.is_frozen = false;
-        self.reason = String::new();
-        self.freeze_time = 0;
     }
 }

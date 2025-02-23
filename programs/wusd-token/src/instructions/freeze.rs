@@ -1,9 +1,13 @@
 use anchor_lang::prelude::*; 
 use crate::error::WusdError;   
-use crate::state::{FreezeState, AuthorityState};  
- 
+use crate::state::{FreezeState, AuthorityState};   
+
+pub fn initialize_freeze_state(ctx: Context<InitializeFreezeState>) -> Result<()> {
+    ctx.accounts.freeze_state.is_frozen = false;
+    Ok(())
+}
 /// 冻结账户
-pub fn freeze_account(ctx: Context<FreezeAccount>, reason: String) -> Result<()> {
+pub fn freeze_account(ctx: Context<FreezeAccount>) -> Result<()> {
     // 验证管理员权限
     require!(
         ctx.accounts.authority_state.is_admin(ctx.accounts.authority.key()),
@@ -17,13 +21,12 @@ pub fn freeze_account(ctx: Context<FreezeAccount>, reason: String) -> Result<()>
     );
 
     // 冻结账户
-    ctx.accounts.freeze_state.freeze(reason)?;
+    ctx.accounts.freeze_state.freeze()?;
 
     // 发出冻结事件
     emit!(FreezeAccountEvent {
         authority: ctx.accounts.authority.key(),
         freeze_state: ctx.accounts.freeze_state.key(),
-        reason: ctx.accounts.freeze_state.reason.clone(),
         timestamp: Clock::get()?.unix_timestamp,
     });
 
@@ -55,6 +58,24 @@ pub fn unfreeze_account(ctx: Context<UnfreezeAccount>) -> Result<()> {
     });
 
     Ok(())
+}
+
+#[derive(Accounts)]
+pub struct InitializeFreezeState<'info> {
+    pub authority: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = FreezeState::SIZE,
+        seeds = [b"freeze", token_account.key().as_ref()],
+        bump
+    )]
+    pub freeze_state: Account<'info, FreezeState>,
+    /// CHECK: Token account being frozen/unfrozen
+    pub token_account: AccountInfo<'info>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 /// 操作员管理账户结构体
@@ -106,7 +127,6 @@ pub struct UnfreezeAccount<'info> {
 pub struct FreezeAccountEvent {
     pub authority: Pubkey,
     pub freeze_state: Pubkey,
-    pub reason: String,
     pub timestamp: i64,
 }
 

@@ -42,4 +42,6 @@ pub enum WusdError {
     AccountNotFrozen,
     #[msg("Invalid transfer from operation")]
     InvalidTransferFrom,
+    #[msg("Invalid mint address")]
+    InvalidMint,
 }

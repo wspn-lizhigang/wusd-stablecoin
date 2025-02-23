@@ -131,9 +131,13 @@ pub mod wusd_token {
         instructions::operator::remove_operator(ctx, operator)
     }
 
+    pub fn initialize_freeze_state(ctx: Context<InitializeFreezeState>) -> Result<()> {
+        instructions::freeze::initialize_freeze_state(ctx)
+    }
+
     /// 冻结账户
-    pub fn freeze_account(ctx: Context<FreezeAccount>, reason: String) -> Result<()> { 
-        instructions::freeze::freeze_account(ctx, reason)
+    pub fn freeze_account(ctx: Context<FreezeAccount>) -> Result<()> { 
+        instructions::freeze::freeze_account(ctx)
     }
 
     /// 解冻账户
@@ -228,7 +232,7 @@ pub struct InitializeEvent {
     pub mint: Pubkey,
     /// 代币精度，定义代币的最小单位
     pub decimals: u8,
-}  
+}
 
 
 
