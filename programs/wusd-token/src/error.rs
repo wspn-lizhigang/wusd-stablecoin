@@ -14,8 +14,6 @@ pub enum WusdError {
     Unauthorized,
     #[msg("Not a minter")]
     NotMinter,
-    #[msg("Not a burner")]
-    NotBurner,
     #[msg("Not a pauser")]
     NotPauser,
     #[msg("Insufficient balance")]

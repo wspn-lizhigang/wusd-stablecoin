@@ -76,7 +76,7 @@ pub fn transfer_from(ctx: Context<TransferFrom>, amount: u64) -> Result<()> {
         return Err(WusdError::InvalidTransferFrom.into());
     } 
     
-     // 生成 PDA 签名种子（修复 seeds 格式）
+     // 生成 PDA 签名种子 
      let seeds = &[
         b"permit",
         transfer_context.owner_key.as_ref(),

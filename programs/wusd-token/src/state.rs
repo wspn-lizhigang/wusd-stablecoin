@@ -134,11 +134,7 @@ impl AuthorityState {
 
     pub fn is_pauser(&self, user: Pubkey) -> bool {
         self.pauser == user
-    }
-
-    pub fn is_burner(&self, user: Pubkey) -> bool {
-        self.minter == user
-    }
+    } 
 }
 
 /// 访问权限注册表状态

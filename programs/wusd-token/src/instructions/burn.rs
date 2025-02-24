@@ -14,13 +14,7 @@ pub fn burn(ctx: Context<Burn>, amount: u64) -> Result<()> {
     require!(
         ctx.accounts.authority.is_signer,
         WusdError::Unauthorized
-    );
-
-    // 验证Burner权限
-    require!(
-        ctx.accounts.authority_state.is_burner(ctx.accounts.authority.key()), 
-        WusdError::NotBurner
-    );
+    ); 
 
     // 验证 token account 的所有者
     require!(
