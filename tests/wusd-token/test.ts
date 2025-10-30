@@ -270,7 +270,7 @@ describe("WUSD Token Test", () => {
 
       // 执行铸币操作
       const tx = await program.methods
-        .mint(new anchor.BN(1000000000), authorityBump)
+        .mint(new anchor.BN(9000000000), authorityBump)
         .accounts({
           authority: provider.wallet.publicKey,
           tokenMint: mintKeypair.publicKey,
@@ -495,6 +495,17 @@ describe("WUSD Token Test", () => {
   //     );
   //     console.log("Airdropped SOL to recipient");
 
+  //     // 为 spender 请求空投
+  //     const spenderAirdropSignature = await provider.connection.requestAirdrop(
+  //       spender.publicKey,
+  //       2 * LAMPORTS_PER_SOL
+  //     );
+  //     await provider.connection.confirmTransaction(
+  //       spenderAirdropSignature,
+  //       "confirmed"
+  //     );
+  //     console.log("Airdropped SOL to spender");
+
   //     const spenderTokenAccount = await anchor.utils.token.associatedAddress({
   //       mint: mintKeypair.publicKey,
   //       owner: spender.publicKey,
@@ -589,9 +600,9 @@ describe("WUSD Token Test", () => {
   //       // 在 test.ts 中修改
   //       const permitTx = await program.methods
   //         .permit({
-  //           amount: new anchor.BN(10000000),
+  //           amount: new anchor.BN(20000000), // 增加授权额度到 20000000
   //           deadline: new anchor.BN(Math.floor(Date.now() / 1000) + 3600),
-  //           nonce: new anchor.BN(0), // 修改为 BN 类型
+  //           nonce: new anchor.BN(0),
   //           scope: { transfer: {} },
   //           signature: new Uint8Array(64),
   //           public_key: new Uint8Array(32),
@@ -670,7 +681,7 @@ describe("WUSD Token Test", () => {
 
   //     // 执行 transfer_from 操作
   //     const transferFromTx = await program.methods
-  //       .transferFrom(new anchor.BN(20000000))
+  //       .transferFrom(new anchor.BN(10000000))
   //       .accounts({
   //         spender: spender.publicKey,
   //         owner: recipientKeypair.publicKey,
@@ -680,9 +691,9 @@ describe("WUSD Token Test", () => {
   //         mintState: mintStatePda,
   //         pauseState: pauseStatePda,
   //         accessRegistry: accessRegistryPda,
+  //         tokenProgram: TOKEN_PROGRAM_ID,
   //         fromFreezeState: fromFreezeState,
   //         toFreezeState: toFreezeState,
-  //         tokenProgram: TOKEN_PROGRAM_ID,
   //         systemProgram: SystemProgram.programId,
   //       })
   //       .signers([spender])

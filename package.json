@@ -20,7 +20,8 @@
     "@metaplex-foundation/js": "0.20.1",
     "@solana/spl-token": "0.4.9",
     "@solana/web3.js": "1.77.3",
-    "rpc-websockets": "7.5.1"
+    "rpc-websockets": "7.5.1",
+    "axios": "1.12.0"
   },
   "devDependencies": {
     "@types/bn.js": "5.1.0",
@@ -32,5 +33,9 @@
     "prettier": "2.6.2",
     "ts-mocha": "10.0.0",
     "typescript": "5.0.4"
+  },
+  "resolutions": {
+    "axios": "1.12.0",
+    "aptos/axios": "0.30.2"
   }
 }

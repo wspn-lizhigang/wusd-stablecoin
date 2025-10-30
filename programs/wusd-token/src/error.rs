@@ -6,8 +6,8 @@ pub enum WusdError {
     ContractPaused,
     #[msg("Invalid amount")]
     InvalidAmount,   
-    #[msg("Permit expired")] 
-    ExpiredPermit,
+    #[msg("Permit expired")]
+    PermitExpired,
     #[msg("Invalid nonce")]
     InvalidNonce,
     #[msg("Unauthorized")]
@@ -41,5 +41,5 @@ pub enum WusdError {
     #[msg("Invalid transfer from operation")]
     InvalidTransferFrom,
     #[msg("Invalid mint address")]
-    InvalidMint,
+    InvalidMint, 
 }

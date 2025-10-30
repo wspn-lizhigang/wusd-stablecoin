@@ -52,66 +52,90 @@ pub fn transfer(ctx: Context<Transfer>, amount: u64) -> Result<()> {
 }  
 
 pub fn transfer_from(ctx: Context<TransferFrom>, amount: u64) -> Result<()> {
-    // 基本验证
-    ctx.accounts.pause_state.validate_not_paused()?; 
-    require!(amount > 0, WusdError::InvalidAmount);  
+    // 1. 系统状态验证
+    ctx.accounts.pause_state.validate_not_paused()?;
+    require!(amount > 0, WusdError::InvalidAmount);
     // 检查冻结状态
     ctx.accounts.from_freeze_state.check_frozen()?;
     ctx.accounts.to_freeze_state.check_frozen()?;
-    // 创建堆分配的上下文数据结构
+    
+    // 2. 创建堆分配的上下文数据结构
     let transfer_context = Box::new(TransferContext {
         current_time: Clock::get()?.unix_timestamp,
         owner_key: ctx.accounts.owner.key(),
         spender_key: ctx.accounts.spender.key(),
         permit_bump: ctx.accounts.permit.bump,
-    }); 
-    // 验证转账前置条件
-    if ctx.accounts.permit.expiration <= transfer_context.current_time {
-        return Err(WusdError::InvalidTransferFrom.into());
-    }
-    if ctx.accounts.permit.amount < amount {
-        return Err(WusdError::InsufficientAllowance.into());
-    }
-    if ctx.accounts.from_token.owner != transfer_context.owner_key {
-        return Err(WusdError::InvalidTransferFrom.into());
-    } 
+    });
+
+    // 3. 权限和安全验证
+    // 3.1 验证授权是否过期
+    require!(
+        ctx.accounts.permit.expiration > transfer_context.current_time,
+        WusdError::PermitExpired
+    );
     
-     // 生成 PDA 签名种子 
-     let seeds = &[
+    // 3.2 验证授权额度
+    require!(
+        ctx.accounts.permit.amount >= amount,
+        WusdError::InsufficientAllowance
+    );
+    
+    // 3.3 验证账户所有权
+    require!(
+        ctx.accounts.from_token.owner == transfer_context.owner_key,
+        WusdError::InvalidOwner
+    );
+    
+    // 3.4 验证代币地址匹配
+    require!(
+        ctx.accounts.from_token.mint == ctx.accounts.to_token.mint,
+        WusdError::InvalidMint
+    );
+    
+    // 3.5 验证余额充足
+    require!(
+        ctx.accounts.from_token.amount >= amount,
+        WusdError::InsufficientBalance
+    ); 
+
+    // 5. 构建签名种子
+    let seeds = &[
         b"permit",
         transfer_context.owner_key.as_ref(),
         transfer_context.spender_key.as_ref(),
         &[transfer_context.permit_bump]
-    ];  
-    
-    // 执行代币转账
+    ];
+
+    // 6. 执行代币转账 
     token::transfer(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             token::Transfer {
                 from: ctx.accounts.from_token.to_account_info(),
                 to: ctx.accounts.to_token.to_account_info(),
-                authority: ctx.accounts.spender.to_account_info(), 
+                authority: ctx.accounts.owner.to_account_info(),
             },
-            &[&seeds[..]]
+            &[seeds]
         ),
-        amount,
-    )?;
+        amount
+    )?; 
 
-    // 更新授权额度
+    // 7. 更新授权额度
     ctx.accounts.permit.amount = ctx.accounts.permit.amount
         .checked_sub(amount)
         .ok_or(WusdError::InsufficientAllowance)?;
     
-    // 发送转账事件
+    // 8. 发送转账事件
     let clock = Clock::get()?;
     emit!(TransferEvent {
         from: ctx.accounts.owner.key(),
         to: ctx.accounts.to_token.owner,
-        amount: amount, 
+        amount: amount,
         fee: 0,
         timestamp: clock.unix_timestamp,
-        memo: None,
+        memo: Some(format!("Transfer from {} to {}", 
+            transfer_context.owner_key.to_string(),
+            ctx.accounts.to_token.owner.to_string())),
     });
 
     Ok(())
@@ -194,8 +218,7 @@ pub struct TransferEvent {
 pub struct TransferFrom<'info> {
     #[account(mut)]
     pub spender: Signer<'info>,  
-    /// CHECK: 这是一个已验证的所有者地址
-    #[account(mut)]  
+    /// CHECK: 这是一个已验证的所有者地址 
     pub owner: AccountInfo<'info>, 
     #[account(
         mut,
